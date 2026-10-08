@@ -28,6 +28,8 @@ export type RoomInfo = {
   bulbs: PointHint[]
   neon: PointHint[]
   focus: THREE.Vector3
+  /** World box of the desk top (portrait home framing), if the GLB has one. */
+  deskBox: THREE.Box3 | null
   hasCeiling: boolean
   /**
    * Sides of the room box with no wall mesh (Wanda's GLB has no 4th wall: maxZ). The 360° free
@@ -142,7 +144,8 @@ export function analyzeScene(scene: THREE.Object3D): RoomInfo {
   // 5) Focus point: the desk top if we can find it, else room centre at desk height.
   let focus = roomCenter.clone().setY(room.min.y + 0.95)
   const desk = all.find((m) => /desk.?top/i.test(m.name)) ?? all.find((m) => /desk/i.test(m.name))
-  if (desk) focus = worldBox(desk).getCenter(new THREE.Vector3())
+  const deskBox = desk ? worldBox(desk) : null
+  if (deskBox) focus = deskBox.getCenter(new THREE.Vector3())
 
   let lightMap = false
   let aoMap = false
@@ -170,5 +173,5 @@ export function analyzeScene(scene: THREE.Object3D): RoomInfo {
     })
   const openSides = (['minX', 'maxX', 'minZ', 'maxZ'] as Side[]).filter((sd) => !room.isEmpty() && !covers(sd))
   const wallMesh = walls.find((m) => /^(left|right)wall/i.test(m.name)) ?? walls[0] ?? null
-  return { room, glass, exterior, bulbs, neon, focus, hasCeiling, openSides, wallMesh, baked: { lightMap, aoMap } }
+  return { room, glass, exterior, bulbs, neon, focus, deskBox, hasCeiling, openSides, wallMesh, baked: { lightMap, aoMap } }
 }

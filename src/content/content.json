@@ -621,7 +621,7 @@
           "quack",
           "who are you"
         ],
-        "reply": "Every developer talks to a rubber duck. Mine talks back, and it has tool access.",
+        "reply": "Rubber-duck debugging: explain the bug out loud and you usually find it yourself. I'm the duck that answers back, about Roi's work only.",
         "tools": [
           {
             "name": "quack",

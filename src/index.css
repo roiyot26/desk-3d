@@ -1059,15 +1059,18 @@ a {
 }
 @media (max-width: 700px), (max-aspect-ratio: 4/5) {
   .panel.duck .panel-scroll,
-  .panel.duck .panel-body { flex: 1; }
+  .panel.duck .panel-body { flex: 0 1 auto; min-height: 0; }
+  .panel.duck.full .panel-scroll,
+  .panel.duck.full .panel-body { flex: 1; }
   .panel.duck .panel-nav { margin-top: 8px; }
   .panel.duck .duck-dock { margin-bottom: 0; }
   .panel.duck .panel-body { font-size: 14.5px; line-height: 1.45; }
   .panel.duck .duck-log { margin-top: 4px; }
-  /* The duck's sheet opens at 65% so the answer + "Scripted for now" fit without scrolling. */
-  .panel.duck { height: 65vh; height: 65dvh; }
-  .panel.duck.full { height: calc(100vh - 56px); height: calc(100dvh - 56px); }
-  .progress.with-panel.duck-sheet { bottom: calc(65vh + 10px); bottom: calc(65dvh + 10px); }
+  /* The duck's sheet is sized to its content, capped at 65% of the viewport (the duck-sheet gate);
+     past that its body scrolls. Dragging the handle up still opens it to full height. */
+  .panel.duck { height: auto; max-height: 65vh; max-height: 65dvh; }
+  .panel.duck.full { height: calc(100vh - 56px); height: calc(100dvh - 56px); max-height: none; }
+  .progress.with-panel.duck-sheet { bottom: calc(var(--sheet-h, 65dvh) + 10px); }
   /* Free-roam dots: 14px, 1px amber ring, slow 2s pulse (44px hit area). Positioned at the top
      edge of their object and clamped 16px inside the viewport by Hotspots.tsx. */
   .marker,
@@ -1224,8 +1227,8 @@ a {
     background: rgba(240, 178, 115, 0.16);
   }
 
-  .sheet-handle { width: 120px; height: 44px; }
-  .sheet-handle span { margin-top: 7px; }
+  .sheet-handle { width: 120px; height: 44px; display: flex; align-items: flex-start; justify-content: center; }
+  .sheet-handle span { margin: 7px 0 0; }
   .panel-skip { min-height: 44px; min-width: 44px; padding: 0 14px; margin-top: 0; }
   .intro-toggle { min-height: 44px; }
   .hover-label button { min-height: 44px; min-width: 44px; }
@@ -1287,3 +1290,28 @@ a {
 /* Duck presets already asked: still tappable, visually spent. */
 .duck-chips .chip.asked,
 .duck-list button.asked { opacity: 0.55; }
+
+/* ---------- Duck presets on phones: rows folded (3) and unfolded (5) ---------- */
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  /* The "Scripted for now" note ends the copy; the rows start 16px under it. */
+  .panel.duck .panel-body > .joke,
+  .panel.duck .duck-scripted { margin-bottom: 0 !important; }
+  .duck-presets.phone { margin-top: 16px; }
+  .duck-presets.phone .duck-list { margin: 0; }
+  .duck-more-row { display: flex; }
+  .duck-presets.phone .duck-more { padding-left: 0; text-align: left; }
+  .panel.duck .duck-dock { padding-top: 10px; }
+  /* 12px from the drag handle (7px + 4px bar) to the STOP 7 eyebrow. */
+  .panel.duck { padding-top: 23px; }
+}
+
+/* Tool-call ticker: the call on one line (ellipsis if long), its result on its own line. */
+.duck-ticker li { position: relative; padding-left: 1.3em; }
+.duck-ticker li::before { position: absolute; left: 0; top: 0; }
+.duck-ticker .call { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.duck-ticker .res { display: block; white-space: nowrap; color: #e9c597; }
+
+/* Phones: the stop dots ride 12px above the first-visit caption while it shows. */
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  .progress:not(.with-panel) { bottom: max(72px, calc(var(--hint-h, 0px) + 22px)); }
+}

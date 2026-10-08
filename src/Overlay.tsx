@@ -3,7 +3,7 @@ import { STOPS, STOP_IDS, content, contactLinks, noteById, text, type Stop } fro
 import { activate, closePanel, freeRoam, openPanel, parseHash, startTour, step } from './nav'
 import { getUI, setUI, useUI } from './store'
 import { Loader, enter } from './Loader'
-import { DuckDock, DuckLog } from './duck/DuckChat'
+import { DuckDock, DuckLog, DuckPresets } from './duck/DuckChat'
 import { DuckToast, Hud, SecretsCard, Toast } from './Hud'
 import { LIST_URL } from './links'
 import { useTyping } from './keyboard'
@@ -130,6 +130,18 @@ function Panel() {
     },
     { dependencies: [open?.id], scope: panel, revertOnUpdate: true },
   )
+  // The duck's sheet is content-sized: publish its height so the stop dots ride just above it.
+  useEffect(() => {
+    const el = panel.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const root = document.documentElement
+    const ro = new ResizeObserver(() => root.style.setProperty('--sheet-h', `${Math.round(el.getBoundingClientRect().height)}px`))
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      root.style.removeProperty('--sheet-h')
+    }
+  }, [open?.id])
   const lastFocus = useRef<Element | null>(null)
   useEffect(() => {
     if (open) {
@@ -189,6 +201,7 @@ function Panel() {
             )}
             {jokeText && !foldIntro && <p className="joke">{jokeText}</p>}
             {isDuck && <DuckLog tail={foldIntro && jokeText ? <p className="joke duck-scripted">{jokeText}</p> : undefined} />}
+            {isDuck && phone && <DuckPresets phone />}
           </div>
           {chev && (
             <button
@@ -497,6 +510,23 @@ function Hint() {
   // hint is first-visit only: once someone has dragged, it is remembered (localStorage).
   const dragged = useUI((s) => s.dragged)
   const [seen] = useState(seenLookHint)
+  // Phones: publish the caption's height so the stop dots sit above it, never on top of it.
+  const box = useRef<HTMLDivElement>(null)
+  const shown = ready && !dragged && !open
+  useEffect(() => {
+    const root = document.documentElement
+    const el = box.current
+    if (!shown || !el || typeof ResizeObserver === 'undefined') {
+      root.style.removeProperty('--hint-h')
+      return
+    }
+    const ro = new ResizeObserver(() => root.style.setProperty('--hint-h', `${Math.round(el.getBoundingClientRect().height)}px`))
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      root.style.removeProperty('--hint-h')
+    }
+  }, [shown])
   useEffect(() => {
     if (!dragged) return
     try {
@@ -507,7 +537,7 @@ function Hint() {
   }, [dragged])
   if (!ready) return null
   return (
-    <div className={`hint${open ? ' hidden-mobile with-panel' : ''}${dragged ? ' gone' : ''}`} aria-hidden={dragged || undefined}>
+    <div ref={box} className={`hint${open ? ' hidden-mobile with-panel' : ''}${dragged ? ' gone' : ''}`} aria-hidden={dragged || undefined}>
       <p className="hint-line">{content.site.coldOpen}</p>
       {!seen && <p className="hint-sub">{isTouch() ? content.site.hintTouch : content.site.hintDesktop}</p>}
     </div>

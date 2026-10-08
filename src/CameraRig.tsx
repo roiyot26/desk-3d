@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
@@ -32,9 +32,10 @@ export const EYE_HEIGHT = 1.4
  * the desk and the window. Portrait (phones): step left toward the middle of the room and aim
  * between the desk and the window so both stay in a narrow frame.
  */
-export function homeView(info: RoomInfo, portrait: boolean): Pose {
+export function homeView(info: RoomInfo, portrait: boolean, aspect = 1): Pose & { zoom?: number } {
   const r = info.room
   const floor = r.min.y
+  if (aspect < TALL_ASPECT && info.deskBox) return tallHome(info, aspect)
   if (portrait) {
     const win = info.glass?.center ?? info.focus
     const position = new THREE.Vector3(THREE.MathUtils.lerp(r.min.x, r.max.x, 0.6), floor + EYE_HEIGHT, r.max.z - 0.7)
@@ -44,6 +45,78 @@ export function homeView(info: RoomInfo, portrait: boolean): Pose {
   const position = new THREE.Vector3(r.max.x - 0.7, floor + EYE_HEIGHT, r.max.z - 0.65)
   const target = new THREE.Vector3(info.focus.x - 0.15, floor + 1.08, info.focus.z - 0.35)
   return { position, target }
+}
+
+/** Tall phones (aspect < 0.8): desk-centred home, see tallHome. */
+const TALL_ASPECT = 0.8
+const TALL_PITCH = THREE.MathUtils.degToRad(-8)
+const TALL_FILL = 0.7
+
+/**
+ * Tall phone home: yaw aimed straight at the desk centre, tilted ~8° down, standing on the line
+ * from the desk toward the front-right corner (the old portrait spot) at the distance where the
+ * desk top's projected width is ~70% of the frame (solved by projecting its box with the real
+ * phone lens). Clamped to stay ≥0.35 m inside the walls.
+ */
+function tallHome(info: RoomInfo, aspect: number): Pose & { zoom?: number } {
+  const r = info.room
+  const floor = r.min.y
+  const desk = info.deskBox!
+  const c = desk.getCenter(new THREE.Vector3())
+  const eyeY = floor + EYE_HEIGHT
+  // Direction from the desk toward the old portrait standpoint (front-right of the desk).
+  const old = new THREE.Vector3(THREE.MathUtils.lerp(r.min.x, r.max.x, 0.6), eyeY, r.max.z - 0.7)
+  const out = new THREE.Vector3(old.x - c.x, 0, old.z - c.z).normalize()
+  const cam = new THREE.PerspectiveCamera(fovFor(aspect), aspect, 0.03, 100)
+  const corners = [0, 1, 2, 3, 4, 5, 6, 7].map(
+    (i) => new THREE.Vector3(i & 1 ? desk.max.x : desk.min.x, i & 2 ? desk.max.y : desk.min.y, i & 4 ? desk.max.z : desk.min.z),
+  )
+  const pose = (d: number): Pose => {
+    const position = new THREE.Vector3(c.x + out.x * d, eyeY, c.z + out.z * d)
+    const yaw = new THREE.Vector3(c.x - position.x, 0, c.z - position.z).normalize()
+    const dir = yaw.multiplyScalar(Math.cos(TALL_PITCH)).setY(Math.sin(TALL_PITCH))
+    return { position, target: position.clone().addScaledVector(dir, d) }
+  }
+  const fill = (d: number, zoom = 1) => {
+    const p = pose(d)
+    cam.fov = fovFor(aspect) * zoom
+    cam.updateProjectionMatrix()
+    cam.position.copy(p.position)
+    cam.lookAt(p.target)
+    cam.updateMatrixWorld()
+    let lo = Infinity
+    let hi = -Infinity
+    for (const k of corners) {
+      const x = k.clone().project(cam).x
+      lo = Math.min(lo, x)
+      hi = Math.max(hi, x)
+    }
+    return (hi - lo) / 2
+  }
+  // Farthest spot still 0.35 m inside the walls along that line.
+  const m = 0.35
+  const maxX = out.x > 0 ? (r.max.x - m - c.x) / out.x : out.x < 0 ? (c.x - (r.min.x + m)) / -out.x : Infinity
+  const maxZ = out.z > 0 ? (r.max.z - m - c.z) / out.z : out.z < 0 ? (c.z - (r.min.z + m)) / -out.z : Infinity
+  let lo = 0.9
+  let hi = Math.max(lo, Math.min(maxX, maxZ))
+  if (fill(hi) > TALL_FILL) {
+    // Can't step back far enough inside the room: open the lens a little instead (within the
+    // free-roam zoom range) so the desk still lands near 70% of the width.
+    let zl = 1
+    let zh = ZOOM_MAX
+    for (let i = 0; i < 20; i++) {
+      const z = (zl + zh) / 2
+      if (fill(hi, z) > TALL_FILL) zl = z
+      else zh = z
+    }
+    return { ...pose(hi), zoom: (zl + zh) / 2 }
+  }
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2
+    if (fill(mid) > TALL_FILL) lo = mid
+    else hi = mid
+  }
+  return pose((lo + hi) / 2)
 }
 
 /**
@@ -81,7 +154,11 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
   const { camera, size } = useThree()
   const controls = useRef<OrbitControlsImpl>(null)
   const portrait = size.width / size.height < 0.85
-  const home = useMemo(() => homeView(info, portrait), [info, portrait])
+  const tall = size.width / size.height < TALL_ASPECT
+  // Aspect read only when portrait/tall flips (a phone's URL bar resizing the view must not
+  // re-home the camera mid-look).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const home = useMemo(() => homeView(info, portrait, size.width / size.height), [info, portrait, tall])
 
   // Look-around: pivot just in front of the eye; azimuth free (360°), pitch clamped.
   const look = useMemo(() => {
@@ -104,7 +181,8 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     return b
   }, [info])
 
-  useEffect(() => {
+  // Layout effect: placed before the first frame, so the idle drift never starts from a stale pose.
+  useLayoutEffect(() => {
     const cam = camera as THREE.PerspectiveCamera
     cam.position.copy(home.position)
     cam.near = 0.03
@@ -112,6 +190,10 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     cam.lookAt(home.target)
     controls.current?.target.copy(look.pivot)
     controls.current?.update()
+    state.current.zoom = home.zoom ?? 1
+    cam.fov = fovFor(size.width / size.height) * state.current.zoom
+    cam.updateProjectionMatrix()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, home, look])
 
   useEffect(() => {
@@ -315,9 +397,12 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     // --- Free roam. Slow idle drift: a gentle sway around wherever the viewer left the camera.
     if (!quality.reducedMotion && !st.interacting && now - st.lastInput > IDLE_AFTER) {
       if (st.driftStart < 0) {
+        // From the camera itself, not OrbitControls' cached spherical (stale until its next
+        // update(): it once swung the phone home ~70° off the desk toward the default camera).
+        const off = cam.position.clone().sub(c.target)
         st.driftStart = now
-        st.driftAz = c.getAzimuthalAngle()
-        st.driftPolar = c.getPolarAngle()
+        st.driftAz = Math.atan2(off.x, off.z)
+        st.driftPolar = Math.acos(THREE.MathUtils.clamp(off.y / Math.max(off.length(), 1e-6), -1, 1))
       }
       const t = now - st.driftStart
       const ease = THREE.MathUtils.smoothstep(t, 0, 6)
