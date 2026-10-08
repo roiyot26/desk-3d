@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { content } from './content'
 import { activate } from './nav'
-import { SECRET_COUNT, setMuted, setUI, useUI } from './store'
+import { SECRET_COUNT, momentHeld, setMuted, setUI, useUI } from './store'
 import { audio } from './audio'
 import { LIST_URL } from './links'
 
@@ -62,7 +62,7 @@ export function Hud() {
 /** True for `ms` after `at` changes (re-renders itself when the window ends). */
 function useRecent(at: number | undefined, ms: number) {
   const [, force] = useState(0)
-  const live = at !== undefined && performance.now() - at < ms
+  const live = at !== undefined && (performance.now() - at < ms || momentHeld())
   useEffect(() => {
     if (at === undefined) return
     const left = ms - (performance.now() - at)
@@ -117,7 +117,7 @@ export function SecretsCard() {
 /** After the duck flies you somewhere, its answer stays in a small card with a way back. */
 export function DuckToast() {
   const reply = useUI((s) => s.duckReply)
-  const onDuck = useUI((s) => s.open?.id === 'bonus-duck')
+  const onDuck = useUI((s) => s.open?.id === 'stop-7')
   const live = useRecent(reply?.at, 20000)
   if (!reply || !live || onDuck) return null
   return (
@@ -125,7 +125,7 @@ export function DuckToast() {
       <p className="duck-toast-q">› {reply.question}</p>
       <p>🦆 {reply.reply}</p>
       <div className="duck-toast-actions">
-        <button type="button" className="btn small" onClick={() => activate('bonus-duck')}>
+        <button type="button" className="btn small" onClick={() => activate('stop-7')}>
           {content.duck.back}
         </button>
         <button type="button" className="btn ghost small" onClick={() => setUI({ duckReply: null })} aria-label={content.tour.close}>

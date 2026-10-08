@@ -5,7 +5,7 @@ import { Billboard, Html } from '@react-three/drei'
 import { STOPS, content, labelFor } from './content'
 import { proxyHandlers, tapKey } from './interact'
 import { activate } from './nav'
-import { setUI, useUI } from './store'
+import { getUI, setUI, useUI } from './store'
 import { markerTargetFor, type Target } from './targets'
 
 /** Numbered tour markers, big invisible hit boxes for small objects, and the hover label. */
@@ -194,7 +194,29 @@ function DebugHooks() {
         return { pos: r(camera.position), target: c ? r(c.target) : null, controlsEnabled: c?.enabled ?? null, fov: +(camera as THREE.PerspectiveCamera).fov.toFixed(2) }
       },
       open: (id: string) => activate(id),
+      ui: () => {
+        const u = getUI()
+        return { open: u.open, visited: u.visited, finale: u.finale, thinking: u.duckThinking, sources: u.sources.keys, secrets: u.secrets }
+      },
       keys: () => [...targets.values()].map((t) => `${t.key}:${t.id}:${t.source}`),
+      /** Duck rig state for the e2e check: Quack morph influence, MAT_DuckEyes emissive, beam origin. */
+      duck: () => {
+        const d = targets.get('duck')
+        if (!d) return null
+        let quack: number | null = null
+        let eyes: number | null = null
+        let beamOrigin = false
+        for (const n of d.nodes)
+          n.traverse((c) => {
+            if (/DUCK_BeamOrigin/i.test(c.name)) beamOrigin = true
+            const m = c as THREE.Mesh
+            const i = m.morphTargetDictionary ? Object.entries(m.morphTargetDictionary).find(([k]) => /quack/i.test(k))?.[1] : undefined
+            if (i !== undefined && m.morphTargetInfluences) quack = Math.max(quack ?? 0, m.morphTargetInfluences[i])
+            const mats = m.material ? (Array.isArray(m.material) ? m.material : [m.material]) : []
+            for (const mt of mats) if (/DuckEyes/i.test(mt.name)) eyes = Math.max(eyes ?? 0, (mt as THREE.MeshStandardMaterial).emissiveIntensity ?? 0)
+          })
+        return { source: d.source, quack, eyes, beamOrigin }
+      },
       screenOf: (key: string) => {
         const t = targets.get(key)
         if (!t) return null

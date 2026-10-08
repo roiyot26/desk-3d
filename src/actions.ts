@@ -1,6 +1,6 @@
 import { audio } from './audio'
 import { content } from './content'
-import { findSecret, getUI, setUI, toast, type LightGroup } from './store'
+import { findSecret, getUI, momentHeld, setUI, toast, type LightGroup } from './store'
 import type { TargetAction } from './targets'
 
 // Things in the room you can switch: lights, the rain, agentic mode. Used by click targets
@@ -38,7 +38,7 @@ export function setRain(on: boolean | 'toggle' = 'toggle') {
 }
 
 export function startAgentic() {
-  setUI({ agenticUntil: performance.now() + AGENTIC_MS })
+  setUI({ agenticUntil: performance.now() + (momentHeld() ? 10 * 60 * 1000 : AGENTIC_MS) })
   toast(T.agentic)
   findSecret('claude')
   window.setTimeout(() => setUI({}), AGENTIC_MS + 50) // nudge subscribers (HUD / audio) when it ends

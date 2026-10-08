@@ -26,7 +26,7 @@ import type { RoomInfo } from './analyze'
  *   stop-4  CLICK_Terrarium_VirtualGarden                camera STOP_4_Terrarium_Cam
  *   stop-5  CLICK_Chalkboard_Career (the cork board)     camera STOP_5_Corkboard_Cam
  *   stop-6  CLICK_Mug_Contact                            camera STOP_6_Mug_Cam
- *   duck    CLICK_Duck (morph "Quack", MAT_DuckEyes, DUCK_BeamOrigin)  camera STOP_7_Duck_Cam
+ *   stop-7  CLICK_Duck: Ask the Duck (morph "Quack", MAT_DuckEyes, DUCK_BeamOrigin)  camera STOP_7_Duck_Cam
  *   aside   CLICK_StickyNote_NowBuilding
  *   actions (no panel, they change the room):
  *           CLICK_Switch_Lights   all room lights        CLICK_Lamp_Desk / CLICK_Lamp_Floor  one lamp
@@ -70,7 +70,8 @@ export const TARGET_DEFS: TargetDef[] = [
   { key: 'mug', id: 'stop-6', marker: true, click: ['CLICK_Mug_Contact'], view: [0.5, 0.6, 1], distance: 1.6 },
   {
     key: 'duck',
-    id: 'bonus-duck',
+    id: 'stop-7',
+    marker: true,
     click: ['CLICK_Duck', 'CLICK_RubberDuck'],
     fallback: /^PLACEHOLDER_Duck$/,
     // Pulled back so the duck's beams to the monitor / shelf / board stay in frame.

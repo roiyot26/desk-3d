@@ -140,6 +140,15 @@ export function setMuted(muted: boolean) {
 
 export const SECRET_COUNT = 6
 
+/**
+ * Test hook for screenshots on very slow (software-GL) machines: with `?debug`, setting
+ * `window.__desk3dHoldMoment = true` keeps toasts and agentic mode on until it is cleared.
+ */
+export function momentHeld(): boolean {
+  return DEBUG_FLAG && !!(window as unknown as { __desk3dHoldMoment?: boolean }).__desk3dHoldMoment
+}
+const DEBUG_FLAG = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')
+
 /** Mark a secret as found (persists for the session). Returns true when it was new. */
 export function findSecret(id: string): boolean {
   if (state.secrets.includes(id)) return false

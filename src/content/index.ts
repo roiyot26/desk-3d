@@ -19,7 +19,7 @@ export type Stop = {
   label: string
   kicker: string
   title: string
-  kind: 'projects' | 'pitch' | 'skills' | 'garden' | 'career' | 'contact'
+  kind: 'projects' | 'pitch' | 'skills' | 'garden' | 'career' | 'contact' | 'duck'
   project?: string
   body: string[]
   joke: string

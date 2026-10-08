@@ -141,7 +141,7 @@ function Panel() {
   return (
     <>
       <div className="backdrop" onClick={closePanel} aria-hidden="true" />
-      <aside className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}`} role="dialog" aria-labelledby="panel-title" key={open.id} ref={panel}>
+      <aside className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}${stop?.kind === 'duck' ? ' duck' : ''}`} role="dialog" aria-labelledby="panel-title" key={open.id} ref={panel}>
         <button type="button" className="panel-close" onClick={closePanel} aria-label={content.tour.close}>
           ×
         </button>
@@ -234,6 +234,13 @@ function StopBody({ stop, skill, project }: { stop: Stop; skill?: string; projec
           <p className="pin">📌 {content.career.teaching}</p>
         </>
       )
+    case 'duck':
+      return (
+        <>
+          {body}
+          <DuckChat />
+        </>
+      )
     case 'contact':
       return (
         <>
@@ -317,14 +324,12 @@ function Progress() {
           {s.n}
         </button>
       ))}
-      <span
-        className={`pdot bonus${bonus.length ? ' seen' : ''}`}
-        role="img"
-        aria-label={bonus.length ? `${content.tour.foundIt} (${bonus.length})` : content.tour.bonusHint}
-        title={bonus.length ? content.tour.foundIt : content.tour.bonusHint}
-      >
-        ★
-      </span>
+      {/* The 7 dots are the tour. Bonus objects are extras: a ★ shows up only once one is found. */}
+      {bonus.length > 0 && (
+        <span className="pdot bonus seen" role="img" aria-label={`${content.tour.foundIt} (${bonus.length})`} title={content.tour.foundIt}>
+          ★
+        </span>
+      )}
     </nav>
   )
 }

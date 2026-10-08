@@ -1,9 +1,9 @@
 import { BONUS_IDS, STOPS, STOP_IDS, content } from './content'
 import { findSecret, getUI, setUI, type Open } from './store'
 
-// Panel / tour navigation and deep links. Stops are the six tour beats; bonus and aside panels are
-// extra (bonus ones light the 7th "found it" dot). Hashes: #stop-1..#stop-6, plus aliases from
-// content.json (#projects #3d #goal #skills #stack #garden #career #contact) and
+// Panel / tour navigation and deep links. Stops are the seven tour beats (stop-7 is Ask the Duck);
+// bonus and aside panels are extras outside the tour. Hashes: #stop-1..#stop-7, plus aliases from
+// content.json (#projects #3d #goal #skills #stack #garden #career #contact #duck) and
 // #project-<slug> / #skill-<id> for a specific card.
 
 export function parseHash(hash: string): Open {
@@ -47,7 +47,7 @@ export function openPanel(o: NonNullable<Open>, opts: { writeHash?: boolean } = 
   if (getUI().visited.length >= STOP_IDS.length) findSecret('tour')
 }
 
-/** Close the panel and return to free roam. Shows the finale card once all six stops are seen. */
+/** Close the panel and return to free roam. Shows the finale card once all seven stops are seen. */
 export function closePanel() {
   const s = getUI()
   setUI({

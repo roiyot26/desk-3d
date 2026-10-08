@@ -26,8 +26,7 @@
     "skip": "Free roam",
     "close": "Close",
     "of": "of",
-    "foundIt": "Found a bonus",
-    "bonusHint": "Bonus objects are hidden around the room."
+    "foundIt": "Found a bonus"
   },
   "contact": {
     "github": {
@@ -280,19 +279,27 @@
         "I'm open to work on AI-driven products and on 3D for the web. The fastest way to reach me is a message on LinkedIn, and all my code is on GitHub."
       ],
       "joke": "The coffee's still warm, so your message won't wait long."
+    },
+    {
+      "id": "stop-7",
+      "n": 7,
+      "aliases": [
+        "duck",
+        "ask",
+        "ask-the-duck"
+      ],
+      "label": "Duck · ask me anything",
+      "kicker": "Stop 7 · The rubber duck",
+      "title": "Ask the duck",
+      "kind": "duck",
+      "body": [
+        "Every developer talks to a rubber duck. Mine talks back, and it has tool access.",
+        "Pick a question or type your own. The duck searches the room, points at its sources, and flies you there."
+      ],
+      "joke": "Scripted for now. It only knows what's in this room."
     }
   ],
   "bonus": [
-    {
-      "id": "bonus-duck",
-      "label": "Rubber duck · ask me",
-      "title": "Ask the duck",
-      "body": [
-        "Every developer talks to a rubber duck. Mine talks back, and it has tool access."
-      ],
-      "joke": "Scripted for now. It only knows what's in this room.",
-      "kind": "duck"
-    },
     {
       "id": "bonus-sculpture",
       "label": "Icosahedron",
@@ -316,8 +323,8 @@
   ],
   "finale": {
     "title": "You've seen the room",
-    "body": "That's all six stops. If anything here is useful to you, say hi.",
-    "joke": "There's a duck somewhere. Just saying."
+    "body": "That's all seven stops. If anything here is useful to you, say hi.",
+    "joke": "The duck takes follow-up questions. Just saying."
   },
   "loader": {
     "lines": [
@@ -410,7 +417,7 @@
     "doneJoke": "There is no seventh secret. Probably.",
     "found": "Secret found",
     "hidden": "???",
-    "_note": "The six secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; tour = visit all six tour stops. No art secrets: the poster and the pan are just art from the real room."
+    "_note": "The six secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; tour = visit all seven tour stops. No art secrets: the poster and the pan are just art from the real room."
   },
   "duck": {
     "placeholder": "Ask about Roi's work…",
