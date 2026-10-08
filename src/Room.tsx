@@ -159,7 +159,7 @@ export function RoomModel({ onInfo, quality, bake }: { onInfo: (info: RoomInfo) 
   useLayoutEffect(() => {
     addPlaceholders(scene)
     roomScene = scene
-    // Art placards were dropped (the art is just art from the real room): hide the blank cards.
+    // Art placards were dropped (the artworks are plain decor): hide the blank cards.
     scene.traverse((o) => {
       if (/^PLACARD_/.test(o.name)) o.visible = false
     })

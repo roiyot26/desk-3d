@@ -344,11 +344,11 @@
       },
       {
         "at": 0.3,
-        "text": "hanging the Grateful Dead poster"
+        "text": "plugging in the monitor"
       },
       {
         "at": 0.5,
-        "text": "framing the asparagus"
+        "text": "shelving the books"
       },
       {
         "at": 0.7,
@@ -392,7 +392,6 @@
     "rainOn": "Window unlatched. The rain is back.",
     "agentic": "agentic mode: on. The duck is listening.",
     "secret": "Secret found",
-    "realRoom": "From the real room.",
     "neon": "</> blinks back."
   },
   "toastShort": {
@@ -407,7 +406,6 @@
     "rainOff": "rain off",
     "rainOn": "rain back on",
     "agentic": "agentic mode on",
-    "realRoom": "from the real room",
     "neon": "</> blinks back"
   },
   "secrets": {
@@ -443,7 +441,7 @@
     "doneJoke": "There is no seventh secret. Probably.",
     "found": "Secret found",
     "hidden": "???",
-    "_note": "The six secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; tour = visit all seven tour stops. No art secrets: the poster and the pan are just art from the real room.",
+    "_note": "The six secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; tour = visit all seven tour stops. No art secrets.",
     "short": "Secret"
   },
   "duck": {
@@ -908,8 +906,6 @@
     "action-lamp-desk": "Desk lamp · click to switch",
     "action-lamp-floor": "Floor lamp · click to switch",
     "action-rain": "Window latch · rain on/off",
-    "action-neon": "Neon sign · </>",
-    "caption-poster": "Poster",
-    "caption-pan": "Painting"
+    "action-neon": "Neon sign · </>"
   }
 }

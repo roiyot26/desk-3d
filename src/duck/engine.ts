@@ -48,18 +48,26 @@ function tokens(s: string) {
   return normalize(s).split(' ').filter(Boolean)
 }
 
-/** Levenshtein distance with an early exit above `max`. */
+/**
+ * Damerau-Levenshtein distance (optimal string alignment: insert, delete, substitute, and swap
+ * two adjacent letters, each costs 1), with an early exit above `max`. Transpositions like
+ * "raect" / "recat" are one edit from "react".
+ */
 export function editDistance(a: string, b: string, max = 2): number {
   if (Math.abs(a.length - b.length) > max) return max + 1
+  let prev2: number[] = []
   let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
   for (let i = 1; i <= a.length; i++) {
     const cur = [i]
     let best = i
     for (let j = 1; j <= b.length; j++) {
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
-      best = Math.min(best, cur[j])
+      let d = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d = Math.min(d, prev2[j - 2] + 1)
+      cur[j] = d
+      best = Math.min(best, d)
     }
     if (best > max) return max + 1
+    prev2 = prev
     prev = cur
   }
   return prev[b.length]

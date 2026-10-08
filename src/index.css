@@ -1064,3 +1064,131 @@ a {
   0%, 100% { box-shadow: 0 0 0 0 rgba(240, 178, 115, 0.45); background: rgba(240, 178, 115, 0.22); }
   50% { box-shadow: 0 0 0 5px rgba(240, 178, 115, 0); background: rgba(240, 178, 115, 0.5); }
 }
+
+/* ---------- Ask the duck on phones: chip row + pinned "More questions" ---------- */
+.duck-chips-bar { display: flex; align-items: flex-start; gap: 6px; margin: 0 -16px 10px; padding: 0 16px; }
+.duck-chips-bar .duck-chips { flex: 1; min-width: 0; margin: 0; padding: 0; }
+.duck-chips-bar .duck-chips.row { margin: 0; padding: 0; }
+.duck-chips-bar > .chip.more { flex: none; white-space: nowrap; }
+.duck-chips-bar.open { flex-direction: column; align-items: stretch; }
+.duck-chips-bar.open > .chip.more { align-self: flex-start; }
+.duck-chips.grid { flex-wrap: wrap; max-height: 30vh; max-height: 30dvh; overflow-y: auto; overscroll-behavior: contain; }
+
+/* ---------- AC-5: 44×44 minimum hit area on touch / phones ----------
+   Every interactive control gets at least a 44×44 box (getBoundingClientRect, so it is also the
+   hit area). Tiny visuals (stepper dots, carousel dots, scroll chevron) keep their look: the
+   button is a transparent 44px box and the visual is drawn by ::before. */
+@media (max-width: 700px), (max-aspect-ratio: 4/5), (pointer: coarse) {
+  .btn,
+  .btn.small { min-height: 44px; min-width: 44px; justify-content: center; }
+  .hud-btn { min-height: 44px; }
+  .hud-btn.icon { width: 44px; }
+  .hud-pop { top: 50px; }
+  .panel-close { width: 44px; height: 44px; top: 6px; right: 6px; }
+  .panel h2 { margin-right: 50px; }
+  .finale h2 { margin-right: 44px; }
+
+  /* Bottom stepper: 26px rings, 44px buttons. */
+  .progress { gap: 0; padding: 0 6px; }
+  .pdot,
+  .pdot.seen,
+  .pdot.on,
+  .pdot.bonus,
+  .pdot.bonus.seen {
+    position: relative;
+    z-index: 0;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .pdot::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 9px;
+    z-index: -1;
+    width: 26px;
+    height: 26px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1.5px solid rgba(240, 178, 115, 0.7);
+  }
+  .pdot.seen::before { background: rgba(240, 178, 115, 0.35); }
+  .pdot.on::before { background: var(--accent); }
+  .pdot.bonus::before { border-style: dashed; }
+  .pdot.bonus.seen::before { border-style: solid; background: #ffd36b; box-shadow: 0 0 12px rgba(255, 211, 107, 0.8); }
+
+  /* Project carousel: 10px dots, 44px buttons. */
+  .carousel-nav { gap: 0; }
+  .dot,
+  .dot.on {
+    position: relative;
+    z-index: 0;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+  }
+  .dot::before {
+    content: '';
+    position: absolute;
+    left: 17px;
+    top: 17px;
+    z-index: -1;
+    width: 10px;
+    height: 10px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+  }
+  .dot.on::before { background: var(--accent); }
+
+  /* Scroll chevron: 30×22 pill drawn inside a 44px button. */
+  .scroll-more {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    bottom: 0;
+    background: transparent;
+  }
+  .scroll-more::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 11px;
+    z-index: -1;
+    width: 30px;
+    height: 22px;
+    border-radius: 999px;
+    background: rgba(240, 178, 115, 0.16);
+  }
+
+  .sheet-handle { width: 120px; height: 44px; }
+  .sheet-handle span { margin-top: 10px; }
+  .panel-skip { min-height: 44px; min-width: 44px; padding: 0 14px; margin-top: 0; }
+  .intro-toggle { min-height: 44px; }
+  .hover-label button { min-height: 44px; min-width: 44px; }
+
+  .links { gap: 4px 14px; }
+  .links a,
+  .list a:not(.list-hero),
+  .cold-list {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    min-width: 44px;
+    vertical-align: middle;
+  }
+  .cold-list { margin-top: 4px; }
+
+  .chip,
+  .duck-chips.row .chip { min-height: 44px; }
+  .duck-form input { min-height: 44px; box-sizing: border-box; }
+}
+
+/* Phone duck sheet, folded intro: "What's this?" on the title row (right of the title, left of ×). */
+.intro-toggle.head { position: absolute; top: 44px; right: 56px; margin: 0; z-index: 2; background: var(--panel); }
+.panel.duck.folded h2 { margin-bottom: 22px; }

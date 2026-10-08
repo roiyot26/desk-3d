@@ -64,14 +64,8 @@ export function blinkNeon() {
   findSecret('neon')
 }
 
-/** Art from the real room: just a tiny caption, no panel. */
-export function caption() {
-  say('realRoom')
-}
-
 export function runAction(a: TargetAction) {
   if (a === 'neon') blinkNeon()
-  else if (a === 'caption') caption()
   else if (a === 'lights-room') setLights('ambient')
   else if (a === 'lamp-desk') setLights('desk')
   else if (a === 'lamp-floor') setLights('floor')

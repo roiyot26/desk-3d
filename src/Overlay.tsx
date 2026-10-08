@@ -156,7 +156,7 @@ function Panel() {
     <>
       <div className="backdrop" onClick={closePanel} aria-hidden="true" />
       <aside
-        className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}${stop?.kind === 'duck' ? ' duck' : ''}${full ? ' full' : ''}`}
+        className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}${stop?.kind === 'duck' ? ' duck' : ''}${foldIntro ? ' folded' : ''}${full ? ' full' : ''}`}
         role="dialog"
         aria-labelledby="panel-title"
         key={open.id}
@@ -170,13 +170,14 @@ function Panel() {
         <h2 id="panel-title" tabIndex={-1} ref={ref}>
           {stop ? stop.title : note!.title}
         </h2>
+        {/* Phones, after an answer: the toggle sits on the title row so the answer keeps the room. */}
+        {foldIntro && (
+          <button type="button" className="intro-toggle head" aria-expanded={introOpen} aria-controls="duck-intro" onClick={() => setIntroOpen(!introOpen)}>
+            {introOpen ? content.duck.hideIntro : content.duck.whatsThis} <span aria-hidden="true">{introOpen ? '▴' : '▾'}</span>
+          </button>
+        )}
         <div className={`panel-scroll${more ? ' more' : ''}${scrolled ? ' scrolled' : ''}`}>
           <div className="panel-body" ref={body}>
-            {foldIntro && (
-              <button type="button" className="intro-toggle" aria-expanded={introOpen} aria-controls="duck-intro" onClick={() => setIntroOpen(!introOpen)}>
-                {introOpen ? content.duck.hideIntro : content.duck.whatsThis} <span aria-hidden="true">{introOpen ? '▴' : '▾'}</span>
-              </button>
-            )}
             {(!foldIntro || introOpen) && (
               <div id="duck-intro" className="panel-intro">
                 {stop ? <StopBody stop={stop} skill={open.skill} project={open.project} /> : note!.body.map((p, k) => <p key={k}>{p}</p>)}

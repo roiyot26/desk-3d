@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { Billboard, Line } from '@react-three/drei'
-import type { Line2 } from 'three-stdlib'
+import { Billboard } from '@react-three/drei'
 import { getUI, momentHeld, useUI } from '../store'
 import { targetByKey, type Target } from '../targets'
 
 /**
  * Canvas side of Ask the Duck, kept quiet so it reads as part of the room, not a render bug:
- *  - a thin 2px cyan line (40% opacity, not bloomed) from DUCK_BeamOrigin (else the top of the
- *    duck) to each source the duck cites, drawn outward,
+ *  - a thin cyan beam (40% opacity, not bloomed) from DUCK_BeamOrigin (else the top of the
+ *    duck) to each source the duck cites, drawn outward. It is a real triangle mesh (a 3 mm
+ *    tube), not GL lines / Line2, so it renders the same on every renderer, software GL included,
  *  - a slim pulsing ring on each source,
  * both gone ~1.5s after they appear. Plus the quack: the "Quack" shape key if the duck mesh has
  * one, otherwise a little squash-and-stretch bob. (The eyes' glow is a LightMixer group.)
@@ -63,39 +63,34 @@ function life(at: number, delay: number) {
   return { grow: 1 - Math.pow(1 - grow, 3), alpha }
 }
 
-const SEGMENTS = 32
+const SEGMENTS = 48
+const RADIAL = 6
+const TUBE_RADIUS = 0.0016 // metres: a ~2-3px line at the duck stop's framing
 
 function Beam({ from, t, delay, at }: { from: THREE.Vector3; t: Target; delay: number; at: number }) {
-  const line = useRef<Line2>(null)
-  const points = useMemo(() => {
+  const ref = useRef<THREE.Mesh>(null)
+  const { geometry, material } = useMemo(() => {
     const to = t.center
     const mid = from.clone().lerp(to, 0.5)
     mid.y = Math.max(from.y, to.y) + 0.04 + from.distanceTo(to) * 0.08
-    return new THREE.QuadraticBezierCurve3(from.clone(), mid, to.clone()).getPoints(SEGMENTS)
+    const curve = new THREE.QuadraticBezierCurve3(from.clone(), mid, to.clone())
+    const g = new THREE.TubeGeometry(curve, SEGMENTS, TUBE_RADIUS, RADIAL, false)
+    g.setDrawRange(0, 0)
+    const m = new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0, depthWrite: false, toneMapped: false })
+    return { geometry: g, material: m }
   }, [from, t])
+  useEffect(() => () => (geometry.dispose(), material.dispose()), [geometry, material])
   useFrame(() => {
-    const l = line.current
-    if (!l) return
+    const mesh = ref.current
+    if (!mesh) return
     const { grow, alpha } = life(at, delay)
+    // Tube indices run segment by segment along the curve: drawing the first n segments grows it.
     const n = Math.round(SEGMENTS * grow)
-    ;(l.geometry as unknown as { instanceCount: number }).instanceCount = n
-    l.material.opacity = LINE_OPACITY * alpha
-    l.visible = alpha > 0 && n > 0
+    geometry.setDrawRange(0, n * RADIAL * 6)
+    material.opacity = LINE_OPACITY * alpha
+    mesh.visible = alpha > 0 && n > 0
   })
-  return (
-    <Line
-      ref={line}
-      points={points}
-      color={CYAN}
-      lineWidth={2}
-      transparent
-      opacity={0}
-      depthWrite={false}
-      renderOrder={6}
-      raycast={() => null}
-      visible={false}
-    />
-  )
+  return <mesh ref={ref} geometry={geometry} material={material} renderOrder={6} raycast={() => null} visible={false} frustumCulled={false} />
 }
 
 /** Slim pulsing ring on the cited object, facing the camera. */

@@ -26,6 +26,7 @@ export function Hotspots() {
       })}
       <HoverLabel />
       <ScreenSlot targets={targets} />
+      <SwitchRocker targets={targets} />
       {DEBUG && <DebugHooks />}
     </>
   )
@@ -310,6 +311,55 @@ function ScreenSlot({ targets }: { targets: Map<string, Target> }) {
   return null
 }
 
+/**
+ * The wall switch's rocker shows the room-lights state, whichever control flipped it (the switch
+ * itself, the HUD bulb or the duck): one shared `lights.ambient` flag drives both. The rocker
+ * tilts ~9° about the horizontal axis along the wall, around its own centre. No Switch_Rocker
+ * in the GLB: nothing happens.
+ */
+function SwitchRocker({ targets }: { targets: Map<string, Target> }) {
+  const on = useUI((s) => s.lights.ambient)
+  const rig = useMemo(() => {
+    const t = targets.get('switch')
+    if (!t) return null
+    let rocker: THREE.Object3D | undefined
+    let plate: THREE.Object3D | undefined
+    for (const n of t.nodes)
+      n.traverse((o) => {
+        if (!rocker && /rocker/i.test(o.name)) rocker = o
+        if (!plate && /plate/i.test(o.name)) plate = o
+      })
+    if (!rocker || !rocker.parent) return null
+    rocker.updateWorldMatrix(true, true)
+    const box = new THREE.Box3().setFromObject(rocker)
+    const ref = plate ? new THREE.Box3().setFromObject(plate) : box
+    const size = ref.getSize(new THREE.Vector3())
+    // Wall normal = the plate's thinnest axis; tilt about the horizontal axis lying in the wall.
+    const normal = size.x <= size.z ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1)
+    const axisWorld = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), normal).normalize()
+    const parent = rocker.parent
+    const parentQ = parent.getWorldQuaternion(new THREE.Quaternion())
+    const axis = axisWorld.applyQuaternion(parentQ.invert()).normalize()
+    const pivot = parent.worldToLocal(box.getCenter(new THREE.Vector3()))
+    return { rocker, axis, pivot, p0: rocker.position.clone(), q0: rocker.quaternion.clone() }
+  }, [targets])
+  useEffect(() => {
+    if (!rig) return
+    const r = new THREE.Quaternion().setFromAxisAngle(rig.axis, on ? 0.16 : -0.16)
+    rig.rocker.quaternion.copy(r).multiply(rig.q0)
+    rig.rocker.position.copy(rig.p0).sub(rig.pivot).applyQuaternion(r).add(rig.pivot)
+  }, [rig, on])
+  useEffect(
+    () => () => {
+      if (!rig) return
+      rig.rocker.quaternion.copy(rig.q0)
+      rig.rocker.position.copy(rig.p0)
+    },
+    [rig],
+  )
+  return null
+}
+
 const DEBUG = new URLSearchParams(window.location.search).has('debug')
 
 /** ?debug: window.__desk3d.screenOf(key) -> pixel position of a target (used by the e2e shots). */
@@ -325,9 +375,11 @@ function DebugHooks() {
         return { pos: r(camera.position), target: c ? r(c.target) : null, controlsEnabled: c?.enabled ?? null, fov: +(camera as THREE.PerspectiveCamera).fov.toFixed(2) }
       },
       open: (id: string) => activate(id),
+      /** Same path as a real click on a hit target (e.g. 'switch' = CLICK_Switch_Lights). */
+      tap: (key: string) => tapKey(key, false),
       ui: () => {
         const u = getUI()
-        return { open: u.open, visited: u.visited, finale: u.finale, thinking: u.duckThinking, sources: u.sources.keys, secrets: u.secrets }
+        return { open: u.open, visited: u.visited, finale: u.finale, thinking: u.duckThinking, sources: u.sources.keys, secrets: u.secrets, lights: u.lights }
       },
       keys: () => [...targets.values()].map((t) => `${t.key}:${t.id}:${t.source}`),
       /** Duck rig state for the e2e check: Quack morph influence, MAT_DuckEyes emissive, beam origin. */

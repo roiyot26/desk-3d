@@ -13,8 +13,6 @@ import type { RoomInfo } from './analyze'
  * Wanda's portfolio GLB (public/desk.glb) carries every CLICK_* below, so none of them needs a
  * mesh-name fallback any more. Fallbacks are kept only for optional things that are genuinely not
  * in the export:
- *   - the two artworks (no CLICK_ on purpose: they are just art from the real room; hovering shows
- *     a one-word label and a click shows a tiny "From the real room." caption, nothing else),
  *   - the duck: if CLICK_Duck ever goes missing, Room.tsx adds a procedural PLACEHOLDER_Duck,
  *   - the sculpture bonus (no such object in this GLB: skipped silently).
  * A target with no match is skipped silently (no marker, no hit area); its panel stays reachable
@@ -31,10 +29,11 @@ import type { RoomInfo } from './analyze'
  *   actions (no panel, they change the room):
  *           CLICK_Switch_Lights   room circuit (Fill + Pictures; also the HUD bulb)   CLICK_Lamp_Desk / CLICK_Lamp_Floor  one lamp
  *           CLICK_Window_Latch    rain on / off          CLICK_Neon_Sign                     neon blink
- *   captions  Poster_* / PosterFrame_* and ArtPan*: "From the real room."
+ * The two artworks (Poster_* / PosterFrame_*, ArtPan*) are non-interactive decor: no target, no
+ * hover label, no caption, no cursor change (Roi's ruling, AC-7).
  * Ignored on purpose: STOP_8_Art_Cam / STOP_8_Marker and every PLACARD_* node (hidden by Room.tsx).
  */
-export type TargetAction = 'lights-room' | 'lamp-desk' | 'lamp-floor' | 'rain' | 'neon' | 'caption'
+export type TargetAction = 'lights-room' | 'lamp-desk' | 'lamp-floor' | 'rain' | 'neon'
 
 export type TargetDef = {
   /** Unique key of this hit target. */
@@ -85,8 +84,6 @@ export const TARGET_DEFS: TargetDef[] = [
   { key: 'lamp-floor', id: 'action-lamp-floor', action: 'lamp-floor', click: ['CLICK_Lamp_Floor'] },
   { key: 'latch', id: 'action-rain', action: 'rain', click: ['CLICK_Window_Latch'] },
   { key: 'neon', id: 'action-neon', action: 'neon', click: ['CLICK_Neon_Sign'] },
-  { key: 'poster', id: 'caption-poster', action: 'caption', click: ['CLICK_Art_Poster'], fallback: /^(Poster_\w+|PosterFrame_\w+)$/ },
-  { key: 'pan', id: 'caption-pan', action: 'caption', click: ['CLICK_Art_Pan'], fallback: /^ArtPan(_\w+)?$/ },
   { key: 'sculpture', id: 'bonus-sculpture', click: ['CLICK_Art_Sculpture'], fallback: /^Sculpt(Ico|Plinth)$/, view: [0.3, 0.1, 1] },
 ]
 

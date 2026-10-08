@@ -31,7 +31,8 @@ const PHONE_CHIPS = 3
  * The duck's chat, in two parts so the input never scrolls away:
  *  - DuckLog sits in the panel's scrolling body (phones: only the latest answer).
  *  - DuckDock is pinned above the panel's Back/Next footer: preset chips + the free-text box
- *    (fuzzy-matched to a preset). Desktop: 5 chips + "More questions". Phones: one row of 3.
+ *    (fuzzy-matched to a preset). Desktop: 5 chips + "More questions". Phones: one row of 3 +
+ *    "More questions", which opens every preset as a short scrolling chip grid (closes after a pick).
  */
 export function DuckLog({ tail }: { tail?: ReactNode }) {
   const all = useUI((s) => s.duckLog)
@@ -82,27 +83,42 @@ export function DuckDock() {
     if (thinking) return
     void askDuck(text)
     setQ('')
+    if (phone) setMore(false)
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
     ask(q)
   }
   const all = content.duck.intents.filter((i) => i.chip)
-  const chips = phone ? all.slice(0, PHONE_CHIPS) : more ? all : all.slice(0, DESKTOP_CHIPS)
+  const first = phone ? PHONE_CHIPS : DESKTOP_CHIPS
+  const chips = more ? all : all.slice(0, first)
+  const chipButtons = chips.map((c) => (
+    <button key={c.id} type="button" role="listitem" className="chip" disabled={thinking} onClick={() => ask(c.chip)}>
+      {c.chip}
+    </button>
+  ))
+  const moreChip =
+    all.length > first ? (
+      <button type="button" className="chip more" aria-expanded={more} onClick={() => setMore(!more)}>
+        {more ? content.duck.less : content.duck.more}
+      </button>
+    ) : null
   return (
     <div className="duck-dock">
-      <div className={`duck-chips${phone ? ' row' : ''}`} role="list" aria-label="Suggested questions">
-        {chips.map((c) => (
-          <button key={c.id} type="button" role="listitem" className="chip" disabled={thinking} onClick={() => ask(c.chip)}>
-            {c.chip}
-          </button>
-        ))}
-        {!phone && all.length > DESKTOP_CHIPS && (
-          <button type="button" className="chip more" aria-expanded={more} onClick={() => setMore(!more)}>
-            {more ? content.duck.less : content.duck.more}
-          </button>
-        )}
-      </div>
+      {phone ? (
+        // Phones: the chips scroll sideways in one row; "More questions" stays pinned at its end.
+        <div className={`duck-chips-bar${more ? ' open' : ''}`}>
+          <div className={`duck-chips ${more ? 'grid' : 'row'}`} role="list" aria-label="Suggested questions">
+            {chipButtons}
+          </div>
+          {moreChip}
+        </div>
+      ) : (
+        <div className="duck-chips" role="list" aria-label="Suggested questions">
+          {chipButtons}
+          {moreChip}
+        </div>
+      )}
       <form className="duck-form" onSubmit={submit}>
         <input
           value={q}
