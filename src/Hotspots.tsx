@@ -11,7 +11,7 @@ import { markerTargetFor, type Target } from './targets'
 /** Numbered tour markers, big invisible hit boxes for small objects, and the hover label. */
 export function Hotspots() {
   const targets = useUI((s) => s.targets)
-  const ready = useUI((s) => s.stage === 'ready')
+  const ready = useUI((s) => s.stage === 'ready' && s.entered)
   const list = useMemo(() => [...targets.values()], [targets])
   if (!ready) return null
   return (
@@ -110,14 +110,16 @@ function HoverLabel() {
 }
 
 /**
- * Wanda's monitor can carry a `ScreenSlot` material under CLICK_Monitor_Projects. When it exists,
- * the screen shows the project the carousel is on. When it doesn't (current GLB), nothing happens.
+ * ScreenSlot_Monitor (material under CLICK_Monitor_Projects) ships with Wanda's "Projects" grid.
+ * While the stop-1 panel is open the screen shows the project the carousel is on; when it closes
+ * the original texture comes back. No ScreenSlot material: nothing happens.
+ * (ScreenSlot_Laptop and ScreenSlot_Frame3DRender keep their baked images.)
  */
 function ScreenSlot({ targets }: { targets: Map<string, Target> }) {
   const open = useUI((s) => s.open)
   const project = useUI((s) => s.slotProject)
   const slots = useMemo(() => {
-    const out: THREE.MeshStandardMaterial[] = []
+    const out: (THREE.MeshStandardMaterial | THREE.MeshLambertMaterial)[] = []
     for (const t of targets.values()) {
       if (t.id !== 'stop-1' || t.source !== 'click') continue
       for (const n of t.nodes)
@@ -125,7 +127,7 @@ function ScreenSlot({ targets }: { targets: Map<string, Target> }) {
           const m = o as THREE.Mesh
           if (!m.isMesh) return
           for (const mt of Array.isArray(m.material) ? m.material : [m.material])
-            if (/screenslot/i.test(mt.name) && (mt as THREE.MeshStandardMaterial).isMeshStandardMaterial) out.push(mt as THREE.MeshStandardMaterial)
+            if (/screenslot_monitor/i.test(mt.name) && 'emissiveMap' in mt) out.push(mt as THREE.MeshStandardMaterial)
         })
     }
     return out
@@ -140,8 +142,18 @@ function ScreenSlot({ targets }: { targets: Map<string, Target> }) {
     t.flipY = false // glTF UV convention
     return t
   }, [slots])
+  const original = useMemo(() => slots.map((m) => ({ m, map: m.map, emissiveMap: m.emissiveMap, emissive: m.emissive.clone() })), [slots])
   useEffect(() => {
     if (!tex) return
+    if (open?.id !== 'stop-1') {
+      for (const o of original) {
+        o.m.map = o.map
+        o.m.emissiveMap = o.emissiveMap
+        o.m.emissive.copy(o.emissive)
+        o.m.needsUpdate = true
+      }
+      return
+    }
     const p = content.projects.find((x) => x.slug === (open?.id === 'stop-1' ? open.project ?? project : project)) ?? content.projects[0]
     const c = tex.image as HTMLCanvasElement
     const g = c.getContext('2d')!
@@ -151,7 +163,7 @@ function ScreenSlot({ targets }: { targets: Map<string, Target> }) {
     g.font = '600 64px system-ui, sans-serif'
     g.fillText(p.name, 64, 200)
     g.fillStyle = '#c9d2e3'
-    g.font = '36px system-ui, sans-serif'
+    g.font = '30px system-ui, sans-serif'
     g.fillText(p.tagline, 64, 270)
     g.fillStyle = '#7d8799'
     g.font = '28px ui-monospace, monospace'
@@ -163,7 +175,7 @@ function ScreenSlot({ targets }: { targets: Map<string, Target> }) {
       m.emissive.set('#ffffff')
       m.needsUpdate = true
     }
-  }, [tex, slots, open, project])
+  }, [tex, slots, original, open, project])
   return null
 }
 

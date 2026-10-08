@@ -12,7 +12,11 @@
     "compiling": "Warming up the lights",
     "listLink": "Plain HTML version",
     "enterRoom": "Enter the 3D room",
-    "webglFallback": "Your browser couldn't run the 3D room, so here is the same content as a plain page."
+    "webglFallback": "Your browser couldn't run the 3D room, so here is the same content as a plain page.",
+    "resume": "Just the résumé →",
+    "enter": "Enter",
+    "enterHint": "Turns on sound · press Enter",
+    "phoneNote": "On a phone, the plain version loads first. The room works too, it just runs warmer."
   },
   "tour": {
     "start": "Start the tour",
@@ -154,7 +158,7 @@
       },
       {
         "id": "wordpress-php",
-        "book": "WordPress-PHP",
+        "book": "WordPressPHP",
         "name": "WordPress / PHP",
         "line": "Custom themes and plugins for sites that already run on it."
       },
@@ -281,30 +285,13 @@
   "bonus": [
     {
       "id": "bonus-duck",
-      "label": "Rubber duck",
-      "title": "Senior debugging consultant",
+      "label": "Rubber duck · ask me",
+      "title": "Ask the duck",
       "body": [
-        "It has solved more bugs than any linter, and it does it by saying nothing at all."
+        "Every developer talks to a rubber duck. Mine talks back, and it has tool access."
       ],
-      "joke": "Billing rate: one bath per quarter."
-    },
-    {
-      "id": "bonus-poster",
-      "label": "Poster",
-      "title": "Grateful Dead print",
-      "body": [
-        "This isn't a project. It's just good taste in skeletons."
-      ],
-      "joke": ""
-    },
-    {
-      "id": "bonus-pan",
-      "label": "Framed pan",
-      "title": "Still life with asparagus",
-      "body": [
-        "Nobody has asked why there's asparagus in a framed pan. Everyone has noticed."
-      ],
-      "joke": ""
+      "joke": "Scripted for now. It only knows what's in this room.",
+      "kind": "duck"
     },
     {
       "id": "bonus-sculpture",
@@ -331,5 +318,560 @@
     "title": "You've seen the room",
     "body": "That's all six stops. If anything here is useful to you, say hi.",
     "joke": "There's a duck somewhere. Just saying."
+  },
+  "loader": {
+    "lines": [
+      {
+        "at": 0.0,
+        "text": "reading content.json"
+      },
+      {
+        "at": 0.05,
+        "text": "unpacking the room",
+        "live": true
+      },
+      {
+        "at": 0.3,
+        "text": "hanging the Grateful Dead poster"
+      },
+      {
+        "at": 0.5,
+        "text": "framing the asparagus"
+      },
+      {
+        "at": 0.7,
+        "text": "watering the plants"
+      },
+      {
+        "at": 0.85,
+        "text": "convincing the rain to fall",
+        "live": true
+      },
+      {
+        "at": 0.95,
+        "text": "warming up the lamps"
+      },
+      {
+        "at": 1.0,
+        "text": "teaching the duck to talk"
+      }
+    ],
+    "ready": "room ready. Bring headphones, or don't.",
+    "title": "roi@desk ~/room"
+  },
+  "audio": {
+    "mute": "Mute sound",
+    "unmute": "Turn sound on"
+  },
+  "toasts": {
+    "lightsOff": "Lights off. The neon stays on, obviously.",
+    "lightsOn": "Lights back on.",
+    "deskOff": "Desk lamp off.",
+    "deskOn": "Desk lamp on.",
+    "floorOff": "Floor lamp off.",
+    "floorOn": "Floor lamp on.",
+    "rainOff": "Window latched. The rain stops for you.",
+    "rainOn": "Window unlatched. The rain is back.",
+    "agentic": "agentic mode: on. The duck is listening.",
+    "secret": "Secret found",
+    "realRoom": "From the real room.",
+    "neon": "</> blinks back."
+  },
+  "secrets": {
+    "label": "Secrets",
+    "items": [
+      {
+        "id": "duck",
+        "label": "Talked to the duck"
+      },
+      {
+        "id": "claude",
+        "label": "Typed claude"
+      },
+      {
+        "id": "switch",
+        "label": "Flipped a light"
+      },
+      {
+        "id": "latch",
+        "label": "Stopped the rain"
+      },
+      {
+        "id": "neon",
+        "label": "Poked the neon sign"
+      },
+      {
+        "id": "tour",
+        "label": "Finished the tour"
+      }
+    ],
+    "doneTitle": "All six secrets",
+    "doneBody": "You found everything. That's exactly the kind of thoroughness I look for in a code reviewer.",
+    "doneJoke": "There is no seventh secret. Probably.",
+    "found": "Secret found",
+    "hidden": "???",
+    "_note": "The six secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; tour = visit all six tour stops. No art secrets: the poster and the pan are just art from the real room."
+  },
+  "duck": {
+    "placeholder": "Ask about Roi's work…",
+    "send": "Ask",
+    "thinking": "thinking",
+    "back": "Back to the duck",
+    "fallback": {
+      "reply": "I'm a duck. I only know Roi's portfolio, and that wasn't in it. Try one of these.",
+      "steps": [
+        "search_portfolio(\"{q}\") → 0 sources"
+      ]
+    },
+    "intents": [
+      {
+        "id": "best-ai",
+        "chip": "Show me your best AI project",
+        "keywords": [
+          "ai",
+          "llm",
+          "rag",
+          "embedding",
+          "machine learning",
+          "best",
+          "retrieval"
+        ],
+        "reply": "retrieval-tracer. Sentence embeddings run in your browser, and you can watch cosine similarity build up dimension by dimension. It's the base layer of Roi's hybrid-search RAG work. Opening it on the monitor.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "AI project"
+            ],
+            "sources": [
+              "monitor",
+              "career"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "monitor"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "retrieval-tracer"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "stack",
+        "chip": "What's your stack?",
+        "keywords": [
+          "stack",
+          "tech",
+          "react",
+          "node",
+          "typescript",
+          "next",
+          "mongo",
+          "aws",
+          "wordpress",
+          "php",
+          "skills",
+          "tools",
+          "languages"
+        ],
+        "reply": "React, Next, Node, TypeScript, MongoDB and AWS, plus WordPress/PHP when a site already runs on it. Claude Code is leaning out of the shelf on purpose.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "stack"
+            ],
+            "sources": [
+              "bookshelf",
+              "desk-books"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "bookshelf"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-3"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "3d",
+        "chip": "Can you do 3D for my site?",
+        "keywords": [
+          "3d",
+          "three",
+          "webgl",
+          "blender",
+          "site",
+          "website",
+          "client",
+          "3d site",
+          "r3f"
+        ],
+        "reply": "Yes. That's where Roi is heading: 3D artwork inside client websites, without wrecking load time. You're standing in the demo.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "3D for the web"
+            ],
+            "sources": [
+              "laptop",
+              "monitor"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "laptop"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-2"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "hire",
+        "chip": "How do I hire you?",
+        "keywords": [
+          "hire",
+          "contact",
+          "email",
+          "reach",
+          "work together",
+          "available",
+          "job",
+          "freelance",
+          "linkedin",
+          "github",
+          "talk"
+        ],
+        "reply": "Message Roi on LinkedIn. His code is on GitHub. I'll put both on the mug.",
+        "tools": [
+          {
+            "name": "show_contact",
+            "args": [],
+            "sources": [
+              "mug"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "mug"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-6"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "why-duck",
+        "chip": "Why a duck?",
+        "keywords": [
+          "duck",
+          "why",
+          "rubber",
+          "quack",
+          "who are you"
+        ],
+        "reply": "Every developer talks to a rubber duck. Mine talks back, and it has tool access.",
+        "tools": [
+          {
+            "name": "quack",
+            "args": []
+          }
+        ]
+      },
+      {
+        "id": "projects",
+        "chip": "What have you built?",
+        "keywords": [
+          "projects",
+          "built",
+          "portfolio",
+          "work",
+          "examples",
+          "show me",
+          "repos"
+        ],
+        "reply": "Four public projects: Virtual Garden, retrieval-tracer, chord-cycle-open and this room. The monitor has the carousel.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "projects"
+            ],
+            "sources": [
+              "monitor",
+              "terrarium",
+              "laptop"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "monitor"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-1"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "garden",
+        "chip": "What's the plant about?",
+        "keywords": [
+          "garden",
+          "virtual garden",
+          "plant",
+          "extension",
+          "chrome",
+          "terrarium",
+          "productivity"
+        ],
+        "reply": "Virtual Garden, a Chrome extension. Your focus grows it, and doomscrolling wilts it.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "virtual-garden"
+            ],
+            "sources": [
+              "terrarium"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "terrarium"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-4"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "career",
+        "chip": "What's your background?",
+        "keywords": [
+          "background",
+          "career",
+          "experience",
+          "history",
+          "cv",
+          "resume",
+          "résumé",
+          "teach",
+          "teaching",
+          "years"
+        ],
+        "reply": "Full-stack first, then AI in the workflow, now 3D. It's all pinned to the board.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "career"
+            ],
+            "sources": [
+              "career"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "career"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-5"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "claude",
+        "chip": "Do you use Claude Code?",
+        "keywords": [
+          "claude",
+          "agent",
+          "agentic",
+          "copilot",
+          "cursor",
+          "workflow",
+          "mcp"
+        ],
+        "reply": "Every day. Agents plan, build and review, with tests and a human in the loop. Switching the room to agentic mode so you can feel it.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "agentic workflows"
+            ],
+            "sources": [
+              "bookshelf",
+              "monitor"
+            ]
+          },
+          {
+            "name": "set_mode",
+            "args": [
+              "agentic"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "lights",
+        "chip": "Turn the lights off",
+        "keywords": [
+          "lights",
+          "light",
+          "dark",
+          "lamp",
+          "off",
+          "night",
+          "on"
+        ],
+        "reply": "Done. The neon stays on. It has a contract.",
+        "tools": [
+          {
+            "name": "set_lights",
+            "args": [
+              "all",
+              "toggle"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "rain",
+        "chip": "Make it stop raining",
+        "keywords": [
+          "rain",
+          "weather",
+          "stop raining",
+          "clear",
+          "sun",
+          "storm",
+          "raining"
+        ],
+        "reply": "Latched the window. Weather is a tool call now.",
+        "tools": [
+          {
+            "name": "set_weather",
+            "args": [
+              "toggle"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "bug",
+        "chip": "Can you fix my bug?",
+        "keywords": [
+          "bug",
+          "fix",
+          "error",
+          "broken",
+          "debug",
+          "crash",
+          "help"
+        ],
+        "reply": "Have you tried explaining it to me slowly?",
+        "tools": [
+          {
+            "name": "quack",
+            "args": []
+          }
+        ]
+      },
+      {
+        "id": "music",
+        "chip": "Play some music",
+        "keywords": [
+          "music",
+          "sound",
+          "audio",
+          "lofi",
+          "song",
+          "play"
+        ],
+        "reply": "Lofi on. It's synthesized in-house, so the license is fine.",
+        "tools": [
+          {
+            "name": "set_audio",
+            "args": [
+              "on"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "personal",
+        "chip": "",
+        "keywords": [
+          "age",
+          "old",
+          "salary",
+          "married",
+          "wife",
+          "girlfriend",
+          "address",
+          "phone",
+          "religion",
+          "politics"
+        ],
+        "reply": "I'm a duck. Ask Roi. He's on LinkedIn.",
+        "tools": [
+          {
+            "name": "show_contact",
+            "args": [],
+            "sources": [
+              "mug"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "labels": {
+    "action-lights": "Light switch",
+    "action-lamp-desk": "Desk lamp · click to switch",
+    "action-lamp-floor": "Floor lamp · click to switch",
+    "action-rain": "Window latch · rain on/off",
+    "action-neon": "Neon sign · </>",
+    "caption-poster": "Poster",
+    "caption-pan": "Painting"
   }
 }

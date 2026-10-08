@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useFBO } from '@react-three/drei'
 import type { RoomInfo } from './analyze'
 import type { Quality } from './quality'
+import { getUI } from './store'
 import { glassFragment, glassVertex, streakFragment, streakVertex } from './rainShaders'
 
 /** Layer used for "what is visible through the window" (city, sky, rain streaks). */
@@ -77,6 +78,9 @@ export function RainGlass({ info, quality }: { info: RoomInfo; quality: Quality 
   useFrame((_, delta) => {
     const u = material.uniforms
     u.uTime.value += Math.min(delta, 0.1) * (quality.reducedMotion ? 0.35 : 1)
+    // Window latch: drops dry up slowly / come back when it rains again.
+    const want = getUI().rain ? 1 : 0
+    u.uRain.value += (want - u.uRain.value) * Math.min(1, delta * 0.8)
     gl.getDrawingBufferSize(buf)
     u.uRes.value.copy(buf)
     // Exterior-only pass from the same camera.
@@ -150,12 +154,19 @@ export function RainStreaks({ info, quality }: { info: RoomInfo; quality: Qualit
     material.dispose()
   }, [geometry, material])
 
+  const baseOpacity = quality.tier === 'high' ? 0.26 : 0.32
+  const mesh = useRef<THREE.Mesh>(null)
   useFrame((_, delta) => {
-    material.uniforms.uTime.value += Math.min(delta, 0.1) * (quality.reducedMotion ? 0.35 : 1)
+    const u = material.uniforms
+    u.uTime.value += Math.min(delta, 0.1) * (quality.reducedMotion ? 0.35 : 1)
+    const want = getUI().rain ? baseOpacity : 0
+    u.uOpacity.value += (want - u.uOpacity.value) * Math.min(1, delta * 2)
+    if (mesh.current) mesh.current.visible = u.uOpacity.value > 0.003
   })
 
   return (
     <mesh
+      ref={mesh}
       geometry={geometry}
       material={material}
       frustumCulled={false}

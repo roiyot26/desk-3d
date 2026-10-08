@@ -6,7 +6,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import type { RoomInfo } from './analyze'
 import type { Quality } from './quality'
 import { getUI, useUI } from './store'
-import { markerTargetFor, poseFor, type Pose } from './targets'
+import { markerTargetFor, poseFor, poseFromStopCam, type Pose } from './targets'
 
 /**
  * Lens: a 26 mm full-frame lens has a 69.4° horizontal field of view (2·atan(18/26)).
@@ -62,7 +62,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     return {
       dist: s.radius,
       minAz: s.theta - THREE.MathUtils.degToRad(portrait ? 30 : 42),
-      maxAz: s.theta + THREE.MathUtils.degToRad(portrait ? 22 : 20),
+      maxAz: s.theta + THREE.MathUtils.degToRad(portrait ? 22 : 40), // enough to see the right wall (cork board, switch)
       minPolar: s.phi - THREE.MathUtils.degToRad(20),
       maxPolar: Math.min(s.phi + THREE.MathUtils.degToRad(12), THREE.MathUtils.degToRad(98)),
     }
@@ -145,11 +145,14 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     if (key !== st.openKey) {
       st.openKey = key
       const t = ui.open ? markerTargetFor(ui.targets, ui.open.id) : undefined
-      const current: Pose = { position: cam.position.clone(), target: c.target.clone() }
+      const stopCam = ui.open ? ui.stopCams.get(ui.open.id) : undefined
+      const current: Pose = { position: cam.position.clone(), target: c.target.clone(), fov: cam.fov }
       const dur = quality.reducedMotion ? 0 : EASE_TIME
-      if (t) {
-        if (!st.saved) st.saved = st.anim?.release ? st.anim.to : current
-        const to = poseFor(t, { home, safe, aspect: size.width / size.height, fov: cam.fov, info })
+      if (t || stopCam) {
+        if (!st.saved) st.saved = st.anim?.release ? st.anim.to : { ...current, fov: fovFor(size.width / size.height) }
+        // Blender's STOP_*_Cam framing wins; otherwise frame the clicked object.
+        const base = fovFor(size.width / size.height)
+        const to = stopCam ? poseFromStopCam(stopCam, size) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info }), fov: base }
         st.anim = { from: current, to, t0: now, dur, release: false }
         st.focused = true
       } else if (st.saved) {
@@ -163,6 +166,10 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
       const e = easeInOut(k)
       cam.position.lerpVectors(a.from.position, a.to.position, e)
       c.target.lerpVectors(a.from.target, a.to.target, e)
+      if (a.to.fov !== undefined) {
+        cam.fov = THREE.MathUtils.lerp(a.from.fov ?? cam.fov, a.to.fov, e)
+        cam.updateProjectionMatrix()
+      }
       cam.lookAt(c.target)
       if (k >= 1) {
         st.anim = null

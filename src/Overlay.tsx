@@ -2,14 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import { STOPS, STOP_IDS, content, contactLinks, noteById, text, type Stop } from './content'
 import { activate, closePanel, freeRoam, openPanel, parseHash, startTour, step } from './nav'
 import { getUI, setUI, useUI } from './store'
-
-const LIST_URL = `${import.meta.env.BASE_URL}?view=list`
+import { Loader, enter } from './Loader'
+import { DuckChat } from './duck/DuckChat'
+import { DuckToast, Hud, SecretsCard, Toast } from './Hud'
+import { LIST_URL } from './links'
+import { useTyping } from './keyboard'
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
 /** DOM layer over the canvas: loader, cold open, panels, tour progress, finale, hint. */
 export function Overlay() {
   useDeepLinks()
   useKeys()
+  useTyping()
   return (
     <>
       <Loader />
@@ -17,13 +21,17 @@ export function Overlay() {
       <Panel />
       <Progress />
       <Finale />
+      <SecretsCard />
       <Hint />
+      <DuckToast />
+      <Toast />
+      <Hud />
     </>
   )
 }
 
 function useDeepLinks() {
-  const ready = useUI((s) => s.stage === 'ready')
+  const ready = useUI((s) => s.stage === 'ready' && s.entered)
   const done = useRef(false)
   useEffect(() => {
     if (!ready || done.current) return
@@ -33,7 +41,7 @@ function useDeepLinks() {
   }, [ready])
   useEffect(() => {
     const on = () => {
-      if (getUI().stage !== 'ready') return
+      if (getUI().stage !== 'ready' || !getUI().entered) return
       const o = parseHash(window.location.hash)
       if (o) openPanel(o, { writeHash: false })
       else if (getUI().open) closePanel()
@@ -48,6 +56,13 @@ function useKeys() {
     const on = (e: KeyboardEvent) => {
       const s = getUI()
       if (s.stage !== 'ready') return
+      if (!s.entered) {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          enter()
+        }
+        return
+      }
       const el = e.target as HTMLElement | null
       if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return
       if (e.key === 'Escape') {
@@ -68,33 +83,8 @@ function useKeys() {
   }, [])
 }
 
-export function Loader() {
-  const stage = useUI((s) => s.stage)
-  const progress = useUI((s) => s.progress)
-  // Download is the first 85%, shader warm-up the rest.
-  const pct = stage === 'download' ? Math.round(progress * 85) : stage === 'compile' ? 92 : 100
-  return (
-    <div className={`loader${stage === 'ready' ? ' done' : ''}`} aria-live="polite" aria-busy={stage !== 'ready'}>
-      <div className="loader-card">
-        <p className="loader-name">{content.site.name}</p>
-        <p className="loader-role">{content.site.role}</p>
-        <div className="loader-row">
-          <span>{stage === 'download' ? content.site.loading : content.site.compiling}…</span>
-          <span className="loader-pct">{pct}%</span>
-        </div>
-        <div className="loader-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
-          <span style={{ width: `${pct}%` }} />
-        </div>
-        <a className="loader-alt" href={LIST_URL}>
-          {content.site.listLink}
-        </a>
-      </div>
-    </div>
-  )
-}
-
 function ColdOpen() {
-  const show = useUI((s) => s.stage === 'ready' && s.intro && !s.open)
+  const show = useUI((s) => s.stage === 'ready' && s.entered && s.intro && !s.open)
   if (!show) return null
   return (
     <section className="cold-open" aria-label="Introduction">
@@ -138,7 +128,7 @@ function Panel() {
   return (
     <>
       <div className="backdrop" onClick={closePanel} aria-hidden="true" />
-      <aside className={`panel${isBonus ? ' bonus' : ''}`} role="dialog" aria-labelledby="panel-title" key={open.id}>
+      <aside className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}`} role="dialog" aria-labelledby="panel-title" key={open.id}>
         <button type="button" className="panel-close" onClick={closePanel} aria-label={content.tour.close}>
           ×
         </button>
@@ -148,6 +138,7 @@ function Panel() {
         </h2>
         <div className="panel-body">
           {stop ? <StopBody stop={stop} skill={open.skill} project={open.project} /> : note!.body.map((p, k) => <p key={k}>{p}</p>)}
+          {note?.kind === 'duck' && <DuckChat />}
           {(stop ? text(stop.joke) : note!.joke) && <p className="joke">{stop ? text(stop.joke) : note!.joke}</p>}
         </div>
         <nav className="panel-nav" aria-label="Tour">
@@ -293,7 +284,7 @@ function Projects({ initial }: { initial?: string }) {
 }
 
 function Progress() {
-  const ready = useUI((s) => s.stage === 'ready')
+  const ready = useUI((s) => s.stage === 'ready' && s.entered)
   const intro = useUI((s) => s.intro)
   const visited = useUI((s) => s.visited)
   const open = useUI((s) => s.open)
@@ -342,7 +333,7 @@ function Finale() {
 }
 
 function Hint() {
-  const ready = useUI((s) => s.stage === 'ready')
+  const ready = useUI((s) => s.stage === 'ready' && s.entered)
   const open = useUI((s) => s.open)
   if (!ready) return null
   return (

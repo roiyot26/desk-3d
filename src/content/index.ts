@@ -24,7 +24,16 @@ export type Stop = {
   body: string[]
   joke: string
 }
-export type Note = { id: string; label: string; title: string; body: string[]; joke: string }
+export type Note = {
+  id: string
+  label: string
+  title: string
+  body: string[]
+  joke: string
+  kind?: 'duck'
+}
+export type DuckTool = { name: string; args: string[]; sources?: string[] }
+export type DuckIntent = { id: string; chip: string; keywords: string[]; reply: string; tools: DuckTool[] }
 
 export const content = raw as unknown as {
   site: Record<string, string>
@@ -42,6 +51,19 @@ export const content = raw as unknown as {
   bonus: Note[]
   asides: Note[]
   finale: { title: string; body: string; joke: string }
+  loader: { title: string; lines: { at: number; text: string; live?: boolean }[]; ready: string }
+  audio: Record<string, string>
+  labels: Record<string, string>
+  toasts: Record<string, string>
+  secrets: { label: string; found: string; hidden: string; items: { id: string; label: string }[]; doneTitle: string; doneBody: string; doneJoke: string }
+  duck: {
+    placeholder: string
+    send: string
+    thinking: string
+    back: string
+    fallback: { reply: string; steps: string[] }
+    intents: DuckIntent[]
+  }
 }
 
 /** "@about.lead" style references point at another field, so copy lives in one place. */
@@ -68,5 +90,5 @@ export function noteById(id: string): Note | undefined {
 }
 
 export function labelFor(id: string): string {
-  return STOPS.find((s) => s.id === id)?.label ?? noteById(id)?.label ?? id
+  return STOPS.find((s) => s.id === id)?.label ?? noteById(id)?.label ?? content.labels[id] ?? id
 }

@@ -1,4 +1,5 @@
 import type { ThreeEvent } from '@react-three/fiber'
+import { runAction } from './actions'
 import { activate } from './nav'
 import { getUI, setUI } from './store'
 import { keyForObject } from './targets'
@@ -33,6 +34,11 @@ export function tapKey(key: string | null, touch: boolean) {
   }
   if (touch && !(s.hovered === key && s.hoverTouch)) {
     setUI({ hovered: key, hoverTouch: true })
+    return
+  }
+  if (t.def.action) {
+    if (s.hoverTouch) setUI({ hovered: null, hoverTouch: false })
+    runAction(t.def.action)
     return
   }
   activate(t.id, { ...(t.def.skill ? { skill: t.def.skill } : {}), ...(t.def.project ? { project: t.def.project } : {}) })

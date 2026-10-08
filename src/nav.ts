@@ -1,5 +1,5 @@
 import { BONUS_IDS, STOPS, STOP_IDS, content } from './content'
-import { getUI, setUI, type Open } from './store'
+import { findSecret, getUI, setUI, type Open } from './store'
 
 // Panel / tour navigation and deep links. Stops are the six tour beats; bonus and aside panels are
 // extra (bonus ones light the 7th "found it" dot). Hashes: #stop-1..#stop-6, plus aliases from
@@ -44,6 +44,7 @@ export function openPanel(o: NonNullable<Open>, opts: { writeHash?: boolean } = 
     bonusFound: BONUS_IDS.includes(o.id) && !s.bonusFound.includes(o.id) ? [...s.bonusFound, o.id] : s.bonusFound,
   }))
   if (opts.writeHash !== false) writeHash(o)
+  if (getUI().visited.length >= STOP_IDS.length) findSecret('tour')
 }
 
 /** Close the panel and return to free roam. Shows the finale card once all six stops are seen. */

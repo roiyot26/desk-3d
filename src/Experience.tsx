@@ -3,13 +3,17 @@ import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer } from '@react-three/drei'
 import type { RoomInfo } from './analyze'
+import { audio } from './audio'
 import { CameraRig } from './CameraRig'
+import { DuckRig } from './duck/DuckRig'
+import { KeyPresser } from './keyboard'
+import { LightMixer } from './LightMixer'
 import { Hotspots } from './Hotspots'
 import { setCanvasElement } from './interact'
 import { Overlay } from './Overlay'
 import { Post, RendererToneMapping } from './Post'
 import { RainGlass, RainStreaks } from './Rain'
-import { RoomLights, RoomModel } from './Room'
+import { RoomLights, RoomModel, glbRain } from './Room'
 import { qualityFor, type Tier } from './quality'
 import { getUI, setUI, useUI } from './store'
 
@@ -92,6 +96,33 @@ function QualityGovernor({ enabled }: { enabled: boolean }) {
   return null
 }
 
+/** Feeds the audio mix: rain gets louder near the window, the neon hum is only heard near the sign. */
+function AudioSpatial({ info }: { info: RoomInfo }) {
+  const targets = useUI((s) => s.targets)
+  const neon = useMemo(() => {
+    const t = targets.get('career')
+    if (t) return t.center.clone()
+    return info.neon[0]?.position.clone() ?? null
+  }, [targets, info])
+  const n = useRef(0)
+  useFrame(({ camera }) => {
+    if (++n.current % 8) return
+    const near = (p: THREE.Vector3 | null | undefined, full: number, zero: number) =>
+      p ? THREE.MathUtils.clamp(1 - (camera.position.distanceTo(p) - full) / (zero - full), 0, 1) : 0
+    audio.setNear(near(info.glass?.center, 1.0, 4.5), near(neon, 0.6, 2.6))
+  })
+  return null
+}
+
+/** Blender's static rain cards stand in for the particle rain once auto-quality turns it off. */
+function GlbRain({ particles }: { particles: boolean }) {
+  const rain = useUI((s) => s.rain)
+  useEffect(() => {
+    for (const m of glbRain) m.visible = rain && !particles
+  }, [rain, particles])
+  return null
+}
+
 function DprCap({ max }: { max: number }) {
   const setDpr = useThree((s) => s.setDpr)
   useEffect(() => setDpr(Math.min(window.devicePixelRatio || 1, max)), [setDpr, max])
@@ -165,6 +196,11 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
             {info.glass && <RainGlass info={info} quality={quality} />}
             <CameraRig info={info} quality={quality} />
             <Hotspots />
+            <LightMixer />
+            <KeyPresser />
+            <DuckRig />
+            <AudioSpatial info={info} />
+            <GlbRain particles={!!info.glass && degrade < 2} />
             {postOn && <Post quality={quality} baked={info.baked.aoMap || info.baked.lightMap} />}
             <ReadyGate key={attempt.n} />
             <QualityGovernor enabled={!quality.forced} />

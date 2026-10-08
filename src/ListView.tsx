@@ -6,28 +6,28 @@ import { STOPS, content, contactLinks, text } from './content'
  * Renders the same content.json as the room: fast, printable, recruiter- and crawler-friendly.
  * Order follows the narrative: AI-driven full-stack work first, then 3D for the web.
  */
-export function ListView({ webglOk, fallback }: { webglOk: boolean; fallback: boolean }) {
+export function ListView({ webglOk, fallback, phone = false }: { webglOk: boolean; fallback: boolean; phone?: boolean }) {
   useEffect(() => {
     document.title = content.site.title
   }, [])
   const pitch = STOPS.find((s) => s.kind === 'pitch')
-  const roomUrl = import.meta.env.BASE_URL
+  const roomUrl = `${import.meta.env.BASE_URL}?view=room`
   return (
     <main className="list">
       {fallback && <p className="list-note">{content.site.webglFallback}</p>}
+      {webglOk && (
+        <a className="list-hero" href={roomUrl}>
+          <img src={`${import.meta.env.BASE_URL}poster.jpg`} alt="A still of the 3D room: a desk with a monitor and lamps, rain on the window, a neon sign." loading="eager" />
+          <span className="btn primary">{content.site.enterRoom} →</span>
+        </a>
+      )}
+      {phone && webglOk && <p className="list-note">{content.site.phoneNote}</p>}
       <header>
         <h1>{content.site.name}</h1>
         <p className="list-role">{content.site.role}</p>
         <p>{content.about.lead}</p>
         <p>{content.about.ai}</p>
         <p>{content.about.next}</p>
-        {webglOk && (
-          <p>
-            <a className="btn primary" href={roomUrl}>
-              {content.site.enterRoom} →
-            </a>
-          </p>
-        )}
       </header>
 
       <section aria-labelledby="l-projects">

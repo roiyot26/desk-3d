@@ -5,14 +5,17 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 import { analyzeScene, type PointHint, type RoomInfo } from './analyze'
 import { sceneHandlers } from './interact'
+import { clearMaterials, mixRef, registerLight, registerMaterial, type MixGroup } from './LightMixer'
+import { addPlaceholders } from './placeholders'
 import { EXTERIOR_LAYER } from './Rain'
 import type { Quality } from './quality'
 import { setUI } from './store'
-import { resolveTargets } from './targets'
+import { resolveStopCams, resolveTargets } from './targets'
 
 export const MODEL_URL = `${import.meta.env.BASE_URL}desk.glb`
 
-// Blender's static rain cards in the city are replaced by the animated rain. Flip to keep them.
+// Blender's static rain cards (RAIN_*) are replaced by the animated rain; they come back only when
+// the particle rain is off (auto-quality step 2). Flip to always keep them.
 const KEEP_GLB_RAIN = false
 
 RectAreaLightUniformsLib.init()
@@ -51,11 +54,60 @@ function simplify(m: THREE.Mesh) {
 }
 
 /** Loads the replaceable GLB, tags interior/exterior, registers click targets and reports what it found. */
+/** The loaded room, for code outside the React tree (keyboard presses). */
+export let roomScene: THREE.Object3D | null = null
+/** Blender's static rain cards (RAIN_Streaks, RAIN_StreaksFaint), see GlbRain in Rain.tsx. */
+export const glbRain: THREE.Mesh[] = []
+
+/**
+ * Emissive meshes that follow a light group. Their materials are cloned per mesh first, because
+ * the GLB shares e.g. one "Bulb" material between the desk lamp and the floor lamp.
+ */
+function emissiveGroup(name: string, deskBulb: string | undefined): MixGroup | null {
+  if (/DuckEye/i.test(name)) return 'eyes'
+  if (/^neon/i.test(name)) return 'neon'
+  if (/^FloorLamp/i.test(name)) return 'floor'
+  if (name === deskBulb || /^Lamp(Bulb|Shade)$/.test(name)) return 'desk'
+  if (/bulb/i.test(name)) return 'floor'
+  return null
+}
+
+function registerEmissives(scene: THREE.Object3D, info: RoomInfo) {
+  clearMaterials()
+  const deskBulb = [...info.bulbs].sort((a, b) => a.position.distanceTo(info.focus) - b.position.distanceTo(info.focus))[0]?.name
+  scene.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (!m.isMesh || Array.isArray(m.material)) return
+    const mt = m.material as THREE.MeshStandardMaterial
+    const group = emissiveGroup(m.name, deskBulb) ?? (/DuckEyes/i.test(mt.name) ? 'eyes' : null)
+    if (!group || !('emissiveIntensity' in mt)) return
+    if (group === 'eyes') {
+      // MAT_DuckEyes ships "off" (a very dim cyan). Drive it as full cyan scaled by the mixer:
+      // idle level 0.03 matches the exported look, thinking / agentic goes to 3+.
+      mt.emissive?.set('#22ddff')
+      registerMaterial(mt, 'eyes', 1)
+      return
+    }
+    if (!m.userData.mixMaterial) {
+      m.material = mt.clone()
+      m.userData.mixMaterial = true
+      m.userData.mixBase = mt.emissiveIntensity
+    }
+    registerMaterial(m.material as THREE.Material, group, m.userData.mixBase)
+  })
+}
+
 export function RoomModel({ onInfo, quality }: { onInfo: (info: RoomInfo) => void; quality: Quality }) {
   const { scene } = useLoader(GLTFLoader, MODEL_URL, undefined, onProgress)
   const info = useMemo(() => analyzeScene(scene), [scene])
 
   useLayoutEffect(() => {
+    addPlaceholders(scene)
+    roomScene = scene
+    // Art placards were dropped (the art is just art from the real room): hide the blank cards.
+    scene.traverse((o) => {
+      if (/^PLACARD_/.test(o.name)) o.visible = false
+    })
     const exterior = new Set(info.exterior)
     scene.traverse((o) => {
       const m = o as THREE.Mesh
@@ -66,7 +118,10 @@ export function RoomModel({ onInfo, quality }: { onInfo: (info: RoomInfo) => voi
         m.layers.enable(EXTERIOR_LAYER)
         // Behind the glass: never a click target, so skip it in raycasts.
         m.raycast = () => {}
-        if (!KEEP_GLB_RAIN && /^rain/i.test(m.name)) m.visible = false
+        if (/^rain/i.test(m.name)) {
+          if (!glbRain.includes(m)) glbRain.push(m)
+          m.visible = KEEP_GLB_RAIN
+        }
       } else {
         // Lamp shades are thin linen: let light through instead of casting hard cones.
         m.castShadow = quality.shadows && !/shade/i.test(m.name)
@@ -75,7 +130,8 @@ export function RoomModel({ onInfo, quality }: { onInfo: (info: RoomInfo) => voi
       if (quality.simpleMaterials && m !== info.glass?.mesh) simplify(m)
       // Baked lightmaps / AO from Blender stay enabled as exported (UV2); nothing to override.
     })
-    setUI({ targets: resolveTargets(scene) })
+    registerEmissives(scene, info)
+    setUI({ targets: resolveTargets(scene), stopCams: resolveStopCams(scene) })
     onInfo(info)
   }, [scene, info, onInfo, quality])
 
@@ -140,6 +196,9 @@ export function RoomLights({ info, quality }: { info: RoomInfo; quality: Quality
     gl.shadowMap.needsUpdate = true
   }, [gl, info])
 
+  // The rect-area window and ceiling bounce are plain objects: register them with the mixer.
+  useLayoutEffect(() => (windowLight ? registerLight(windowLight, 'ambient') : undefined), [windowLight])
+
   const shadows = quality.shadows
 
   const r = info.room
@@ -152,6 +211,7 @@ export function RoomLights({ info, quality }: { info: RoomInfo; quality: Quality
     l.lookAt(c.x, r.min.y, c.z)
     return l
   }, [r, k])
+  useLayoutEffect(() => registerLight(bounce, 'ambient'), [bounce])
   const ceiling = useMemo(() => {
     const s = r.getSize(new THREE.Vector3())
     const c = r.getCenter(new THREE.Vector3())
@@ -164,13 +224,14 @@ export function RoomLights({ info, quality }: { info: RoomInfo; quality: Quality
 
   return (
     <>
-      <hemisphereLight args={['#6b5d50', '#1b1815', (safe ? 1.6 : 0.8) * k]} />
-      <ambientLight color="#463c36" intensity={(safe ? 0.9 : 0.35) * k} />
+      <hemisphereLight ref={mixRef('ambient')} args={['#6b5d50', '#1b1815', (safe ? 1.6 : 0.8) * k]} />
+      <ambientLight ref={mixRef('ambient')} color="#463c36" intensity={(safe ? 0.9 : 0.35) * k} />
 
       {desk && (
         <>
           <primitive object={deskTarget} />
           <spotLight
+            ref={mixRef('desk')}
             position={desk.position.clone().add(new THREE.Vector3(0, -0.01, 0))}
             target={deskTarget}
             color={LAMP_2700K}
@@ -186,12 +247,13 @@ export function RoomLights({ info, quality }: { info: RoomInfo; quality: Quality
             shadow-camera-near={0.02}
             shadow-camera-far={6}
           />
-          <pointLight position={desk.position} color={LAMP_2700K} intensity={1.6 * k} decay={2} />
+          <pointLight ref={mixRef('desk')} position={desk.position} color={LAMP_2700K} intensity={1.6 * k} decay={2} />
         </>
       )}
 
       {others.map((b, i) => (
         <pointLight
+          ref={mixRef('floor')}
           key={b.name + i}
           position={b.position}
           color={LAMP_2400K}
@@ -209,11 +271,12 @@ export function RoomLights({ info, quality }: { info: RoomInfo; quality: Quality
 
       {/* Fallback key if the GLB has no bulbs at all. */}
       {!desk && (
-        <pointLight position={[info.focus.x, info.focus.y + 0.8, info.focus.z + 0.4]} color={LAMP_2700K} intensity={8} decay={2} />
+        <pointLight ref={mixRef('desk')} position={[info.focus.x, info.focus.y + 0.8, info.focus.z + 0.4]} color={LAMP_2700K} intensity={8} decay={2} />
       )}
 
       {neon.map((n, i) => (
         <pointLight
+          ref={mixRef('neon')}
           key={'neon' + i}
           position={n.position}
           color={n.color}
@@ -226,7 +289,7 @@ export function RoomLights({ info, quality }: { info: RoomInfo; quality: Quality
       {windowLight && !safe && <primitive object={windowLight} />}
       {!safe && <primitive object={bounce} />}
       {safe && info.glass && (
-        <pointLight position={info.glass.center.clone().addScaledVector(info.glass.normal, 0.6)} color={WINDOW_8000K} intensity={1.2} decay={2} />
+        <pointLight ref={mixRef('ambient')} position={info.glass.center.clone().addScaledVector(info.glass.normal, 0.6)} color={WINDOW_8000K} intensity={1.2} decay={2} />
       )}
 
       {/* Blender keeps the ceiling out of the export; close the box so the room reads as a room. */}
