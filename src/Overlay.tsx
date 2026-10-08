@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { STOPS, STOP_IDS, content, contactLinks, noteById, text, type Stop } from './content'
 import { activate, closePanel, freeRoam, openPanel, parseHash, startTour, step } from './nav'
 import { getUI, setUI, useUI } from './store'
 import { Loader, enter } from './Loader'
-import { DuckChat } from './duck/DuckChat'
+import { DuckDock, DuckLog } from './duck/DuckChat'
 import { DuckToast, Hud, SecretsCard, Toast } from './Hud'
 import { LIST_URL } from './links'
 import { useTyping } from './keyboard'
 import { gsap, prefersReducedMotion, useGSAP } from './gsap'
+import { SHEET_QUERY } from './useMedia'
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
 /** DOM layer over the canvas: loader, cold open, panels, tour progress, finale, hint. */
@@ -109,15 +110,18 @@ function ColdOpen() {
 
 function Panel() {
   const open = useUI((s) => s.open)
+  const full = useUI((s) => s.sheetFull)
   const ref = useRef<HTMLHeadingElement>(null)
   const panel = useRef<HTMLElement>(null)
+  const body = useRef<HTMLDivElement>(null)
+  const more = useScrollMore(body, open?.id)
   // Slide the panel in (side panel on desktop, bottom sheet on phones). Motion only, never opacity,
   // so the copy stays readable even if a slow GPU stalls the tween. Reduced motion: no tween.
   useGSAP(
     () => {
       const el = panel.current
       if (!el || prefersReducedMotion()) return
-      const sheet = window.matchMedia?.('(max-width: 700px), (max-aspect-ratio: 4/5)').matches
+      const sheet = window.matchMedia?.(SHEET_QUERY).matches
       gsap.from(el, sheet ? { y: 24, duration: 0.35, ease: 'power2.out' } : { x: 16, duration: 0.35, ease: 'power2.out' })
     },
     { dependencies: [open?.id], scope: panel, revertOnUpdate: true },
@@ -131,6 +135,7 @@ function Panel() {
       ;(lastFocus.current as HTMLElement).focus?.({ preventScroll: true })
       lastFocus.current = null
     }
+    if (!open && getUI().sheetFull) setUI({ sheetFull: false })
   }, [open])
   if (!open) return null
   const stop = STOPS.find((s) => s.id === open.id)
@@ -138,10 +143,18 @@ function Panel() {
   if (!stop && !note) return null
   const i = stop ? STOP_IDS.indexOf(stop.id) : -1
   const isBonus = open.id.startsWith('bonus-')
+  const isDuck = stop?.kind === 'duck' || note?.kind === 'duck'
   return (
     <>
       <div className="backdrop" onClick={closePanel} aria-hidden="true" />
-      <aside className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}${stop?.kind === 'duck' ? ' duck' : ''}`} role="dialog" aria-labelledby="panel-title" key={open.id} ref={panel}>
+      <aside
+        className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}${stop?.kind === 'duck' ? ' duck' : ''}${full ? ' full' : ''}`}
+        role="dialog"
+        aria-labelledby="panel-title"
+        key={open.id}
+        ref={panel}
+      >
+        <SheetHandle full={full} />
         <button type="button" className="panel-close" onClick={closePanel} aria-label={content.tour.close}>
           ×
         </button>
@@ -149,11 +162,24 @@ function Panel() {
         <h2 id="panel-title" tabIndex={-1} ref={ref}>
           {stop ? stop.title : note!.title}
         </h2>
-        <div className="panel-body">
-          {stop ? <StopBody stop={stop} skill={open.skill} project={open.project} /> : note!.body.map((p, k) => <p key={k}>{p}</p>)}
-          {note?.kind === 'duck' && <DuckChat />}
-          {(stop ? text(stop.joke) : note!.joke) && <p className="joke">{stop ? text(stop.joke) : note!.joke}</p>}
+        <div className={`panel-scroll${more ? ' more' : ''}`}>
+          <div className="panel-body" ref={body}>
+            {stop ? <StopBody stop={stop} skill={open.skill} project={open.project} /> : note!.body.map((p, k) => <p key={k}>{p}</p>)}
+            {(stop ? text(stop.joke) : note!.joke) && <p className="joke">{stop ? text(stop.joke) : note!.joke}</p>}
+            {isDuck && <DuckLog />}
+          </div>
+          {more && (
+            <button
+              type="button"
+              className="scroll-more"
+              aria-label={content.tour.more}
+              onClick={() => body.current?.scrollBy({ top: body.current.clientHeight * 0.8, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })}
+            >
+              <span aria-hidden="true">⌄</span>
+            </button>
+          )}
         </div>
+        {isDuck && <DuckDock />}
         <nav className="panel-nav" aria-label="Tour">
           <button type="button" className="btn ghost" onClick={() => step(-1)} disabled={i === 0}>
             ← {content.tour.back}
@@ -168,6 +194,70 @@ function Panel() {
         </button>
       </aside>
     </>
+  )
+}
+
+/** True while the scroll box has more content below the fold (drives the fade + chevron). */
+function useScrollMore(ref: RefObject<HTMLElement>, key: string | undefined) {
+  const [more, setMore] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 6)
+    check()
+    el.addEventListener('scroll', check, { passive: true })
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    const mo = new MutationObserver(check)
+    mo.observe(el, { childList: true, subtree: true, characterData: true })
+    return () => {
+      el.removeEventListener('scroll', check)
+      ro.disconnect()
+      mo.disconnect()
+    }
+  }, [ref, key])
+  return more
+}
+
+/**
+ * Phones only (hidden on desktop by CSS): the sheet opens at 50% height. Drag the handle up to
+ * snap full height, down to go back to 50% (or close from 50%). A tap toggles.
+ */
+function SheetHandle({ full }: { full: boolean }) {
+  const y0 = useRef<number | null>(null)
+  const moved = useRef(false)
+  return (
+    <button
+      type="button"
+      className="sheet-handle"
+      aria-label={full ? content.tour.collapse : content.tour.expand}
+      aria-expanded={full}
+      onPointerDown={(e) => {
+        y0.current = e.clientY
+        moved.current = false
+        e.currentTarget.setPointerCapture(e.pointerId)
+      }}
+      onPointerMove={(e) => {
+        if (y0.current !== null && Math.abs(e.clientY - y0.current) > 8) moved.current = true
+      }}
+      onPointerUp={(e) => {
+        if (y0.current === null) return
+        const dy = e.clientY - y0.current
+        y0.current = null
+        if (!moved.current) return
+        if (dy < -30) setUI({ sheetFull: true })
+        else if (dy > 30) {
+          if (full) setUI({ sheetFull: false })
+          else closePanel()
+        }
+      }}
+      onClick={() => {
+        if (moved.current) return
+        setUI({ sheetFull: !full })
+      }}
+    >
+      <span aria-hidden="true" />
+    </button>
   )
 }
 
@@ -235,12 +325,7 @@ function StopBody({ stop, skill, project }: { stop: Stop; skill?: string; projec
         </>
       )
     case 'duck':
-      return (
-        <>
-          {body}
-          <DuckChat />
-        </>
-      )
+      return <>{body}</>
     case 'contact':
       return (
         <>
@@ -309,9 +394,10 @@ function Progress() {
   const visited = useUI((s) => s.visited)
   const open = useUI((s) => s.open)
   const bonus = useUI((s) => s.bonusFound)
+  const full = useUI((s) => s.sheetFull)
   if (!ready || intro) return null
   return (
-    <nav className={`progress${open ? ' with-panel' : ''}`} aria-label="Tour stops">
+    <nav className={`progress${open ? ' with-panel' : ''}${open && full ? ' sheet-full' : ''}`} aria-label="Tour stops">
       {STOPS.map((s) => (
         <button
           key={s.id}
@@ -353,9 +439,11 @@ function Finale() {
 function Hint() {
   const ready = useUI((s) => s.stage === 'ready' && s.entered)
   const open = useUI((s) => s.open)
+  // The caption is a first-impression line: it fades out after the first drag.
+  const dragged = useUI((s) => s.dragged)
   if (!ready) return null
   return (
-    <div className={`hint${open ? ' hidden-mobile with-panel' : ''}`}>
+    <div className={`hint${open ? ' hidden-mobile with-panel' : ''}${dragged ? ' gone' : ''}`} aria-hidden={dragged || undefined}>
       <p className="hint-line">{content.site.coldOpen}</p>
       <p className="hint-sub">{isTouch() ? content.site.hintTouch : content.site.hintDesktop}</p>
     </div>

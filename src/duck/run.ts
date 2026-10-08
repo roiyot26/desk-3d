@@ -2,7 +2,7 @@ import { setLights, setRain, startAgentic } from '../actions'
 import { audio } from '../audio'
 import type { DuckTool } from '../content'
 import { openPanel } from '../nav'
-import { findSecret, getUI, setMuted, setUI, type DuckEntry, type Open } from '../store'
+import { findSecret, getUI, momentHeld, setMuted, setUI, type DuckEntry, type Open } from '../store'
 import { TARGET_DEFS, targetByKey } from '../targets'
 import { content } from '../content'
 import { duckEngine } from './engine'
@@ -107,15 +107,18 @@ export async function askDuck(question: string) {
     patchEntry(id, { shown: answer.steps.length + 1, reply: answer.reply })
     setUI({ duckThinking: false })
     const dest = destination(nav.flyTo, nav.open)
-    // Beams stay while the answer is read, then fade (shortly after the camera flies).
-    const fadeBeams = (ms: number) => setUI((s) => ({ sources: { ...s.sources, fadeAt: performance.now() + ms } }))
+    // The source cues (thin line + ring) fade on their own ~1.5s after they appear (DuckRig.tsx).
     if (dest) {
       await sleep(1800)
       await hold()
       setUI({ duckReply: { question: answer.question, reply: answer.reply, at: performance.now() } })
       openPanel(dest)
-      fadeBeams(2500)
-    } else fadeBeams(6000)
+    }
+    // Drop the finished cues so nothing lingers in the scene (they have faded out by now).
+    const cued = getUI().sources.at
+    window.setTimeout(() => {
+      if (getUI().sources.at === cued && !momentHeld()) setUI({ sources: { keys: [], at: 0 } })
+    }, 1600)
   } finally {
     busy = false
     if (getUI().duckThinking) setUI({ duckThinking: false })

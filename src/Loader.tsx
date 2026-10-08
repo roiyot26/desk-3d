@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { audio } from './audio'
 import { content } from './content'
-import { LIST_URL } from './links'
 import { getUI, setUI, useUI } from './store'
 import { gsap, prefersReducedMotion, useGSAP } from './gsap'
 
@@ -15,7 +14,8 @@ export function enter() {
 /**
  * Themed loader: a coding-agent style log over the poster. Lines appear as the real progress
  * passes their threshold (download = first 85%, shader warm-up the rest). When the room is ready
- * it waits for Enter (sound on) or "Just the résumé" (plain page).
+ * it waits for Enter (sound on). The plain page is the HUD's "Just the résumé" link (one link,
+ * not two: the loader no longer repeats it).
  */
 export function Loader() {
   const stage = useUI((s) => s.stage)
@@ -77,9 +77,6 @@ export function Loader() {
           <button ref={enterRef} type="button" className="btn primary" disabled={!ready} onClick={enter}>
             {content.site.enter} <kbd>⏎</kbd>
           </button>
-          <a className="btn ghost" href={LIST_URL}>
-            {content.site.resume}
-          </a>
         </div>
         <p className="loader-hint">{ready ? content.site.enterHint : content.site.loading + '…'}</p>
       </div>

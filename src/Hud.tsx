@@ -1,13 +1,36 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { content } from './content'
 import { activate } from './nav'
 import { SECRET_COUNT, momentHeld, setMuted, setUI, useUI } from './store'
 import { audio } from './audio'
 import { LIST_URL } from './links'
 
+/**
+ * Live viewport rect of the HUD (top bar on phones, top-right cluster on desktop). Tour markers
+ * read it every frame and step out of the way, so the résumé link is never covered.
+ */
+let hudBox: DOMRect | null = null
+export const hudRect = () => hudBox
 
 /** Top-right corner, always visible: recruiter lane, secrets counter, mute. */
 export function Hud() {
+  const el = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const node = el.current
+    if (!node) return
+    const measure = () => {
+      hudBox = node.getBoundingClientRect()
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(node)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+      hudBox = null
+    }
+  }, [])
   const entered = useUI((s) => s.entered)
   const found = useUI((s) => s.secrets)
   const flash = useUI((s) => s.secretFlash)
@@ -19,7 +42,7 @@ export function Hud() {
     setMuted(!muted)
   }
   return (
-    <div className="hud">
+    <div className="hud" ref={el}>
       <a className="hud-btn resume" href={LIST_URL}>
         {content.site.resume}
       </a>

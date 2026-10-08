@@ -59,6 +59,8 @@ export const content = raw as unknown as {
   duck: {
     placeholder: string
     send: string
+    more: string
+    less: string
     thinking: string
     back: string
     fallback: { reply: string; steps: string[] }

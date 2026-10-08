@@ -16,6 +16,10 @@ export type UIState = {
   /** Cold-open card visible until the visitor picks tour / free roam (or opens anything). */
   intro: boolean
   open: Open
+  /** Phones: the bottom sheet is snapped to full height (default 50%). */
+  sheetFull: boolean
+  /** The visitor has dragged the camera at least once (the bottom caption fades out). */
+  dragged: boolean
   /** Hovered hit-target key (see targets.ts), shown as a label after a short idle. */
   hovered: string | null
   /** True when `hovered` came from a touch tap (second tap opens). */
@@ -72,6 +76,8 @@ let state: UIState = {
   entered: false,
   intro: true,
   open: null,
+  sheetFull: false,
+  dragged: false,
   hovered: null,
   hoverTouch: false,
   visited: [],

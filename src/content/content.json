@@ -2,12 +2,12 @@
   "_note": "Single source of truth for every word on the site (3D panels, hover labels and the ?view=list page). DRAFT copy for review before merge. Tone: serious lines plus one dry joke per panel. Never add phone, employer or client names here.",
   "site": {
     "name": "Roi Yotvat",
-    "role": "AI-driven full-stack developer",
-    "coldOpen": "Roi Yotvat, AI-driven full-stack developer. Drag to look around.",
-    "title": "Roi Yotvat · AI-driven full-stack developer",
-    "description": "Roi Yotvat builds web products end to end with React, Next, Node and TypeScript, ships with Claude Code and agentic workflows, and is bringing 3D into client websites. Walk through the room, or read the plain version.",
+    "role": "AI-driven full-stack developer, building 3D for the web",
+    "coldOpen": "Roi Yotvat, AI-driven full-stack developer, building 3D for the web. Drag to look around.",
+    "title": "Roi Yotvat · AI-driven full-stack developer, building 3D for the web",
+    "description": "Roi Yotvat is an AI-driven full-stack developer, building 3D for the web. He builds web products end to end with React, Next, Node and TypeScript, ships with Claude Code and agentic workflows, and is bringing 3D into client websites. Walk through the room, or read the plain version.",
     "hintDesktop": "Scroll to step closer · click a glowing number",
-    "hintTouch": "Tap a glowing number to open it",
+    "hintTouch": "Tap a glowing dot to open it",
     "loading": "Setting up the room",
     "compiling": "Warming up the lights",
     "listLink": "Plain HTML version",
@@ -26,7 +26,10 @@
     "skip": "Free roam",
     "close": "Close",
     "of": "of",
-    "foundIt": "Found a bonus"
+    "foundIt": "Found a bonus",
+    "more": "Scroll for more",
+    "expand": "Expand panel",
+    "collapse": "Shrink panel"
   },
   "contact": {
     "github": {
@@ -189,7 +192,7 @@
       ],
       "label": "Desk · who I am",
       "kicker": "Stop 1 · The desk",
-      "title": "AI-driven full-stack developer",
+      "title": "AI-driven full-stack developer, building 3D for the web",
       "kind": "projects",
       "body": [
         "@about.lead",
@@ -422,6 +425,8 @@
   "duck": {
     "placeholder": "Ask about Roi's work…",
     "send": "Ask",
+    "more": "More questions",
+    "less": "Fewer questions",
     "thinking": "thinking",
     "back": "Back to the duck",
     "fallback": {

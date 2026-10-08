@@ -5,7 +5,7 @@ import { OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import type { RoomInfo } from './analyze'
 import type { Quality } from './quality'
-import { getUI } from './store'
+import { getUI, setUI } from './store'
 import { gsap, useGSAP } from './gsap'
 import { markerTargetFor, poseFor, poseFromStopCam, type Pose } from './targets'
 
@@ -130,6 +130,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     const start = () => {
       st.interacting = true
       st.driftStart = -1
+      if (!getUI().dragged) setUI({ dragged: true })
     }
     const end = () => {
       st.interacting = false

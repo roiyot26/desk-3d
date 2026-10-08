@@ -92,6 +92,13 @@ function registerEmissives(scene: THREE.Object3D, info: RoomInfo) {
       m.material = mt.clone()
       m.userData.mixMaterial = true
       m.userData.mixBase = mt.emissiveIntensity
+      if (/^FloorLampShade/i.test(m.name)) {
+        // Lit linen: the shade glows 2700K from the bulb inside instead of reading as a dark cone.
+        const shade = m.material as THREE.MeshStandardMaterial
+        shade.emissive.set(LAMP_2700K)
+        shade.side = THREE.DoubleSide
+        m.userData.mixBase = SHADE_GLOW
+      }
     }
     registerMaterial(m.material as THREE.Material, group, m.userData.mixBase)
   })
@@ -152,7 +159,13 @@ function cluster(points: PointHint[], radius: number) {
 }
 
 const LAMP_2700K = new THREE.Color('#ffb46b')
-const LAMP_2400K = new THREE.Color('#ffa457')
+const FILL_SKY = '#ffd9b5'
+const FILL_GROUND = '#6a5545'
+const FILL_HEMI = 0.72
+const FILL_AMBIENT_COLOR = '#ffd2a8'
+const FILL_AMBIENT = 0.3
+const FLOOR_LAMP = 10
+const SHADE_GLOW = 0.9
 const WINDOW_8000K = new THREE.Color('#c4d4ff')
 
 /**
@@ -224,8 +237,11 @@ export function RoomLights({ info, quality }: { info: RoomInfo; quality: Quality
 
   return (
     <>
-      <hemisphereLight ref={mixRef('ambient')} args={['#6b5d50', '#1b1815', (safe ? 1.6 : 0.8) * k]} />
-      <ambientLight ref={mixRef('ambient')} color="#463c36" intensity={(safe ? 0.9 : 0.35) * k} />
+      {/* Warm fill, raised so free roam never reads as a black void: the darkest floor / wall
+          areas land around #2A2420 instead of #0D0D0D (the GLB albedos are ~0.04). Neon and rain
+          are untouched. Re-check against Wanda's baked GLB (k drops with lightmaps). */}
+      <hemisphereLight ref={mixRef('ambient')} args={[FILL_SKY, FILL_GROUND, (safe ? 1.6 : FILL_HEMI) * k]} />
+      <ambientLight ref={mixRef('ambient')} color={FILL_AMBIENT_COLOR} intensity={(safe ? 0.9 : FILL_AMBIENT) * k} />
 
       {desk && (
         <>
@@ -251,13 +267,15 @@ export function RoomLights({ info, quality }: { info: RoomInfo; quality: Quality
         </>
       )}
 
+      {/* Floor lamp(s): a warm 2700K point light inside the linen shade (the shade itself glows,
+          see registerEmissives). */}
       {others.map((b, i) => (
         <pointLight
           ref={mixRef('floor')}
           key={b.name + i}
           position={b.position}
-          color={LAMP_2400K}
-          intensity={7 * k}
+          color={LAMP_2700K}
+          intensity={FLOOR_LAMP * k}
           decay={2}
           castShadow={shadows && quality.tier === 'high'}
           shadow-mapSize={[512, 512]}

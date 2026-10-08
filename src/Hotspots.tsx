@@ -7,6 +7,7 @@ import { proxyHandlers, tapKey } from './interact'
 import { activate } from './nav'
 import { getUI, setUI, useUI } from './store'
 import { markerTargetFor, type Target } from './targets'
+import { hudRect } from './Hud'
 
 /** Numbered tour markers, big invisible hit boxes for small objects, and the hover label. */
 export function Hotspots() {
@@ -40,6 +41,14 @@ function Proxy({ t }: { t: Target }) {
   )
 }
 
+/**
+ * Screen-space keep-out for the in-scene badges: never in the top 64px (the HUD / top bar lives
+ * there) and never under the HUD's own rect, so "Just the résumé" is always clear and tappable.
+ */
+const TOP_SAFE = 64
+const HUD_CLEARANCE = 24 // badge radius (40px on phones -> 20) plus a little air
+const _p = new THREE.Vector3()
+
 const RING_COLOR = new THREE.Color('#ffb46b').multiplyScalar(2.2) // HDR: blooms on high/medium tiers
 const RING_DIM = new THREE.Color('#ffb46b').multiplyScalar(0.5)
 
@@ -47,30 +56,53 @@ function Marker({ t, n, id, label }: { t: Target; n: number; id: string; label: 
   const visited = useUI((s) => s.visited.includes(id))
   const active = useUI((s) => s.open?.id === id)
   const hot = useUI((s) => s.hovered !== null && s.targets.get(s.hovered)?.id === id && !s.open)
-  const anyOpen = useUI((s) => s.open !== null)
+  // While any panel is open only the current stop keeps its badge; the bottom stepper is the nav.
+  const off = useUI((s) => s.open !== null && s.open.id !== id)
   const ring = useRef<THREE.Mesh>(null)
+  const root = useRef<THREE.Group>(null)
+  const btn = useRef<HTMLButtonElement>(null)
+  const blocked = useRef(false)
   const mat = useMemo(() => new THREE.MeshBasicMaterial({ color: RING_COLOR, toneMapped: false, transparent: true, depthWrite: false }), [])
   useEffect(() => {
     mat.color.copy(visited && !active ? RING_DIM : RING_COLOR)
-    mat.opacity = anyOpen && !active ? 0.25 : visited ? 0.55 : 0.9
-  }, [mat, visited, active, anyOpen])
-  useFrame(({ clock }) => {
-    if (!ring.current) return
-    const k = 1 + Math.sin(clock.elapsedTime * 2.4 + n) * 0.08
-    ring.current.scale.setScalar(visited ? 1 : k)
+    mat.opacity = visited ? 0.55 : 0.9
+  }, [mat, visited, active])
+  useFrame(({ clock, camera, size }) => {
+    if (!root.current || !btn.current) return
+    // Class toggle only (no React re-render per frame).
+    root.current.getWorldPosition(_p).project(camera)
+    const x = size.left + ((_p.x + 1) / 2) * size.width
+    const y = size.top + ((1 - _p.y) / 2) * size.height
+    const r = hudRect()
+    const hide =
+      _p.z < 1 &&
+      (y < TOP_SAFE + HUD_CLEARANCE ||
+        (!!r && x > r.left - HUD_CLEARANCE && x < r.right + HUD_CLEARANCE && y > r.top - HUD_CLEARANCE && y < r.bottom + HUD_CLEARANCE))
+    if (hide !== blocked.current) {
+      blocked.current = hide
+      btn.current.classList.toggle('blocked', hide)
+    }
+    if (ring.current) {
+      ring.current.visible = !active && !off && !hide
+      const k = 1 + Math.sin(clock.elapsedTime * 2.4 + n) * 0.08
+      ring.current.scale.setScalar(visited ? 1 : k)
+    }
   })
   return (
-    <group position={t.anchor}>
+    <group position={t.anchor} ref={root}>
       <Billboard>
-        <mesh ref={ring} material={mat} renderOrder={5} visible={!active}>
+        <mesh ref={ring} material={mat} renderOrder={5} visible={false}>
           <ringGeometry args={[0.035, 0.045, 40]} />
         </mesh>
       </Billboard>
       <Html center zIndexRange={[30, 10]} wrapperClass="marker-wrap">
         <button
+          ref={btn}
           type="button"
-          className={`marker${visited ? ' visited' : ''}${active ? ' active' : ''}${hot ? ' hot' : ''}${anyOpen && !active ? ' muted' : ''}`}
+          className={`marker${blocked.current ? ' blocked' : ''}${visited ? ' visited' : ''}${active ? ' active' : ''}${hot ? ' hot' : ''}${off ? ' off' : ''}`}
           aria-label={`Stop ${n} of ${STOPS.length}: ${label}`}
+          aria-hidden={off || undefined}
+          tabIndex={off ? -1 : undefined}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => activate(id)}
           onMouseEnter={() => setUI({ hovered: t.key, hoverTouch: false })}

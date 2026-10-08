@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { getUI, useUI } from '../store'
+import { Billboard, Line } from '@react-three/drei'
+import type { Line2 } from 'three-stdlib'
+import { getUI, momentHeld, useUI } from '../store'
 import { targetByKey, type Target } from '../targets'
 
 /**
- * Canvas side of Ask the Duck: cyan beams from the duck (DUCK_BeamOrigin, else the top of the
- * duck) to every source the duck cites, a cyan glow box around each source, and the quack:
- * a "Quack" shape key if the duck mesh has one, otherwise a little squash-and-stretch bob.
- * (The eyes' glow is a LightMixer group, see LightMixer.tsx.)
+ * Canvas side of Ask the Duck, kept quiet so it reads as part of the room, not a render bug:
+ *  - a thin 2px cyan line (40% opacity, not bloomed) from DUCK_BeamOrigin (else the top of the
+ *    duck) to each source the duck cites, drawn outward,
+ *  - a slim pulsing ring on each source,
+ * both gone ~1.5s after they appear. Plus the quack: the "Quack" shape key if the duck mesh has
+ * one, otherwise a little squash-and-stretch bob. (The eyes' glow is a LightMixer group.)
  */
 const CYAN = new THREE.Color('#38e8ff')
-const BEAM_MAX_MS = 30000 // beams fade at sources.fadeAt (set by the duck runner), or after this
-const FADE_MS = 800
+const GROW_MS = 300
+const HOLD_MS = 1000 // fully visible
+const FADE_MS = 500 // then fade: gone at ~1.5s
+const LINE_OPACITY = 0.4
 
 export function DuckRig() {
   const targets = useUI((s) => s.targets)
@@ -28,8 +34,8 @@ export function DuckRig() {
       {duck && <Quack duck={duck} />}
       {origin &&
         cited.map((t, i) => <Beam key={`${sources.at}-${t.key}`} from={origin} t={t} delay={i * 220} at={sources.at} />)}
-      {cited.map((t) => (
-        <Glow key={`g-${sources.at}-${t.key}`} t={t} at={sources.at} />
+      {cited.map((t, i) => (
+        <Ring key={`r-${sources.at}-${t.key}`} t={t} delay={i * 220 + GROW_MS} at={sources.at} />
       ))}
     </>
   )
@@ -46,61 +52,77 @@ function beamOrigin(duck: Target): THREE.Vector3 {
   return new THREE.Vector3(duck.center.x, duck.box.max.y, duck.center.z)
 }
 
-function fade(at: number, delay: number) {
-  const now = performance.now()
-  const age = now - at - delay
+/** grow 0..1 (eased) and alpha 0..1 for a cue that starts `delay` ms after `at`. */
+function life(at: number, delay: number) {
+  const age = performance.now() - at - delay
   if (age < 0) return { grow: 0, alpha: 0 }
-  const grow = Math.min(1, age / 650)
-  const fadeAt = getUI().sources.at === at ? getUI().sources.fadeAt ?? at + BEAM_MAX_MS : now
-  const end = Math.min(fadeAt, at + BEAM_MAX_MS)
-  const alpha = now < end ? 1 : Math.max(0, 1 - (now - end) / FADE_MS)
+  const grow = Math.min(1, age / GROW_MS)
+  // ?debug screenshot hook (software GL renders a frame every few seconds): hold the cue.
+  if (momentHeld()) return { grow: 1 - Math.pow(1 - grow, 3), alpha: 1 }
+  const alpha = age < GROW_MS + HOLD_MS ? 1 : Math.max(0, 1 - (age - GROW_MS - HOLD_MS) / FADE_MS)
   return { grow: 1 - Math.pow(1 - grow, 3), alpha }
 }
 
+const SEGMENTS = 32
+
 function Beam({ from, t, delay, at }: { from: THREE.Vector3; t: Target; delay: number; at: number }) {
-  const mesh = useRef<THREE.Mesh>(null)
-  const { geometry, material, count } = useMemo(() => {
+  const line = useRef<Line2>(null)
+  const points = useMemo(() => {
     const to = t.center
     const mid = from.clone().lerp(to, 0.5)
-    mid.y = Math.max(from.y, to.y) + 0.05 + from.distanceTo(to) * 0.12
-    const curve = new THREE.QuadraticBezierCurve3(from.clone(), mid, to.clone())
-    const g = new THREE.TubeGeometry(curve, 64, 0.0055, 6, false)
-    const m = new THREE.MeshBasicMaterial({
-      color: CYAN.clone().multiplyScalar(2.5),
-      toneMapped: false,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    })
-    return { geometry: g, material: m, count: g.index ? g.index.count : 0 }
+    mid.y = Math.max(from.y, to.y) + 0.04 + from.distanceTo(to) * 0.08
+    return new THREE.QuadraticBezierCurve3(from.clone(), mid, to.clone()).getPoints(SEGMENTS)
   }, [from, t])
-  useEffect(() => () => (geometry.dispose(), material.dispose()), [geometry, material])
-  useFrame(({ clock }) => {
-    const { grow, alpha } = fade(at, delay)
-    // Draw the tube from the duck outward (index ranges follow the curve's segments).
-    const n = Math.floor((count * grow) / 6) * 6
-    geometry.setDrawRange(0, n)
-    material.opacity = alpha * (0.75 + 0.25 * Math.sin(clock.elapsedTime * 12))
-    if (mesh.current) mesh.current.visible = alpha > 0 && n > 0
+  useFrame(() => {
+    const l = line.current
+    if (!l) return
+    const { grow, alpha } = life(at, delay)
+    const n = Math.round(SEGMENTS * grow)
+    ;(l.geometry as unknown as { instanceCount: number }).instanceCount = n
+    l.material.opacity = LINE_OPACITY * alpha
+    l.visible = alpha > 0 && n > 0
   })
-  return <mesh ref={mesh} geometry={geometry} material={material} renderOrder={6} raycast={() => null} />
+  return (
+    <Line
+      ref={line}
+      points={points}
+      color={CYAN}
+      lineWidth={2}
+      transparent
+      opacity={0}
+      depthWrite={false}
+      renderOrder={6}
+      raycast={() => null}
+      visible={false}
+    />
+  )
 }
 
-function Glow({ t, at }: { t: Target; at: number }) {
-  const ref = useRef<THREE.LineSegments>(null)
+/** Slim pulsing ring on the cited object, facing the camera. */
+function Ring({ t, delay, at }: { t: Target; delay: number; at: number }) {
+  const ref = useRef<THREE.Mesh>(null)
   const { geometry, material, center } = useMemo(() => {
-    const size = t.box.getSize(new THREE.Vector3()).addScalar(0.03)
-    const g = new THREE.EdgesGeometry(new THREE.BoxGeometry(size.x, size.y, size.z))
-    const m = new THREE.LineBasicMaterial({ color: CYAN.clone().multiplyScalar(2), toneMapped: false, transparent: true, depthWrite: false })
+    const s = t.box.getSize(new THREE.Vector3())
+    const r = THREE.MathUtils.clamp(Math.max(s.x, s.y, s.z) * 0.3, 0.035, 0.11)
+    const g = new THREE.RingGeometry(r * 0.93, r, 64)
+    const m = new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })
     return { geometry: g, material: m, center: t.box.getCenter(new THREE.Vector3()) }
   }, [t])
   useEffect(() => () => (geometry.dispose(), material.dispose()), [geometry, material])
-  useFrame(({ clock }) => {
-    const { alpha } = fade(at, 400)
-    material.opacity = alpha * (0.55 + 0.45 * Math.sin(clock.elapsedTime * 5))
-    if (ref.current) ref.current.visible = alpha > 0
+  useFrame(() => {
+    const { alpha } = life(at, delay)
+    const age = Math.max(0, performance.now() - at - delay)
+    material.opacity = 0.5 * alpha * (0.7 + 0.3 * Math.cos(age / 120))
+    if (ref.current) {
+      ref.current.visible = alpha > 0
+      ref.current.scale.setScalar(1 + 0.08 * Math.sin(age / 120))
+    }
   })
-  return <lineSegments ref={ref} position={center} geometry={geometry} material={material} renderOrder={6} raycast={() => null} />
+  return (
+    <Billboard position={center}>
+      <mesh ref={ref} geometry={geometry} material={material} renderOrder={6} raycast={() => null} visible={false} />
+    </Billboard>
+  )
 }
 
 function Quack({ duck }: { duck: Target }) {

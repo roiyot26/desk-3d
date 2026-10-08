@@ -148,6 +148,10 @@ a {
 }
 .loader-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .loader-actions .btn { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+.loader.ready .loader-actions .btn.primary {
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(240, 178, 115, 0.22), 0 0 22px rgba(240, 178, 115, 0.45);
+}
 .loader-actions kbd { font: inherit; font-size: 12px; opacity: 0.7; }
 .loader-hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
 
@@ -243,8 +247,12 @@ a {
   color: var(--accent-ink);
   animation: none;
 }
-.marker.muted {
-  opacity: 0.3;
+.marker.off,
+.marker.blocked {
+  /* .off: another stop's panel is open; .blocked: would sit in the top 64px / under the HUD */
+  opacity: 0 !important;
+  pointer-events: none;
+  animation: none;
 }
 .marker-label {
   position: absolute;
@@ -357,8 +365,50 @@ a {
   line-height: 1.2;
   outline: none;
 }
+.panel-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* 32px fade + chevron while there is more below the fold */
+.panel-scroll::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 32px;
+  background: linear-gradient(to bottom, rgba(16, 15, 19, 0), rgba(16, 15, 19, 0.96));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.panel-scroll.more::after { opacity: 1; }
+.scroll-more {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  z-index: 1;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(240, 178, 115, 0.16);
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  animation: nudge 1.6s ease-in-out infinite;
+}
+@keyframes nudge { 50% { transform: translate(-50%, 3px); } }
+.sheet-handle { display: none; }
 .panel-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   line-height: 1.5;
   font-size: 15px;
@@ -568,6 +618,12 @@ a {
 .hint p {
   margin: 0;
 }
+.hint {
+  transition: opacity 0.8s ease;
+}
+.hint.gone {
+  opacity: 0;
+}
 .hint-line {
   font-size: 14px;
   font-weight: 600;
@@ -580,16 +636,47 @@ a {
 
 /* ---------- phones: bottom sheet, bigger hint ---------- */
 @media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  /* Bottom sheet: 50% by default, drag the handle up to snap to full height. */
   .panel {
     top: auto;
     left: 0;
     right: 0;
     bottom: 0;
     width: auto;
-    max-height: 56vh;
+    height: 50vh;
+    height: 50dvh;
+    max-height: none;
     border-radius: 18px 18px 0 0;
-    padding: 18px 16px 12px;
+    padding: 22px 16px 10px;
+    transition: height 0.28s ease;
   }
+  .panel.full {
+    height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
+  }
+  .sheet-handle {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 96px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: grab;
+    touch-action: none;
+  }
+  .sheet-handle span {
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: 8px auto 0;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.32);
+  }
+  .panel-skip { margin-top: 4px; }
   .panel h2 {
     font-size: 20px;
   }
@@ -598,7 +685,11 @@ a {
   }
   .progress.with-panel {
     left: 50%;
-    bottom: calc(56vh + 10px);
+    bottom: calc(50vh + 10px);
+    bottom: calc(50dvh + 10px);
+  }
+  .progress.sheet-full {
+    display: none;
   }
   .hidden-mobile {
     display: none;
@@ -616,17 +707,28 @@ a {
   .cold-open {
     left: 12px;
     right: 12px;
-    top: 12px;
+    top: 60px; /* below the HUD top bar */
     max-width: none;
     padding: 16px 18px;
   }
   .cold-about {
     display: none;
   }
+  /* Phones: badges are small 24px dots (44px hit area); the numbers live on the bottom stepper. */
   .marker {
-    width: 40px;
-    height: 40px;
-    font-size: 17px;
+    width: 24px;
+    height: 24px;
+    background: var(--accent);
+    border-color: rgba(26, 18, 8, 0.55);
+  }
+  .marker.visited {
+    background: rgba(240, 178, 115, 0.55);
+  }
+  .marker::before {
+    inset: -10px;
+  }
+  .marker-num {
+    display: none;
   }
 }
 
@@ -740,9 +842,22 @@ a {
   color: var(--muted);
 }
 .hud-pop li.got { color: var(--ink); }
-@media (max-width: 520px) {
-  .hud { top: 8px; right: 8px; gap: 6px; }
-  .hud-btn { font-size: 12px; padding: 4px 10px; }
+/* Phones: the HUD becomes a clean top bar. Résumé on the left, secrets + mute on the right,
+   on a soft dark gradient. Badges stay out of the top 64px (Hotspots.tsx), so nothing covers it. */
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  .hud {
+    top: 0;
+    left: 0;
+    right: 0;
+    gap: 6px;
+    padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 14px max(10px, env(safe-area-inset-left));
+    background: linear-gradient(to bottom, rgba(8, 8, 10, 0.86) 0%, rgba(8, 8, 10, 0.55) 62%, rgba(8, 8, 10, 0) 100%);
+    pointer-events: none;
+  }
+  .hud > * { pointer-events: auto; }
+  .hud-btn { font-size: 13px; padding: 4px 12px; min-height: 36px; }
+  .hud-btn.icon { width: 36px; }
+  .hud-btn.resume { margin-right: auto; font-weight: 600; border-color: rgba(240, 178, 115, 0.55); }
 }
 
 /* ---------- toasts ---------- */
@@ -770,11 +885,8 @@ a {
 @keyframes toast-in { from { transform: translate(-50%, -8px); } to { transform: translate(-50%, 0); } }
 
 /* ---------- Ask the duck ---------- */
-.duck-chat { margin-top: 10px; }
 .duck-log {
-  max-height: 38vh;
-  overflow: auto;
-  margin-bottom: 10px;
+  margin: 10px 0 4px;
   padding: 10px 12px;
   background: rgba(4, 10, 14, 0.7);
   border: 1px solid rgba(56, 232, 255, 0.22);
@@ -798,7 +910,13 @@ a {
 .duck-a { margin: 6px 0 0; }
 .duck-a.miss { color: var(--muted); }
 .caret { display: inline-block; width: 7px; height: 1em; vertical-align: -2px; background: #8fe3ff; margin-left: 2px; }
+.duck-dock { flex: none; padding-top: 10px; }
 .duck-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+/* Phones: one horizontally scrolling row */
+.duck-chips.row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 10px; padding: 0 16px; scroll-padding: 0 16px; }
+.duck-chips.row::-webkit-scrollbar { display: none; }
+.duck-chips.row .chip { flex: none; white-space: nowrap; min-height: 34px; }
+.chip.more { background: transparent; border-style: dashed; color: #8fe3ff; }
 .chip {
   font: inherit;
   font-size: 12.5px;
@@ -859,4 +977,4 @@ a {
 .list-hero img { width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(0.8); }
 .list-hero .btn { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); white-space: nowrap; }
 .panel.duck { width: min(470px, 44vw); }
-@media (max-width: 700px) { .panel.duck { width: auto; max-height: 70vh; } .duck-log { max-height: 26vh; } }
+@media (max-width: 700px), (max-aspect-ratio: 4/5) { .panel.duck { width: auto; } }
