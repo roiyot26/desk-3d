@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { content } from './content'
+import { FORGE_CLICKS, stopCamsFromManifest } from './content/forge'
 import type { RoomInfo } from './analyze'
 
 /**
@@ -97,8 +98,8 @@ export function targetByKey(targets: Map<string, Target>, key: string): Target |
   return targets.get(key) ?? (KEY_ALIASES[key] ? markerTargetFor(targets, KEY_ALIASES[key]) : undefined)
 }
 
-/** Blender tour cameras: STOP_<n>_<Name>_Cam -> panel id. STOP_8 (art) is ignored on purpose. */
-export const STOP_CAMS: Record<number, string> = { 1: 'stop-1', 2: 'stop-2', 3: 'stop-3', 4: 'stop-4', 5: 'stop-5', 6: 'stop-6', 7: 'bonus-duck' }
+/** Blender tour cameras: STOP_<n>_<Name>_Cam -> panel id. Built from forge_manifest (STOP_1..7; duck=7). STOP_8 ignored. */
+export const STOP_CAMS: Record<number, string> = stopCamsFromManifest()
 
 export type StopCam = { position: THREE.Vector3; target: THREE.Vector3; hfov: number }
 
@@ -177,11 +178,17 @@ export function resolveTargets(scene: THREE.Object3D): Map<string, Target> {
     out.set(def.key, { key: def.key, id: def.id, def, source, nodes, box, center, anchor, proxy })
   }
 
-  // 1) CLICK_* empties (they win).
+  // 1) CLICK_* empties (they win). Prefer names Wanda listed in forge_manifest; missing names are fine.
   for (const def of TARGET_DEFS) {
     if (!def.click.length) continue
-    const nodes = all.filter((o) => matches(o.name, def.click))
+    const preferred = def.click.filter((p) => typeof p === 'string' && (FORGE_CLICKS.size === 0 || FORGE_CLICKS.has(p)))
+    const patterns = preferred.length ? preferred : def.click
+    const nodes = all.filter((o) => matches(o.name, patterns))
     if (nodes.length) build(def, nodes, 'click')
+    else if (patterns !== def.click) {
+      const fallback = all.filter((o) => matches(o.name, def.click))
+      if (fallback.length) build(def, fallback, 'click')
+    }
   }
   // 2) Name heuristics on the current GLB, skipping anything a CLICK_ target owns.
   const hasClickFor = new Set([...out.values()].map((t) => t.id))

@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { startAgentic } from './actions'
 import { audio } from './audio'
+import { FORGE_KEYS } from './content/forge'
 import { roomScene } from './Room'
 import { getUI } from './store'
 
@@ -58,6 +59,8 @@ function namesFor(key: string, code = ''): string[] {
     const i = row.indexOf(c)
     if (i >= 0) out.push(`KB_${r}_${i}`)
   })
+  // Prefer KEY_* meshes listed in forge_manifest; still try the rest so older GLBs work.
+  if (FORGE_KEYS.size) out.sort((a, b) => Number(FORGE_KEYS.has(b)) - Number(FORGE_KEYS.has(a)))
   return out
 }
 
