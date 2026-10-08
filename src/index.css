@@ -8,6 +8,10 @@
   --line: rgba(255, 255, 255, 0.1);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--ink);
+  /* Light text on dark glass: grayscale antialiasing reads crisper than subpixel. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 html,
@@ -24,6 +28,14 @@ body,
 .room-mode #root {
   height: 100%;
   overflow: hidden;
+  /* The room owns every touch gesture: no page scroll, rubber-band or pull-to-refresh fights. */
+  overscroll-behavior: none;
+}
+.room-mode canvas {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 canvas {
@@ -113,9 +125,9 @@ a {
 }
 .loader-dots { display: inline-flex; gap: 5px; }
 .loader-dots i { width: 9px; height: 9px; border-radius: 50%; background: #3a3633; }
-.loader-dots i:first-child { background: #e0705a; }
-.loader-dots i:nth-child(2) { background: #e3b45a; }
-.loader-dots i:nth-child(3) { background: #6cc070; }
+.loader-dots i:first-child { background: var(--accent); }
+.loader-dots i:nth-child(2) { background: #5a5450; }
+.loader-dots i:nth-child(3) { background: #46413e; }
 .loader-name {
   margin: 0 0 8px;
   font-size: 15px;
@@ -131,9 +143,9 @@ a {
   min-height: 9.9em;
 }
 .loader-log li { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.loader-log li.ok .mark { color: #7fd08a; }
+.loader-log li.ok .mark { color: var(--accent); }
 .loader-log li.run { color: var(--accent); }
-.loader-log li.ready { color: #8fe3ff; margin-top: 4px; white-space: normal; }
+.loader-log li.ready { color: #f5cf9f; margin-top: 4px; white-space: normal; }
 .loader-bar {
   height: 3px;
   background: #2a2724;
@@ -508,7 +520,7 @@ a {
 }
 .skill.featured {
   border: 1px solid var(--accent);
-  transform: rotate(-1.2deg) translateX(-4px);
+  transform: translateX(-4px);
   background: rgba(240, 178, 115, 0.1);
 }
 .skills {
@@ -534,9 +546,12 @@ a {
 /* ---------- tour progress ---------- */
 .progress {
   position: fixed;
-  left: 50%;
+  /* Centred with auto margins, not translateX(-50%): no half-pixel offsets on text. */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
   bottom: 66px;
-  transform: translateX(-50%);
   z-index: 30;
   display: flex;
   gap: 8px;
@@ -547,7 +562,8 @@ a {
 }
 .progress.with-panel,
 .hint.with-panel {
-  left: calc((100vw - min(420px, 40vw) - 16px) / 2);
+  left: 0;
+  right: calc(min(420px, 40vw) + 16px);
 }
 .pdot {
   width: 26px;
@@ -586,9 +602,9 @@ a {
 .finale {
   position: fixed;
   z-index: 35;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  margin: auto;
+  height: fit-content;
   width: min(360px, 86vw);
   padding: 22px;
   border-radius: 16px;
@@ -602,9 +618,10 @@ a {
 /* ---------- hint (cold-open line under the canvas) ---------- */
 .hint {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
   bottom: 12px;
-  transform: translateX(-50%);
   z-index: 12;
   text-align: center;
   pointer-events: none;
@@ -631,7 +648,7 @@ a {
 }
 .hint-sub {
   font-size: 12.5px;
-  color: #cfc7bc;
+  color: #e9c597;
 }
 
 /* ---------- phones: bottom sheet, bigger hint ---------- */
@@ -647,7 +664,7 @@ a {
     height: 50dvh;
     max-height: none;
     border-radius: 18px 18px 0 0;
-    padding: 22px 16px 10px;
+    padding: 25px 16px 10px;
     transition: height 0.28s ease;
   }
   .panel.full {
@@ -684,7 +701,8 @@ a {
     bottom: 72px;
   }
   .progress.with-panel {
-    left: 50%;
+    left: 0;
+    right: 0;
     bottom: calc(50vh + 10px);
     bottom: calc(50dvh + 10px);
   }
@@ -702,7 +720,7 @@ a {
   }
   .hint-sub {
     font-size: 14px;
-    color: #e4ddd2;
+    color: #e9c597;
   }
   .cold-open {
     left: 12px;
@@ -758,6 +776,11 @@ a {
   font-weight: 600;
   margin-top: 0;
 }
+.list header h1 { margin-bottom: 4px; }
+.list-links { margin: 0 0 16px; }
+.list-bio { margin-top: 4px; }
+.list-stack { color: var(--muted); font-size: 14px; letter-spacing: 0.01em; }
+
 .list h2 {
   margin-top: 40px;
   border-bottom: 1px solid var(--line);
@@ -826,7 +849,7 @@ a {
 .hud-btn.icon { width: 32px; justify-content: center; padding: 0; }
 .hud-btn.lights { color: var(--muted); }
 .hud-btn.lights.on { color: var(--accent); }
-.hud-btn.flash { border-color: #8fe3ff; box-shadow: 0 0 0 3px rgba(56, 232, 255, 0.25); }
+.hud-btn.flash { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(240, 178, 115, 0.25); }
 .hud-secrets { position: relative; }
 .hud-pop {
   position: absolute;
@@ -865,9 +888,12 @@ a {
 /* ---------- toasts ---------- */
 .toast {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
+  max-width: 94vw;
   top: 60px;
-  transform: translateX(-50%);
   z-index: 44;
   pointer-events: none;
   text-align: center;
@@ -883,15 +909,15 @@ a {
   font-size: 13px;
 }
 .toast p + p { display: block; width: fit-content; margin: 6px auto 0; }
-.toast .toast-secret { color: #8fe3ff; border-color: rgba(56, 232, 255, 0.4); }
-@keyframes toast-in { from { transform: translate(-50%, -8px); } to { transform: translate(-50%, 0); } }
+.toast .toast-secret { color: var(--accent); border-color: rgba(240, 178, 115, 0.45); }
+@keyframes toast-in { from { transform: translateY(-8px); } to { transform: none; } }
 
 /* ---------- Ask the duck ---------- */
 .duck-log {
   margin: 10px 0 4px;
   padding: 10px 12px;
-  background: rgba(4, 10, 14, 0.7);
-  border: 1px solid rgba(56, 232, 255, 0.22);
+  background: rgba(10, 10, 12, 0.7);
+  border: 1px solid rgba(240, 178, 115, 0.28);
   border-radius: 10px;
 }
 .duck-turn + .duck-turn { margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255, 255, 255, 0.08); }
@@ -903,33 +929,33 @@ a {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 12px;
   line-height: 1.6;
-  color: #8fe3ff;
+  color: #c9bfb2;
 }
 .duck-ticker li::before { content: '▸ '; opacity: 0.7; }
-.duck-ticker li.done::before { content: '✓ '; color: #7fd08a; opacity: 1; }
+.duck-ticker li.done::before { content: '✓ '; color: var(--accent); opacity: 1; }
 .duck-ticker li.run { animation: tick 0.9s ease-in-out infinite; }
-@keyframes tick { 50% { color: #e6fbff; } }
+@keyframes tick { 50% { color: #fff1df; } }
 .duck-a { margin: 6px 0 0; }
 .duck-a.miss { color: var(--muted); }
-.caret { display: inline-block; width: 7px; height: 1em; vertical-align: -2px; background: #8fe3ff; margin-left: 2px; }
+.caret { display: inline-block; width: 7px; height: 1em; vertical-align: -2px; background: var(--accent); margin-left: 2px; }
 .duck-dock { flex: none; padding-top: 10px; }
 .duck-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 /* Phones: one horizontally scrolling row */
 .duck-chips.row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 10px; padding: 0 16px; scroll-padding: 0 16px; }
 .duck-chips.row::-webkit-scrollbar { display: none; }
 .duck-chips.row .chip { flex: none; white-space: nowrap; min-height: 34px; }
-.chip.more { background: transparent; border-style: dashed; color: #8fe3ff; }
+.chip.more { background: transparent; border-style: dashed; color: var(--accent); }
 .chip {
   font: inherit;
   font-size: 12.5px;
   color: var(--ink);
-  background: rgba(56, 232, 255, 0.07);
-  border: 1px solid rgba(56, 232, 255, 0.32);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(240, 178, 115, 0.35);
   border-radius: 999px;
   padding: 5px 10px;
   cursor: pointer;
 }
-.chip:hover:not(:disabled) { border-color: #38e8ff; }
+.chip:hover:not(:disabled) { border-color: var(--accent); }
 .chip:disabled { opacity: 0.4; cursor: default; }
 .duck-form { display: flex; gap: 8px; }
 .duck-form input {
@@ -943,7 +969,7 @@ a {
   border-radius: 999px;
   padding: 6px 14px;
 }
-.duck-form input:focus { outline: none; border-color: #38e8ff; }
+.duck-form input:focus { outline: none; border-color: var(--accent); }
 .duck-toast {
   position: fixed;
   left: clamp(12px, 3vw, 28px);
@@ -954,7 +980,7 @@ a {
   padding: 12px 14px;
   border-radius: 12px;
   background: var(--panel);
-  border: 1px solid rgba(56, 232, 255, 0.35);
+  border: 1px solid rgba(240, 178, 115, 0.35);
   font-size: 13.5px;
   line-height: 1.5;
 }
@@ -963,7 +989,7 @@ a {
 .duck-toast-actions { display: flex; gap: 8px; }
 
 /* ---------- secrets card ---------- */
-.secrets-list { list-style: none; padding: 0; margin: 8px 0; line-height: 1.7; color: #8fe3ff; font-size: 14px; }
+.secrets-list { list-style: none; padding: 0; margin: 8px 0; line-height: 1.7; color: var(--accent); font-size: 14px; }
 
 /* ---------- list view: poster hero + phone note ---------- */
 .list-hero {
@@ -972,12 +998,12 @@ a {
   margin: 0 0 20px;
   border-radius: 14px;
   overflow: hidden;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 21 / 9;
   max-height: 46vh;
   background: #15131a;
 }
 .list-hero img { width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(0.8); }
-.list-hero .btn { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); white-space: nowrap; }
+.list-hero .btn { position: absolute; left: 0; right: 0; margin-inline: auto; width: fit-content; bottom: 16px; white-space: nowrap; }
 .panel.duck { width: min(470px, 44vw); }
 @media (max-width: 700px), (max-aspect-ratio: 4/5) { .panel.duck { width: auto; } }
 
@@ -1066,13 +1092,45 @@ a {
 }
 
 /* ---------- Ask the duck on phones: chip row + pinned "More questions" ---------- */
-.duck-chips-bar { display: flex; align-items: flex-start; gap: 6px; margin: 0 -16px 10px; padding: 0 16px; }
-.duck-chips-bar .duck-chips { flex: 1; min-width: 0; margin: 0; padding: 0; }
-.duck-chips-bar .duck-chips.row { margin: 0; padding: 0; }
-.duck-chips-bar > .chip.more { flex: none; white-space: nowrap; }
-.duck-chips-bar.open { flex-direction: column; align-items: stretch; }
-.duck-chips-bar.open > .chip.more { align-self: flex-start; }
-.duck-chips.grid { flex-wrap: wrap; max-height: 30vh; max-height: 30dvh; overflow-y: auto; overscroll-behavior: contain; }
+/* Collapsed: 3 chips + "More questions"; expanded: a plain left-aligned list of all 6. */
+.duck-chips-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
+.duck-chips-bar .duck-chips { margin: 0; }
+.duck-chips-bar.phone { flex-wrap: nowrap; margin: 0 -16px 10px; padding: 0 16px; }
+.duck-chips-bar.phone .duck-chips { flex: 1; min-width: 0; margin: 0; padding: 0; }
+.duck-more {
+  flex: none;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 4px 6px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.duck-list-wrap { margin-bottom: 8px; }
+.duck-list { list-style: none; margin: 0 0 2px; padding: 0; border-top: 1px solid var(--line); }
+.duck-list li { border-bottom: 1px solid var(--line); }
+.duck-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 2px;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.duck-list button:hover:not(:disabled) { color: var(--accent); }
+.duck-list button:disabled { opacity: 0.4; cursor: default; }
+.duck-list .arrow { color: var(--accent); font-weight: 700; }
 
 /* ---------- AC-5: 44×44 minimum hit area on touch / phones ----------
    Every interactive control gets at least a 44×44 box (getBoundingClientRect, so it is also the
@@ -1167,7 +1225,7 @@ a {
   }
 
   .sheet-handle { width: 120px; height: 44px; }
-  .sheet-handle span { margin-top: 10px; }
+  .sheet-handle span { margin-top: 7px; }
   .panel-skip { min-height: 44px; min-width: 44px; padding: 0 14px; margin-top: 0; }
   .intro-toggle { min-height: 44px; }
   .hover-label button { min-height: 44px; min-width: 44px; }
@@ -1185,10 +1243,47 @@ a {
   .cold-list { margin-top: 4px; }
 
   .chip,
-  .duck-chips.row .chip { min-height: 44px; }
+  .duck-chips.row .chip,
+  .duck-list button { min-height: 44px; }
+  .duck-more { min-height: 44px; min-width: 44px; }
   .duck-form input { min-height: 44px; box-sizing: border-box; }
 }
 
 /* Phone duck sheet, folded intro: "What's this?" on the title row (right of the title, left of ×). */
 .intro-toggle.head { position: absolute; top: 44px; right: 56px; margin: 0; z-index: 2; background: var(--panel); }
 .panel.duck.folded h2 { margin-bottom: 22px; }
+
+/* ---------- Scroll chevron: its own 24px row under the text ---------- */
+.panel-scroll.chev { padding-bottom: 24px; }
+.panel-scroll.chev::after { bottom: 24px; }
+.panel-scroll.chev .scroll-more { bottom: 1px; }
+@media (max-width: 700px), (max-aspect-ratio: 4/5), (pointer: coarse) {
+  /* 44px hit area: the top 24px is the chevron row, the rest reaches into the empty gap above
+     the Back/Next bar (its 8px margin + 12px padding), never over text. */
+  .panel-scroll.chev .scroll-more { bottom: -20px; }
+  .panel-scroll.chev .scroll-more::before { top: 1px; }
+  .panel-scroll.chev .scroll-more span { margin-bottom: 20px; }
+}
+
+/* Plain page on phones (no WebGL excluded): sticky way into the 3D room. */
+.enter-sticky {
+  position: sticky;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex;
+  width: fit-content;
+  margin: 24px auto 0;
+  min-height: 48px;
+  padding: 10px 22px;
+  font-size: 16px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  z-index: 5;
+}
+
+/* 2D: name/role/links first, a shorter hero, projects sooner. */
+@media (max-width: 700px) {
+  .list { padding-top: 24px; }
+  .list-hero { aspect-ratio: 2 / 1; }
+}
+/* Duck presets already asked: still tappable, visually spent. */
+.duck-chips .chip.asked,
+.duck-list button.asked { opacity: 0.55; }

@@ -3,6 +3,7 @@ import { audio } from './audio'
 import { content } from './content'
 import { getUI, setUI, useUI } from './store'
 import { gsap, prefersReducedMotion, useGSAP } from './gsap'
+import { useMedia } from './useMedia'
 
 /** Enter: unlocks audio (it is a user gesture), reveals the room, then the cold open. */
 export function enter() {
@@ -22,6 +23,8 @@ export function Loader() {
   const progress = useUI((s) => s.progress)
   const entered = useUI((s) => s.entered)
   const ready = stage === 'ready'
+  // Touch: no keyboard hint, no window-chrome dots.
+  const touch = useMedia('(hover: none), (pointer: coarse)')
   const p = stage === 'download' ? progress * 0.85 : stage === 'compile' ? 0.93 : 1
   const lines = content.loader.lines
   const shown = lines.filter((l) => l.at <= p)
@@ -43,11 +46,13 @@ export function Loader() {
     <div ref={root} className={`loader${entered ? ' done' : ''}${ready ? ' ready' : ''}`} aria-live="polite" aria-busy={!ready}>
       <div className="loader-card">
         <p className="loader-title">
-          <span className="loader-dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
+          {!touch && (
+            <span className="loader-dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+          )}
           {content.loader.title}
         </p>
         <p className="loader-name">
@@ -75,10 +80,11 @@ export function Loader() {
         </div>
         <div className="loader-actions">
           <button ref={enterRef} type="button" className="btn primary" disabled={!ready} onClick={enter}>
-            {content.site.enter} <kbd>⏎</kbd>
+            {content.site.enter}
+            {!touch && <kbd>⏎</kbd>}
           </button>
         </div>
-        <p className="loader-hint">{ready ? content.site.enterHint : content.site.loading + '…'}</p>
+        <p className="loader-hint">{ready ? (touch ? content.site.enterHintTouch : content.site.enterHint) : content.site.loading + '…'}</p>
       </div>
     </div>
   )

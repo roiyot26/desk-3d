@@ -3,11 +3,11 @@
   "site": {
     "name": "Roi Yotvat",
     "role": "AI-driven full-stack developer, building 3D for the web",
-    "coldOpen": "Roi Yotvat, AI-driven full-stack developer, building 3D for the web. Drag to look around.",
+    "coldOpen": "Roi Yotvat, AI-driven full-stack developer, building 3D for the web.",
     "title": "Roi Yotvat · AI-driven full-stack developer, building 3D for the web",
     "description": "Roi Yotvat is an AI-driven full-stack developer, building 3D for the web. He builds web products end to end with React, Next, Node and TypeScript, ships with Claude Code and agentic workflows, and is bringing 3D into client websites. Walk through the room, or read the plain version.",
-    "hintDesktop": "Scroll to step closer · click a glowing number",
-    "hintTouch": "Tap a glowing dot to open it",
+    "hintDesktop": "Drag to look around 360° · scroll to zoom · click a glowing number",
+    "hintTouch": "Drag to look around 360° · pinch to zoom · tap a glowing dot",
     "loading": "Setting up the room",
     "compiling": "Warming up the lights",
     "listLink": "Plain HTML version",
@@ -16,7 +16,8 @@
     "resume": "Just the résumé →",
     "enter": "Enter",
     "enterHint": "Turns on sound · press Enter",
-    "phoneNote": "On a phone, the plain version loads first. The room works too, it just runs warmer."
+    "enterHintTouch": "Turns on sound",
+    "phoneNote": "This is the plain version. The 3D room runs on phones too: tap Enter the 3D room."
   },
   "tour": {
     "start": "Start the tour",
@@ -53,7 +54,10 @@
     "ai": "AI is part of how I work, not a side topic. I ship with Claude Code and agentic workflows every day, and my most recent build is a hybrid-search RAG assistant served over MCP.",
     "next": "Next I'm bringing 3D into client websites. This room is where I practise.",
     "nextShort": "Next I'm bringing 3D into client websites.",
-    "practice": "The 3D room is where I practise."
+    "practice": "The 3D room is where I practise.",
+    "short": "I build web products end to end, and AI is part of how I ship.",
+    "intro": "I build web products end to end, and next I'm bringing 3D into client websites.",
+    "stackLine": "React · Next · Node · TypeScript · MongoDB · AWS · WordPress/PHP"
   },
   "projects": [
     {
@@ -335,27 +339,15 @@
     "lines": [
       {
         "at": 0.0,
-        "text": "reading content.json"
-      },
-      {
-        "at": 0.05,
         "text": "unpacking the room",
         "live": true
       },
       {
-        "at": 0.3,
-        "text": "plugging in the monitor"
-      },
-      {
-        "at": 0.5,
-        "text": "shelving the books"
-      },
-      {
-        "at": 0.7,
+        "at": 0.55,
         "text": "watering the plants"
       },
       {
-        "at": 0.85,
+        "at": 0.75,
         "text": "convincing the rain to fall",
         "live": true
       },
@@ -899,7 +891,16 @@
       }
     ],
     "whatsThis": "What's this?",
-    "hideIntro": "Hide intro"
+    "hideIntro": "Hide intro",
+    "chips": [
+      "best-ai",
+      "claude",
+      "3d",
+      "stack",
+      "lights",
+      "why-duck"
+    ],
+    "visible": 3
   },
   "labels": {
     "action-lights": "Light switch",

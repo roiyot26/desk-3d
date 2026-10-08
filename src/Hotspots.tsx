@@ -8,7 +8,9 @@ import { activate } from './nav'
 import { getUI, setUI, useUI } from './store'
 import { markerTargetFor, type Target } from './targets'
 import { hudRect } from './Hud'
+import { cueDebug } from './duck/DuckRig'
 import { SHEET_QUERY, useMedia } from './useMedia'
+import { sharpenTextTexture, snapToPixel } from './sharp'
 
 /** Numbered tour markers, big invisible hit boxes for small objects, and the hover label. */
 export function Hotspots() {
@@ -195,7 +197,7 @@ function Marker({ t, n, id, label, screens }: { t: Target; n: number; id: string
           <ringGeometry args={[0.035, 0.045, 40]} />
         </mesh>
       </Billboard>
-      <Html center zIndexRange={[30, 10]} wrapperClass="marker-wrap">
+      <Html center zIndexRange={[30, 10]} wrapperClass="marker-wrap" calculatePosition={snapToPixel}>
         <button
           ref={btn}
           type="button"
@@ -228,7 +230,7 @@ function HoverLabel() {
   if (!t || open) return null
   if (t.def.marker && !touch) return null // the marker shows its own label
   return (
-    <Html position={[t.anchor.x, t.anchor.y + (t.def.marker ? 0.09 : 0), t.anchor.z]} center zIndexRange={[35, 30]}>
+    <Html position={[t.anchor.x, t.anchor.y + (t.def.marker ? 0.09 : 0), t.anchor.z]} center zIndexRange={[35, 30]} calculatePosition={snapToPixel}>
       <div key={t.key} className={`hover-label${touch ? ' touch' : ''}`} role="status">
         <span>{labelFor(t.id)}</span>
         {touch && (
@@ -248,6 +250,7 @@ function HoverLabel() {
  * (ScreenSlot_Laptop and ScreenSlot_Frame3DRender keep their baked images.)
  */
 function ScreenSlot({ targets }: { targets: Map<string, Target> }) {
+  const gl = useThree((s) => s.gl)
   const open = useUI((s) => s.open)
   const project = useUI((s) => s.slotProject)
   const slots = useMemo(() => {
@@ -266,14 +269,17 @@ function ScreenSlot({ targets }: { targets: Map<string, Target> }) {
   }, [targets])
   const tex = useMemo(() => {
     if (!slots.length) return null
+    // Drawn at 2× (2048×1152) and sampled without mipmaps (+ max anisotropy): crisp text on the
+    // monitor instead of a blurred mip level.
     const c = document.createElement('canvas')
-    c.width = 1024
-    c.height = 576
+    c.width = 2048
+    c.height = 1152
     const t = new THREE.CanvasTexture(c)
     t.colorSpace = THREE.SRGBColorSpace
     t.flipY = false // glTF UV convention
+    sharpenTextTexture(t, gl)
     return t
-  }, [slots])
+  }, [slots, gl])
   const original = useMemo(() => slots.map((m) => ({ m, map: m.map, emissiveMap: m.emissiveMap, emissive: m.emissive.clone() })), [slots])
   useEffect(() => {
     if (!tex) return
@@ -289,8 +295,9 @@ function ScreenSlot({ targets }: { targets: Map<string, Target> }) {
     const p = content.projects.find((x) => x.slug === (open?.id === 'stop-1' ? open.project ?? project : project)) ?? content.projects[0]
     const c = tex.image as HTMLCanvasElement
     const g = c.getContext('2d')!
+    g.setTransform(2, 0, 0, 2, 0, 0) // layout below is in 1024×576 units
     g.fillStyle = '#0c0f16'
-    g.fillRect(0, 0, c.width, c.height)
+    g.fillRect(0, 0, 1024, 576)
     g.fillStyle = '#f0b273'
     g.font = '600 64px system-ui, sans-serif'
     g.fillText(p.name, 64, 200)
@@ -375,6 +382,19 @@ function DebugHooks() {
         return { pos: r(camera.position), target: c ? r(c.target) : null, controlsEnabled: c?.enabled ?? null, fov: +(camera as THREE.PerspectiveCamera).fov.toFixed(2) }
       },
       open: (id: string) => activate(id),
+      /** Free roam: face a compass heading (0 = N = -Z window wall, 90 = E = +X door wall, 180 = S, 270 = W) and pitch. */
+      look: (yawDeg: number, pitchDeg = 0) => {
+        const c = controls as unknown as { enableDamping: boolean; setAzimuthalAngle: (a: number) => void; setPolarAngle: (a: number) => void; update: () => void } | null
+        if (!c) return
+        window.dispatchEvent(new Event('desk3d:look'))
+        // Snap (no damping tail), so slow headless frames can't leave it half-way when the drift starts.
+        const damping = c.enableDamping
+        c.enableDamping = false
+        c.setAzimuthalAngle(-THREE.MathUtils.degToRad(yawDeg))
+        c.setPolarAngle(THREE.MathUtils.degToRad(90 + pitchDeg))
+        c.update()
+        c.enableDamping = damping
+      },
       /** Same path as a real click on a hit target (e.g. 'switch' = CLICK_Switch_Lights). */
       tap: (key: string) => tapKey(key, false),
       ui: () => {
@@ -400,6 +420,20 @@ function DebugHooks() {
           })
         return { source: d.source, quack, eyes, beamOrigin }
       },
+      /** Duck pointer cues (beam tube + ring): live visibility/opacity, peak seen, screen path. */
+      beams: () =>
+        [...cueDebug].map((c) => ({
+          kind: c.kind,
+          mounted: c.mounted,
+          visible: c.visible(),
+          opacity: +c.opacity().toFixed(3),
+          maxOpacity: +c.maxOpacity.toFixed(3),
+          shownFrames: c.shownFrames,
+          path: c.points.map((p) => {
+            const v = p.clone().project(camera)
+            return [Math.round(((v.x + 1) / 2) * size.width), Math.round(((1 - v.y) / 2) * size.height), +v.z.toFixed(3)]
+          }),
+        })),
       screenOf: (key: string) => {
         const t = targets.get(key)
         if (!t) return null

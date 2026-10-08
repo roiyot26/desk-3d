@@ -27,7 +27,7 @@ export type UIState = {
   visited: string[]
   bonusFound: string[]
   finale: 'hidden' | 'open' | 'dismissed'
-  /** Auto-quality step: 0 full, 1 post off, 2 rain particles off, 3 DPR 1. */
+  /** Auto-quality step: 0 full, 1 post off, 2 rain particles off (DPR is never stepped down). */
   degrade: number
   /** Project the monitor's ScreenSlot shows (follows the projects carousel). */
   slotProject: string

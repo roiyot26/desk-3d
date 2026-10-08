@@ -22,11 +22,22 @@ class Boundary extends Component<{ onError: Fatal; children: ReactNode }, { fail
   }
 }
 
-/** Phones get the plain page first (with an "Enter the room" button); ?view=room forces 3D. */
+/** Phone-sized device (UA or a narrow screen). */
 export function isPhone() {
   const ua = navigator.userAgent || ''
   if (/Android.+Mobile|iPhone|iPod|Windows Phone|Mobi/i.test(ua)) return true
   return Math.min(window.innerWidth, window.screen?.width || window.innerWidth) < 600
+}
+
+/**
+ * Phones with WebGL open the room too (low tier, phone framing, bottom sheets); the plain page is
+ * one tap away ("Just the résumé →"). The 2D page is the default only without WebGL, or when the
+ * phone asks to save data / has very little memory, and then it carries a sticky
+ * "Enter the 3D room →" bar. ?view=list / ?view=room force either.
+ */
+export function lightweightPhone() {
+  const n = navigator as Navigator & { connection?: { saveData?: boolean }; deviceMemory?: number }
+  return isPhone() && (!!n.connection?.saveData || (n.deviceMemory !== undefined && n.deviceMemory < 2))
 }
 
 function initialView(probeOk: boolean): 'list' | '3d' {
@@ -34,7 +45,7 @@ function initialView(probeOk: boolean): 'list' | '3d' {
   if (v === 'list') return 'list'
   if (!probeOk) return 'list'
   if (v === 'room' || v === '3d') return '3d'
-  return isPhone() ? 'list' : '3d'
+  return lightweightPhone() ? 'list' : '3d'
 }
 
 export default function App() {

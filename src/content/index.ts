@@ -43,7 +43,7 @@ export const content = raw as unknown as {
     linkedin: Link & { handle: string }
     email: { enabled: boolean; label: string; address: string }
   }
-  about: { lead: string; ai: string; next: string; nextShort: string; practice: string }
+  about: { lead: string; ai: string; next: string; nextShort: string; practice: string; short: string; intro: string; stackLine: string }
   projects: Project[]
   skills: { intro: string; featured: Skill; items: Skill[]; joke: string }
   career: { items: string[]; teaching: string }
@@ -70,6 +70,10 @@ export const content = raw as unknown as {
     whatsThis: string
     hideIntro: string
     fallback: { reply: string; steps: string[] }
+    /** The 6 preset questions offered as chips, in order (intent ids). Other intents stay free-text only. */
+    chips: string[]
+    /** How many chips show before "More questions". */
+    visible: number
     intents: DuckIntent[]
   }
 }

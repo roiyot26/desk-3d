@@ -37,14 +37,29 @@ export function homeView(info: RoomInfo, portrait: boolean): Pose {
   const floor = r.min.y
   if (portrait) {
     const win = info.glass?.center ?? info.focus
-    const position = new THREE.Vector3(THREE.MathUtils.lerp(r.min.x, r.max.x, 0.6), floor + EYE_HEIGHT, r.max.z - 0.45)
+    const position = new THREE.Vector3(THREE.MathUtils.lerp(r.min.x, r.max.x, 0.6), floor + EYE_HEIGHT, r.max.z - 0.7)
     const target = new THREE.Vector3((info.focus.x + win.x) / 2, floor + 1.1, info.focus.z - 0.4)
     return { position, target }
   }
-  const position = new THREE.Vector3(r.max.x - 0.6, floor + EYE_HEIGHT, r.max.z - 0.55)
+  const position = new THREE.Vector3(r.max.x - 0.7, floor + EYE_HEIGHT, r.max.z - 0.65)
   const target = new THREE.Vector3(info.focus.x - 0.15, floor + 1.08, info.focus.z - 0.35)
   return { position, target }
 }
+
+/**
+ * Free roam = 360° look-around from where you stand (first-person feel): OrbitControls pivots on a
+ * point LOOK_EPS in front of the eye, so dragging turns your head instead of circling the desk.
+ * The eye never moves, so it can never leave the room or clip a wall. Zoom = field of view
+ * (wheel / pinch), eased and clamped.
+ */
+const LOOK_EPS = 0.06
+const PITCH_DOWN = THREE.MathUtils.degToRad(58) // max look down below the horizon
+const PITCH_UP = THREE.MathUtils.degToRad(50) // max look up
+export const ZOOM_MIN = 0.55 // fov × 0.55 = zoomed in
+export const ZOOM_MAX = 1.15 // fov × 1.15 = a bit wider than the lens
+/** Drag sweep: a full-width drag turns ~180° on desktop, ~130° on a phone (then keep going). */
+const SWEEP_LANDSCAPE = Math.PI
+const SWEEP_PORTRAIT = THREE.MathUtils.degToRad(130)
 
 const IDLE_AFTER = 3.5 // seconds without input before the drift starts
 const DRIFT_AZ = THREE.MathUtils.degToRad(6)
@@ -55,7 +70,7 @@ const FLY_EASE = 'power3.inOut' // same curve as the old hand-rolled cubic easeI
 
 /**
  * Camera ownership (one system at a time):
- *   - free roam: OrbitControls (+ the idle drift and the stay-inside-the-room clamp below)
+ *   - free roam: OrbitControls as a 360° look-around (+ the idle drift and the FOV zoom below)
  *   - flies (tour stops, marker clicks, duck answers, closing a panel): ONE GSAP tween.
  * Tour and duck both go through `ui.open`, so this rig is the only thing that moves the camera.
  * OrbitControls is disabled for the whole fly and while a panel holds the framed view, then
@@ -68,20 +83,16 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
   const portrait = size.width / size.height < 0.85
   const home = useMemo(() => homeView(info, portrait), [info, portrait])
 
-  // Orbit limits relative to the home view (a little more vertical range than before).
-  const limits = useMemo(() => {
-    const off = home.position.clone().sub(home.target)
-    const s = new THREE.Spherical().setFromVector3(off)
-    return {
-      dist: s.radius,
-      minAz: s.theta - THREE.MathUtils.degToRad(portrait ? 30 : 42),
-      maxAz: s.theta + THREE.MathUtils.degToRad(portrait ? 22 : 40), // enough to see the right wall (cork board, switch)
-      minPolar: s.phi - THREE.MathUtils.degToRad(20),
-      maxPolar: Math.min(s.phi + THREE.MathUtils.degToRad(12), THREE.MathUtils.degToRad(98)),
-    }
-  }, [home, portrait])
+  // Look-around: pivot just in front of the eye; azimuth free (360°), pitch clamped.
+  const look = useMemo(() => {
+    const dir = home.target.clone().sub(home.position).normalize()
+    return { pivot: home.position.clone().addScaledVector(dir, LOOK_EPS) }
+  }, [home])
+  // OrbitControls' angle per pixel is 2π·speed/height. Negative = "grab the world" (the room
+  // follows the finger / cursor, like Street View).
+  const rotateSpeed = -(portrait ? SWEEP_PORTRAIT : SWEEP_LANDSCAPE) / (2 * Math.PI * (size.width / size.height))
 
-  // Safe camera volume: inside the walls, above the furniture line, below the ceiling.
+  // Safe volume for framed object views (poseFor): inside the walls, below the ceiling.
   const safe = useMemo(() => {
     const b = info.room.clone()
     b.min.x += 0.4
@@ -99,9 +110,9 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     cam.near = 0.03
     cam.far = 400
     cam.lookAt(home.target)
-    controls.current?.target.copy(home.target)
+    controls.current?.target.copy(look.pivot)
     controls.current?.update()
-  }, [camera, home])
+  }, [camera, home, look])
 
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera
@@ -110,8 +121,8 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
   }, [camera, size])
 
   const state = useRef({
-    desired: 0,
-    lastSet: 0,
+    /** FOV zoom factor (wheel / pinch), eased toward each frame in free roam. */
+    zoom: 1,
     interacting: false,
     lastInput: -100,
     driftStart: -1,
@@ -140,13 +151,66 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
       st.interacting = false
       st.lastInput = performance.now() / 1000
     }
+    // ?debug look(): a programmatic re-aim restarts the idle drift around the new heading.
+    const reaim = () => {
+      st.driftStart = -1
+      st.lastInput = performance.now() / 1000
+    }
     c.addEventListener('start', start)
     c.addEventListener('end', end)
+    window.addEventListener('desk3d:look', reaim)
     return () => {
       c.removeEventListener('start', start)
       c.removeEventListener('end', end)
+      window.removeEventListener('desk3d:look', reaim)
     }
   }, [])
+
+  // --- FOV zoom: mouse wheel and two-finger pinch (OrbitControls' own dolly is off: the eye
+  // stays put). Only in free roam; panels hold their framed view.
+  const gl = useThree((s) => s.gl)
+  useEffect(() => {
+    const el = gl.domElement
+    const st = state.current
+    const clampZ = (z: number) => THREE.MathUtils.clamp(z, ZOOM_MIN, ZOOM_MAX)
+    const free = () => !getUI().open && !st.flying && !st.focused
+    const onWheel = (e: WheelEvent) => {
+      if (!free()) return
+      e.preventDefault()
+      st.zoom = clampZ(st.zoom * Math.exp(e.deltaY * 0.0012))
+      st.lastInput = performance.now() / 1000
+    }
+    let d0 = 0
+    let z0 = 1
+    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        d0 = dist(e.touches)
+        z0 = st.zoom
+      }
+    }
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || !d0 || !free()) return
+      e.preventDefault()
+      st.zoom = clampZ(z0 * (d0 / Math.max(1, dist(e.touches))))
+      st.lastInput = performance.now() / 1000
+    }
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) d0 = 0
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
+    el.addEventListener('touchcancel', onTouchEnd)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [gl])
 
   // --- GSAP camera controller. `contextSafe` keeps tweens created later (from useFrame) inside
   // this component's GSAP context, so they are killed on unmount.
@@ -165,13 +229,24 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         st.flyTo = to
         st.flyRelease = release
         const p0 = from.position.clone()
-        const t0 = from.target.clone()
         const f0 = from.fov ?? cam.fov
+        // Interpolate the view direction as yaw/pitch (no roll, shortest turn) and the look
+        // distance separately: free roam looks at a point 6 cm ahead, stops at objects metres away.
+        const v0 = from.target.clone().sub(p0)
+        const v1 = to.target.clone().sub(to.position)
+        const s0 = new THREE.Spherical().setFromVector3(v0)
+        const s1 = new THREE.Spherical().setFromVector3(v1)
+        let dTheta = s1.theta - s0.theta
+        dTheta = Math.atan2(Math.sin(dTheta), Math.cos(dTheta))
+        const sph = new THREE.Spherical()
+        const dir = new THREE.Vector3()
         const proxy = { k: 0 }
         const apply = () => {
           const e = proxy.k
           cam.position.lerpVectors(p0, to.position, e)
-          c.target.lerpVectors(t0, to.target, e)
+          sph.set(THREE.MathUtils.lerp(s0.radius, s1.radius, e), THREE.MathUtils.lerp(s0.phi, s1.phi, e), s0.theta + dTheta * e)
+          dir.setFromSpherical(sph)
+          c.target.copy(cam.position).add(dir)
           if (to.fov !== undefined) {
             cam.fov = THREE.MathUtils.lerp(f0, to.fov, e)
             cam.updateProjectionMatrix()
@@ -184,8 +259,6 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
           st.flyTo = null
           if (release) {
             st.focused = false
-            st.desired = 0
-            st.lastSet = 0
             st.driftStart = -1
             st.lastInput = performance.now() / 1000
             c.update() // re-sync OrbitControls' spherical state to the pose GSAP left behind
@@ -201,7 +274,6 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     [camera, contextSafe],
   )
 
-  const tmp = useMemo(() => new THREE.Vector3(), [])
   useFrame(() => {
     const c = controls.current
     if (!c) return
@@ -219,7 +291,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
       const current: Pose = { position: cam.position.clone(), target: c.target.clone(), fov: cam.fov }
       const dur = quality.reducedMotion ? 0 : EASE_TIME
       if (t || stopCam) {
-        if (!st.saved) st.saved = st.flying && st.flyRelease && st.flyTo ? st.flyTo : { ...current, fov: fovFor(size.width / size.height) }
+        if (!st.saved) st.saved = st.flying && st.flyRelease && st.flyTo ? st.flyTo : current
         // Blender's STOP_*_Cam framing wins (node.quaternion·Rx(-90°) / target_gltf_yup, see
         // targets.ts); otherwise frame the clicked object.
         const base = fovFor(size.width / size.height)
@@ -250,29 +322,18 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
       const t = now - st.driftStart
       const ease = THREE.MathUtils.smoothstep(t, 0, 6)
       const w = (2 * Math.PI) / DRIFT_PERIOD
-      const az = THREE.MathUtils.clamp(st.driftAz + ease * DRIFT_AZ * Math.sin(w * t), limits.minAz, limits.maxAz)
-      const po = THREE.MathUtils.clamp(st.driftPolar + ease * DRIFT_POLAR * Math.sin(w * 1.7 * t), limits.minPolar, limits.maxPolar)
+      const az = st.driftAz + ease * DRIFT_AZ * Math.sin(w * t)
+      const po = THREE.MathUtils.clamp(st.driftPolar + ease * DRIFT_POLAR * Math.sin(w * 1.7 * t), c.minPolarAngle, c.maxPolarAngle)
       c.setAzimuthalAngle(az)
       c.setPolarAngle(po)
     }
 
-    // Keep the camera inside the room. Track the distance the viewer asked for (zoom), then
-    // pull the camera toward the target along the view ray whenever that would leave the room.
-    const target = c.target
-    const dist = camera.position.distanceTo(target)
-    if (st.desired === 0) st.desired = dist
-    else if (st.lastSet > 0) st.desired *= dist / st.lastSet
-    st.desired = THREE.MathUtils.clamp(st.desired, c.minDistance, c.maxDistance)
-    tmp.subVectors(camera.position, target).normalize()
-    let s = st.desired
-    for (const a of ['x', 'y', 'z'] as const) {
-      const d = tmp[a]
-      if (d > 1e-5) s = Math.min(s, (safe.max[a] - target[a]) / d)
-      else if (d < -1e-5) s = Math.min(s, (safe.min[a] - target[a]) / d)
+    // Eased FOV zoom toward base lens × zoom factor.
+    const want = fovFor(size.width / size.height) * st.zoom
+    if (Math.abs(cam.fov - want) > 0.01) {
+      cam.fov = THREE.MathUtils.lerp(cam.fov, want, 0.18)
+      cam.updateProjectionMatrix()
     }
-    s = Math.max(s, 0.4)
-    camera.position.copy(target).addScaledVector(tmp, s)
-    st.lastSet = s
   })
 
   return (
@@ -280,20 +341,18 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
       ref={controls}
       makeDefault
       // `enabled` is driven imperatively by the GSAP fly controller (off during flies + panels).
-      target={home.target}
+      target={look.pivot}
       enablePan={false}
+      enableZoom={false}
       enableDamping
-      dampingFactor={0.12}
-      // Negative speed: the room follows the cursor ("grab the world"), which is what a
-      // first-person interior look feels like. Positive made the window slide against the drag.
-      rotateSpeed={-0.55}
-      zoomSpeed={0.6}
-      minDistance={1.1}
-      maxDistance={limits.dist + 0.2}
-      minAzimuthAngle={limits.minAz}
-      maxAzimuthAngle={limits.maxAz}
-      minPolarAngle={limits.minPolar}
-      maxPolarAngle={limits.maxPolar}
+      dampingFactor={0.1}
+      rotateSpeed={rotateSpeed}
+      minDistance={LOOK_EPS}
+      maxDistance={LOOK_EPS}
+      // Polar angle of the eye around the pivot: 90° = level; the eye sits behind the pivot, so
+      // a smaller angle = looking down.
+      minPolarAngle={Math.PI / 2 - PITCH_DOWN}
+      maxPolarAngle={Math.PI / 2 + PITCH_UP}
     />
   )
 }

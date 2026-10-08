@@ -65,7 +65,8 @@ export function qualityFor(tier: Tier): Quality {
     shadows: tier !== 'low',
     post: tier === 'high' ? 'full' : tier === 'medium' ? 'light' : 'none',
     simpleMaterials: tier === 'low',
-    dprMax: tier === 'high' ? 2 : 1.5,
+    // Crisp text: render at the device pixel ratio (capped at 2) on every tier.
+    dprMax: 2,
     forced: forcedTier() !== null,
   }
 }

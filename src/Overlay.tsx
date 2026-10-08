@@ -151,7 +151,11 @@ function Panel() {
   // Phones, once the duck has answered: the two intro paragraphs fold behind "What's this?" so
   // the answer and the "Scripted for now" line both fit in the (65%) sheet.
   const foldIntro = isDuck && phone && answered
-  const jokeText = stop ? text(stop.joke) : note!.joke
+  // Phones, stop 1: title, one line, the project card. The panel joke stays on desktop / 2D.
+  const jokeText = stop ? (phone && stop.kind === 'projects' ? '' : text(stop.joke)) : note!.joke
+  // The scroll chevron gets its own 24px row under the text (never over it). Hidden next to the
+  // carousel dots and on the duck (its dock sits right below; the fade still says "more").
+  const chev = more && !isDuck && !nearCarousel(body.current)
   return (
     <>
       <div className="backdrop" onClick={closePanel} aria-hidden="true" />
@@ -176,7 +180,7 @@ function Panel() {
             {introOpen ? content.duck.hideIntro : content.duck.whatsThis} <span aria-hidden="true">{introOpen ? '▴' : '▾'}</span>
           </button>
         )}
-        <div className={`panel-scroll${more ? ' more' : ''}${scrolled ? ' scrolled' : ''}`}>
+        <div className={`panel-scroll${more ? ' more' : ''}${chev ? ' chev' : ''}${scrolled ? ' scrolled' : ''}`}>
           <div className="panel-body" ref={body}>
             {(!foldIntro || introOpen) && (
               <div id="duck-intro" className="panel-intro">
@@ -186,7 +190,7 @@ function Panel() {
             {jokeText && !foldIntro && <p className="joke">{jokeText}</p>}
             {isDuck && <DuckLog tail={foldIntro && jokeText ? <p className="joke duck-scripted">{jokeText}</p> : undefined} />}
           </div>
-          {more && !nearCarousel(body.current) && (
+          {chev && (
             <button
               type="button"
               className="scroll-more"
@@ -313,12 +317,13 @@ function Links({ links }: { links: { label: string; url: string }[] }) {
 }
 
 function StopBody({ stop, skill, project }: { stop: Stop; skill?: string; project?: string }) {
+  const phone = useMedia(SHEET_QUERY)
   const body = stop.body.map((p, k) => <p key={k}>{text(p)}</p>)
   switch (stop.kind) {
     case 'projects':
       return (
         <>
-          {body}
+          {phone ? <p>{content.about.short}</p> : body}
           <Projects initial={project} />
         </>
       )
@@ -476,16 +481,35 @@ function Finale() {
   )
 }
 
+const LOOKED_KEY = 'desk3d-looked-360'
+function seenLookHint() {
+  try {
+    return localStorage.getItem(LOOKED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 function Hint() {
   const ready = useUI((s) => s.stage === 'ready' && s.entered)
   const open = useUI((s) => s.open)
-  // The caption is a first-impression line: it fades out after the first drag.
+  // The caption is a first-impression line: it fades out after the first drag. The 360° drag
+  // hint is first-visit only: once someone has dragged, it is remembered (localStorage).
   const dragged = useUI((s) => s.dragged)
+  const [seen] = useState(seenLookHint)
+  useEffect(() => {
+    if (!dragged) return
+    try {
+      localStorage.setItem(LOOKED_KEY, '1')
+    } catch {
+      /* private mode: fine */
+    }
+  }, [dragged])
   if (!ready) return null
   return (
     <div className={`hint${open ? ' hidden-mobile with-panel' : ''}${dragged ? ' gone' : ''}`} aria-hidden={dragged || undefined}>
       <p className="hint-line">{content.site.coldOpen}</p>
-      <p className="hint-sub">{isTouch() ? content.site.hintTouch : content.site.hintDesktop}</p>
+      {!seen && <p className="hint-sub">{isTouch() ? content.site.hintTouch : content.site.hintDesktop}</p>}
     </div>
   )
 }

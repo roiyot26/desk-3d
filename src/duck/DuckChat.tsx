@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { SHEET_QUERY, useMedia } from '../useMedia'
 import { content } from '../content'
-import { useUI } from '../store'
+import { getUI, setUI, useUI } from '../store'
 import { askDuck } from './run'
 
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -23,16 +23,13 @@ function Typed({ text }: { text: string }) {
   )
 }
 
-/** Chips shown before "More questions" (desktop) and in the single scrolling row (phones). */
-const DESKTOP_CHIPS = 5
-const PHONE_CHIPS = 3
-
 /**
  * The duck's chat, in two parts so the input never scrolls away:
  *  - DuckLog sits in the panel's scrolling body (phones: only the latest answer).
- *  - DuckDock is pinned above the panel's Back/Next footer: preset chips + the free-text box
- *    (fuzzy-matched to a preset). Desktop: 5 chips + "More questions". Phones: one row of 3 +
- *    "More questions", which opens every preset as a short scrolling chip grid (closes after a pick).
+ *  - DuckDock is pinned above the panel's Back/Next footer: 6 preset questions (content.duck.chips)
+ *    + the free-text box (fuzzy-matched over every intent, chip or not). 3 show as chips; "More
+ *    questions" swaps them for a plain list of all 6 (phones also snap the sheet to full height so
+ *    the last answer stays visible above the list).
  */
 export function DuckLog({ tail }: { tail?: ReactNode }) {
   const all = useUI((s) => s.duckLog)
@@ -78,45 +75,65 @@ export function DuckDock() {
   const thinking = useUI((s) => s.duckThinking)
   const phone = useMedia(SHEET_QUERY)
   const [q, setQ] = useState('')
-  const [more, setMore] = useState(false)
+  const [more, setMoreState] = useState(false)
+  const setMore = (v: boolean) => {
+    setMoreState(v)
+    if (phone) setUI({ sheetFull: v })
+  }
+  // Leaving the duck (fly to an answer, close) folds the list and the full-height sheet back.
+  useEffect(
+    () => () => {
+      if (getUI().sheetFull) setUI({ sheetFull: false })
+    },
+    [],
+  )
   const ask = (text: string) => {
     if (thinking) return
     void askDuck(text)
     setQ('')
-    if (phone) setMore(false)
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
     ask(q)
   }
-  const all = content.duck.intents.filter((i) => i.chip)
-  const first = phone ? PHONE_CHIPS : DESKTOP_CHIPS
-  const chips = more ? all : all.slice(0, first)
-  const chipButtons = chips.map((c) => (
-    <button key={c.id} type="button" role="listitem" className="chip" disabled={thinking} onClick={() => ask(c.chip)}>
-      {c.chip}
+  // The question just answered drops out of the presets; ones asked earlier stay, dimmed.
+  const log = useUI((s) => s.duckLog)
+  const norm = (t: string) => t.trim().toLowerCase()
+  const last = log.length ? norm(log[log.length - 1].question) : ''
+  const asked = new Set(log.map((e) => norm(e.question)))
+  const all = chipIntents().filter((c) => norm(c.chip) !== last)
+  const first = content.duck.visible
+  const dim = (chip: string) => (asked.has(norm(chip)) ? ' asked' : '')
+  const moreToggle = (
+    <button type="button" className="duck-more" aria-expanded={more} onClick={() => setMore(!more)}>
+      {more ? content.duck.less : content.duck.more}
     </button>
-  ))
-  const moreChip =
-    all.length > first ? (
-      <button type="button" className="chip more" aria-expanded={more} onClick={() => setMore(!more)}>
-        {more ? content.duck.less : content.duck.more}
-      </button>
-    ) : null
+  )
   return (
     <div className="duck-dock">
-      {phone ? (
-        // Phones: the chips scroll sideways in one row; "More questions" stays pinned at its end.
-        <div className={`duck-chips-bar${more ? ' open' : ''}`}>
-          <div className={`duck-chips ${more ? 'grid' : 'row'}`} role="list" aria-label="Suggested questions">
-            {chipButtons}
-          </div>
-          {moreChip}
+      {more ? (
+        <div className="duck-list-wrap">
+          <ul className="duck-list" aria-label="Suggested questions">
+            {all.map((c) => (
+              <li key={c.id}>
+                <button type="button" className={dim(c.chip).trim() || undefined} disabled={thinking} onClick={() => ask(c.chip)}>
+                  <span className="arrow" aria-hidden="true">›</span> {c.chip}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {moreToggle}
         </div>
       ) : (
-        <div className="duck-chips" role="list" aria-label="Suggested questions">
-          {chipButtons}
-          {moreChip}
+        <div className={`duck-chips-bar${phone ? ' phone' : ''}`}>
+          <div className={`duck-chips${phone ? ' row' : ''}`} role="list" aria-label="Suggested questions">
+            {all.slice(0, first).map((c) => (
+              <button key={c.id} type="button" role="listitem" className={`chip${dim(c.chip)}`} disabled={thinking} onClick={() => ask(c.chip)}>
+                {c.chip}
+              </button>
+            ))}
+          </div>
+          {all.length > first && moreToggle}
         </div>
       )}
       <form className="duck-form" onSubmit={submit}>
@@ -134,4 +151,11 @@ export function DuckDock() {
       </form>
     </div>
   )
+}
+
+/** The 6 offered presets, in content.duck.chips order (unknown ids are skipped). */
+export function chipIntents() {
+  return content.duck.chips
+    .map((id) => content.duck.intents.find((i) => i.id === id))
+    .filter((i): i is (typeof content.duck.intents)[number] => !!i && !!i.chip)
 }

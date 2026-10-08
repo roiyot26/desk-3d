@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useLoader, useThree } from '@react-three/fiber'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -13,6 +13,7 @@ import { EXTERIOR_LAYER } from './Rain'
 import type { Quality } from './quality'
 import { setUI } from './store'
 import { resolveStopCams, resolveTargets } from './targets'
+import { sharpenSceneText } from './sharp'
 
 /** Live-light room (unbaked). With the bake package present, public/bake/desk.glb is used instead. */
 export const MODEL_URL = LIVE_MODEL_URL
@@ -186,11 +187,13 @@ export function RoomModel({ onInfo, quality, bake }: { onInfo: (info: RoomInfo) 
       if (quality.simpleMaterials && m !== info.glass?.mesh) simplify(m)
       // Baked lighting: the blended lightmap goes on in <BakedLighting> (src/bake), after this.
     })
+    // Crisp in-scene type: spines, cards, plaque, screens, sticky note (src/sharp.ts).
+    sharpenSceneText(scene, gl)
     if (bake) registerBakedEmissives(scene)
     else registerEmissives(scene, info)
     setUI({ targets: resolveTargets(scene), stopCams: resolveStopCams(scene) })
     onInfo(info)
-  }, [scene, info, onInfo, quality, bake])
+  }, [scene, info, onInfo, quality, bake, gl])
 
   return <primitive object={scene} {...sceneHandlers} />
 }
@@ -212,6 +215,53 @@ export function BakedCeiling({ info }: { info: RoomInfo }) {
       <planeGeometry args={c.size} />
       <meshBasicMaterial color="#141114" side={THREE.DoubleSide} />
     </mesh>
+  )
+}
+
+/**
+ * 360° free roam: close every side of the room box that has no wall in the GLB (README_FORGE §9:
+ * no 4th wall is exported) with a matte plane facing into the room. Live path: the walls' own
+ * paint (lit like them). Baked path: an unlit dark plane like BakedCeiling.
+ */
+export function OpenWalls({ info, baked }: { info: RoomInfo; baked: boolean }) {
+  const r = info.room
+  const planes = useMemo(() => {
+    const size = r.getSize(new THREE.Vector3())
+    const c = r.getCenter(new THREE.Vector3())
+    return info.openSides.map((side) => {
+      const alongX = side.endsWith('Z') // the plane spans x (front/back) or z (left/right)
+      const pos = new THREE.Vector3(c.x, c.y, c.z)
+      if (side === 'minX') pos.x = r.min.x
+      if (side === 'maxX') pos.x = r.max.x
+      if (side === 'minZ') pos.z = r.min.z
+      if (side === 'maxZ') pos.z = r.max.z
+      // PlaneGeometry faces +z; turn it to face the room centre.
+      const rotY = side === 'minZ' ? 0 : side === 'maxZ' ? Math.PI : side === 'minX' ? Math.PI / 2 : -Math.PI / 2
+      return { side, pos, rotY, w: alongX ? size.x : size.z, h: size.y }
+    })
+  }, [r, info.openSides])
+  const material = useMemo(() => {
+    if (baked) return new THREE.MeshBasicMaterial({ color: '#141114' })
+    const src = info.wallMesh?.material
+    const m = (Array.isArray(src) ? src[0] : src) as THREE.MeshStandardMaterial | undefined
+    if (m && 'roughness' in m) {
+      const c = m.clone()
+      c.lightMap = null
+      c.aoMap = null
+      return c
+    }
+    return new THREE.MeshStandardMaterial({ color: '#1c1a1d', roughness: 0.95 })
+  }, [baked, info.wallMesh])
+  useEffect(() => () => material.dispose(), [material])
+  if (!planes.length) return null
+  return (
+    <>
+      {planes.map((p) => (
+        <mesh key={p.side} name={`FALLBACK_Wall_${p.side}`} position={p.pos} rotation={[0, p.rotY, 0]} material={material} receiveShadow raycast={() => null}>
+          <planeGeometry args={[p.w, p.h]} />
+        </mesh>
+      ))}
+    </>
   )
 }
 

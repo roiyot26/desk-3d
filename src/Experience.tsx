@@ -15,7 +15,7 @@ import { setCanvasElement } from './interact'
 import { Overlay } from './Overlay'
 import { Post, RendererToneMapping } from './Post'
 import { RainGlass, RainStreaks } from './Rain'
-import { BakedCeiling, RoomLights, RoomModel, glbRain, roomScene } from './Room'
+import { BakedCeiling, OpenWalls, RoomLights, RoomModel, glbRain, roomScene } from './Room'
 import { qualityFor, type Tier } from './quality'
 import { getUI, setUI, useUI } from './store'
 
@@ -67,7 +67,7 @@ function ReadyGate() {
 
 /**
  * Auto quality: if the frame rate stays under 30 fps for 3 seconds, step down one level:
- * 1 = post off, 2 = rain particles off, 3 = DPR 1. Off when ?quality= forces a tier.
+ * 1 = post off, 2 = rain particles off (DPR stays min(devicePixelRatio, 2) for crisp text). Off when ?quality= forces a tier.
  */
 function QualityGovernor({ enabled }: { enabled: boolean }) {
   const s = useRef({ start: 0, frames: 0, slow: 0, grace: 0 })
@@ -90,9 +90,9 @@ function QualityGovernor({ enabled }: { enabled: boolean }) {
     if (now < st.grace) return
     st.slow = fps < 30 ? st.slow + 1 : 0
     const level = getUI().degrade
-    if (st.slow >= 3 && level < 3) {
+    if (st.slow >= 3 && level < 2) {
       setUI({ degrade: level + 1 })
-      console.info(`[desk-3d] ${fps.toFixed(0)} fps for 3 s: quality step ${level + 1} (${['', 'post off', 'rain particles off', 'DPR 1'][level + 1]})`)
+      console.info(`[desk-3d] ${fps.toFixed(0)} fps for 3 s: quality step ${level + 1} (${['', 'post off', 'rain particles off'][level + 1]})`)
       st.slow = 0
       st.grace = now + 2500
     }
@@ -193,7 +193,8 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
   failRef.current = fail
 
   const postOn = quality.post !== 'none' && degrade < 1
-  const dprMax = degrade >= 3 ? 1 : quality.dprMax
+  // No DPR step-down: a 1× buffer stretched over a 2×/3× screen blurs every in-scene label.
+  const dprMax = quality.dprMax
 
   return (
     <>
@@ -238,6 +239,7 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
         {info && (
           <>
             {bake ? <BakedCeiling info={info} /> : <RoomLights info={info} quality={quality} />}
+            <OpenWalls info={info} baked={!!bake} />
             {info.glass && degrade < 2 && <RainStreaks info={info} quality={quality} />}
             {info.glass && <RainGlass info={info} quality={quality} />}
             <CameraRig info={info} quality={quality} />

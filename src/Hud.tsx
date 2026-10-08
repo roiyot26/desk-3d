@@ -32,6 +32,16 @@ function BulbIcon({ on }: { on: boolean }) {
   )
 }
 
+/** Speaker icon (slash = muted). Inline SVG instead of the 🔊 emoji: no blue emoji in the chrome. */
+function SoundIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" fillOpacity={0.9} />
+      {muted ? <path d="M16 9.5l5 5M21 9.5l-5 5" /> : <path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.7 7.7 0 0 1 0 11" />}
+    </svg>
+  )
+}
+
 /**
  * Room lights: the same circuit as the wall switch (CLICK_Switch_Lights, off-screen from the
  * default view). Baked: lightmap groups Fill + Pictures and ShelfLEDCyan; live path: the fill
@@ -122,7 +132,7 @@ export function Hud() {
         aria-label={muted ? content.audio.unmute : content.audio.mute}
         title={muted ? content.audio.unmute : content.audio.mute}
       >
-        {muted ? '🔇' : '🔊'}
+        <SoundIcon muted={muted} />
       </button>
     </div>
   )
