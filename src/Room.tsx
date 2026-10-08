@@ -100,6 +100,8 @@ function registerEmissives(scene: THREE.Object3D, info: RoomInfo) {
         m.userData.mixBase = SHADE_GLOW
       }
     }
+    // (Re-applied if a quality step swapped the shade to a Lambert material.)
+    if (/^FloorLampShade/i.test(m.name) && !(m.material as THREE.Material).userData.falloff) fabricFalloff(m.material as THREE.Material, m.geometry)
     registerMaterial(m.material as THREE.Material, group, m.userData.mixBase)
   })
 }
@@ -165,7 +167,34 @@ const FILL_HEMI = 0.72
 const FILL_AMBIENT_COLOR = '#ffd2a8'
 const FILL_AMBIENT = 0.3
 const FLOOR_LAMP = 10
-const SHADE_GLOW = 0.9
+// Cut ~30% from 0.9 (Shuri: blown out). Re-check once Wanda's baked GLB lands: the bake may carry
+// the shade's glow itself, in which case this drops further or goes away.
+const SHADE_GLOW = 0.63
+/** Shade glow at its top rim relative to its bottom opening (the bulb sits low and light spills out the bottom). */
+const SHADE_TOP = 0.4
+
+/**
+ * Lamp-shade linen: the glow falls off from the bottom opening (full) to the top rim (SHADE_TOP),
+ * so the shade reads as lit fabric instead of a flat sticker. Object-space Y, so it holds for any
+ * transform; works on the standard and the low-tier Lambert material (both have emissivemap_fragment).
+ */
+function fabricFalloff(mat: THREE.Material, geom: THREE.BufferGeometry) {
+  if (!geom.boundingBox) geom.computeBoundingBox()
+  const bb = geom.boundingBox!
+  const range = new THREE.Vector2(bb.min.y, bb.max.y)
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uShadeY = { value: range }
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform vec2 uShadeY;\nvarying float vShadeY;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvShadeY = clamp((position.y - uShadeY.x) / max(uShadeY.y - uShadeY.x, 1e-4), 0.0, 1.0);')
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vShadeY;')
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\ntotalEmissiveRadiance *= mix(1.0, ${SHADE_TOP.toFixed(2)}, smoothstep(0.0, 1.0, vShadeY));`)
+  }
+  mat.customProgramCacheKey = () => 'desk3d-shade-falloff'
+  mat.userData.falloff = true
+  mat.needsUpdate = true
+}
 const WINDOW_8000K = new THREE.Color('#c4d4ff')
 
 /**

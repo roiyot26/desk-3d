@@ -7,6 +7,10 @@ import type { TargetAction } from './targets'
 // (switch / lamps / latch), by the duck's tools and by the keyboard easter egg.
 
 const T = content.toasts
+const TS = content.toastShort
+type ToastKey = keyof typeof T & string
+/** Toast by content key: full line on desktop, the short form in the merged phone toast. */
+const say = (k: ToastKey) => toast(T[k], TS[k])
 const AGENTIC_MS = 9000
 
 function click() {
@@ -18,12 +22,12 @@ export function setLights(group: LightGroup | 'all', on: boolean | 'toggle' = 't
   if (group === 'all') {
     const next = on === 'toggle' ? !(l.desk || l.floor || l.ambient) : on
     setUI({ lights: { desk: next, floor: next, ambient: next } })
-    toast(next ? T.lightsOn : T.lightsOff)
+    say(next ? 'lightsOn' : 'lightsOff')
   } else {
     const next = on === 'toggle' ? !l[group] : on
     setUI({ lights: { ...l, [group]: next } })
-    if (group === 'desk') toast(next ? T.deskOn : T.deskOff)
-    if (group === 'floor') toast(next ? T.floorOn : T.floorOff)
+    if (group === 'desk') say(next ? 'deskOn' : 'deskOff')
+    if (group === 'floor') say(next ? 'floorOn' : 'floorOff')
   }
   click()
   findSecret('switch')
@@ -32,14 +36,14 @@ export function setLights(group: LightGroup | 'all', on: boolean | 'toggle' = 't
 export function setRain(on: boolean | 'toggle' = 'toggle') {
   const next = on === 'toggle' ? !getUI().rain : on
   setUI({ rain: next })
-  toast(next ? T.rainOn : T.rainOff)
+  say(next ? 'rainOn' : 'rainOff')
   click()
   findSecret('latch')
 }
 
 export function startAgentic() {
   setUI({ agenticUntil: performance.now() + (momentHeld() ? 10 * 60 * 1000 : AGENTIC_MS) })
-  toast(T.agentic)
+  say('agentic')
   findSecret('claude')
   window.setTimeout(() => setUI({}), AGENTIC_MS + 50) // nudge subscribers (HUD / audio) when it ends
 }
@@ -50,14 +54,14 @@ export function isAgentic() {
 
 export function blinkNeon() {
   setUI({ neonUntil: performance.now() + 1600 })
-  toast(T.neon)
+  say('neon')
   click()
   findSecret('neon')
 }
 
 /** Art from the real room: just a tiny caption, no panel. */
 export function caption() {
-  toast(T.realRoom)
+  say('realRoom')
 }
 
 export function runAction(a: TargetAction) {

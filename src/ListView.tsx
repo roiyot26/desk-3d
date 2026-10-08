@@ -25,9 +25,12 @@ export function ListView({ webglOk, fallback, phone = false }: { webglOk: boolea
       <header>
         <h1>{content.site.name}</h1>
         <p className="list-role">{content.site.role}</p>
-        <p>{content.about.lead}</p>
+        {/* "Next I'm bringing 3D into client websites" is the intro's second sentence. */}
+        <p>
+          {content.about.lead} {content.about.nextShort}
+        </p>
         <p>{content.about.ai}</p>
-        <p>{content.about.next}</p>
+        {webglOk && <p>{content.about.practice}</p>}
       </header>
 
       <section aria-labelledby="l-projects">

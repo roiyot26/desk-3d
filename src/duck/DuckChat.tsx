@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { SHEET_QUERY, useMedia } from '../useMedia'
 import { content } from '../content'
 import { useUI } from '../store'
@@ -33,7 +33,7 @@ const PHONE_CHIPS = 3
  *  - DuckDock is pinned above the panel's Back/Next footer: preset chips + the free-text box
  *    (fuzzy-matched to a preset). Desktop: 5 chips + "More questions". Phones: one row of 3.
  */
-export function DuckLog() {
+export function DuckLog({ tail }: { tail?: ReactNode }) {
   const all = useUI((s) => s.duckLog)
   const phone = useMedia(SHEET_QUERY)
   const log = phone ? all.slice(-1) : all
@@ -43,30 +43,33 @@ export function DuckLog() {
   }, [all])
   if (!log.length) return null
   return (
-    <div className="duck-log" aria-live="polite">
-      {log.map((e) => (
-        <div className="duck-turn" key={e.id}>
-          <p className="duck-q">
-            <span aria-hidden="true">›</span> {e.question}
-          </p>
-          <ol className="duck-ticker" aria-label="Duck tool calls">
-            {e.steps.slice(0, e.shown).map((st, i) => (
-              <li key={i} className={i < e.shown - 1 || e.reply ? 'done' : 'run'}>
-                {st}
-              </li>
-            ))}
-            {e.shown === 0 && <li className="run">{content.duck.thinking}…</li>}
-          </ol>
-          {e.reply && (
-            <p className={`duck-a${e.matched ? '' : ' miss'}`}>
-              <span aria-hidden="true">🦆 </span>
-              <Typed text={e.reply} />
+    <>
+      <div className="duck-log" aria-live="polite">
+        {log.map((e) => (
+          <div className="duck-turn" key={e.id}>
+            <p className="duck-q">
+              <span aria-hidden="true">›</span> {e.question}
             </p>
-          )}
-        </div>
-      ))}
+            <ol className="duck-ticker" aria-label="Duck tool calls">
+              {e.steps.slice(0, e.shown).map((st, i) => (
+                <li key={i} className={i < e.shown - 1 || e.reply ? 'done' : 'run'}>
+                  {st}
+                </li>
+              ))}
+              {e.shown === 0 && <li className="run">{content.duck.thinking}…</li>}
+            </ol>
+            {e.reply && (
+              <p className={`duck-a${e.matched ? '' : ' miss'}`}>
+                <span aria-hidden="true">🦆 </span>
+                <Typed text={e.reply} />
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+      {tail}
       <div ref={end} />
-    </div>
+    </>
   )
 }
 

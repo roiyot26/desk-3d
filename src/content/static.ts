@@ -25,7 +25,7 @@ export function noscriptHtml(c: C) {
   const pitch = c.stops.find((s) => s.kind === 'pitch')
   return `<main class="list">
 <h1>${esc(c.site.name)}</h1><p>${esc(c.site.role)}</p>
-<p>${esc(c.about.lead)}</p><p>${esc(c.about.ai)}</p><p>${esc(c.about.next)}</p>
+<p>${esc(c.about.lead)} ${esc(c.about.nextShort)}</p><p>${esc(c.about.ai)}</p><p>${esc(c.about.practice)}</p>
 <h2>Projects</h2>${c.projects
     .map((p) => `<h3>${esc(p.name)}</h3><p>${esc(p.serious)}</p><p><a href="${p.repo}">${esc(p.repo)}</a>${'live' in p && p.live ? ` · <a href="${p.live}">Live demo</a>` : ''}</p>`)
     .join('')}

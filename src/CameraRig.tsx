@@ -8,6 +8,10 @@ import type { Quality } from './quality'
 import { getUI, setUI } from './store'
 import { gsap, useGSAP } from './gsap'
 import { markerTargetFor, poseFor, poseFromStopCam, type Pose } from './targets'
+import { STOPS } from './content'
+
+/** The duck's bottom sheet opens at 65% on phones (index.css .panel.duck); frame above it. */
+const DUCK_SHEET = 0.65
 
 /**
  * Lens: a 26 mm full-frame lens has a 69.4° horizontal field of view (2·atan(18/26)).
@@ -219,7 +223,8 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         // Blender's STOP_*_Cam framing wins (node.quaternion·Rx(-90°) / target_gltf_yup, see
         // targets.ts); otherwise frame the clicked object.
         const base = fovFor(size.width / size.height)
-        const to = stopCam ? poseFromStopCam(stopCam, size) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info }), fov: base }
+        const sheet = STOPS.find((x) => x.id === ui.open?.id)?.kind === 'duck' ? DUCK_SHEET : 0.5
+        const to = stopCam ? poseFromStopCam(stopCam, size, sheet) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info }), fov: base }
         st.focused = true
         fly(current, to, dur, false)
       } else if (st.saved) {

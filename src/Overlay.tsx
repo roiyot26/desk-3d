@@ -8,7 +8,7 @@ import { DuckToast, Hud, SecretsCard, Toast } from './Hud'
 import { LIST_URL } from './links'
 import { useTyping } from './keyboard'
 import { gsap, prefersReducedMotion, useGSAP } from './gsap'
-import { SHEET_QUERY } from './useMedia'
+import { SHEET_QUERY, useMedia } from './useMedia'
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
 /** DOM layer over the canvas: loader, cold open, panels, tour progress, finale, hint. */
@@ -114,7 +114,11 @@ function Panel() {
   const ref = useRef<HTMLHeadingElement>(null)
   const panel = useRef<HTMLElement>(null)
   const body = useRef<HTMLDivElement>(null)
-  const more = useScrollMore(body, open?.id)
+  const { more, scrolled } = useScrollMore(body, open?.id)
+  const phone = useMedia(SHEET_QUERY)
+  const answered = useUI((s) => s.duckLog.length > 0)
+  const [introOpen, setIntroOpen] = useState(false)
+  useEffect(() => setIntroOpen(false), [open?.id, answered])
   // Slide the panel in (side panel on desktop, bottom sheet on phones). Motion only, never opacity,
   // so the copy stays readable even if a slow GPU stalls the tween. Reduced motion: no tween.
   useGSAP(
@@ -144,6 +148,10 @@ function Panel() {
   const i = stop ? STOP_IDS.indexOf(stop.id) : -1
   const isBonus = open.id.startsWith('bonus-')
   const isDuck = stop?.kind === 'duck' || note?.kind === 'duck'
+  // Phones, once the duck has answered: the two intro paragraphs fold behind "What's this?" so
+  // the answer and the "Scripted for now" line both fit in the (65%) sheet.
+  const foldIntro = isDuck && phone && answered
+  const jokeText = stop ? text(stop.joke) : note!.joke
   return (
     <>
       <div className="backdrop" onClick={closePanel} aria-hidden="true" />
@@ -162,13 +170,22 @@ function Panel() {
         <h2 id="panel-title" tabIndex={-1} ref={ref}>
           {stop ? stop.title : note!.title}
         </h2>
-        <div className={`panel-scroll${more ? ' more' : ''}`}>
+        <div className={`panel-scroll${more ? ' more' : ''}${scrolled ? ' scrolled' : ''}`}>
           <div className="panel-body" ref={body}>
-            {stop ? <StopBody stop={stop} skill={open.skill} project={open.project} /> : note!.body.map((p, k) => <p key={k}>{p}</p>)}
-            {(stop ? text(stop.joke) : note!.joke) && <p className="joke">{stop ? text(stop.joke) : note!.joke}</p>}
-            {isDuck && <DuckLog />}
+            {foldIntro && (
+              <button type="button" className="intro-toggle" aria-expanded={introOpen} aria-controls="duck-intro" onClick={() => setIntroOpen(!introOpen)}>
+                {introOpen ? content.duck.hideIntro : content.duck.whatsThis} <span aria-hidden="true">{introOpen ? '▴' : '▾'}</span>
+              </button>
+            )}
+            {(!foldIntro || introOpen) && (
+              <div id="duck-intro" className="panel-intro">
+                {stop ? <StopBody stop={stop} skill={open.skill} project={open.project} /> : note!.body.map((p, k) => <p key={k}>{p}</p>)}
+              </div>
+            )}
+            {jokeText && !foldIntro && <p className="joke">{jokeText}</p>}
+            {isDuck && <DuckLog tail={foldIntro && jokeText ? <p className="joke duck-scripted">{jokeText}</p> : undefined} />}
           </div>
-          {more && (
+          {more && !nearCarousel(body.current) && (
             <button
               type="button"
               className="scroll-more"
@@ -189,9 +206,12 @@ function Panel() {
             {i === STOP_IDS.length - 1 ? content.tour.skip : content.tour.next} →
           </button>
         </nav>
-        <button type="button" className="panel-skip" onClick={closePanel}>
-          {content.tour.skip}
-        </button>
+        {/* On the last stop "Free roam →" is already the primary button: no duplicate link. */}
+        {i !== STOP_IDS.length - 1 && (
+          <button type="button" className="panel-skip" onClick={closePanel}>
+            {content.tour.skip}
+          </button>
+        )}
       </aside>
     </>
   )
@@ -200,10 +220,16 @@ function Panel() {
 /** True while the scroll box has more content below the fold (drives the fade + chevron). */
 function useScrollMore(ref: RefObject<HTMLElement>, key: string | undefined) {
   const [more, setMore] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const [, bump] = useState(0)
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 6)
+    const check = () => {
+      setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 6)
+      setScrolled(el.scrollTop > 4)
+      bump((x) => (x + 1) % 1024) // re-evaluate the chevron vs carousel-dots check on scroll
+    }
     check()
     el.addEventListener('scroll', check, { passive: true })
     const ro = new ResizeObserver(check)
@@ -216,7 +242,19 @@ function useScrollMore(ref: RefObject<HTMLElement>, key: string | undefined) {
       mo.disconnect()
     }
   }, [ref, key])
-  return more
+  return { more, scrolled }
+}
+
+/**
+ * Desktop: the scroll chevron sits at the bottom centre of the panel, exactly where the project
+ * carousel's dots land. Hide the chevron (the 32px fade stays) while those dots are in view.
+ */
+function nearCarousel(body: HTMLElement | null): boolean {
+  const nav = body?.querySelector('.carousel-nav')
+  if (!body || !nav) return false
+  const b = body.getBoundingClientRect()
+  const n = nav.getBoundingClientRect()
+  return n.bottom > b.top && n.top < b.bottom
 }
 
 /**
@@ -396,8 +434,9 @@ function Progress() {
   const bonus = useUI((s) => s.bonusFound)
   const full = useUI((s) => s.sheetFull)
   if (!ready || intro) return null
+  const duck = STOPS.find((s) => s.id === open?.id)?.kind === 'duck'
   return (
-    <nav className={`progress${open ? ' with-panel' : ''}${open && full ? ' sheet-full' : ''}`} aria-label="Tour stops">
+    <nav className={`progress${open ? ' with-panel' : ''}${open && full ? ' sheet-full' : ''}${duck ? ' duck-sheet' : ''}`} aria-label="Tour stops">
       {STOPS.map((s) => (
         <button
           key={s.id}

@@ -50,7 +50,7 @@ export type UIState = {
   /** Chat transcript (kept while the page is open). `shown` = ticker steps revealed so far. */
   duckLog: DuckEntry[]
   // --- HUD
-  toast: { text: string; at: number } | null
+  toast: { text: string; short?: string; at: number } | null
   /** Last newly found secret (HUD flash). */
   secretFlash: { id: string; at: number } | null
   secrets: string[]
@@ -131,8 +131,9 @@ export function useUI<T>(sel: (s: UIState) => T): T {
   return useSyncExternalStore(subscribe, () => sel(state), () => sel(state))
 }
 
-export function toast(text: string) {
-  setUI({ toast: { text, at: performance.now() } })
+/** `short` is the one-line phone version (merged with a "★ Secret n/6" flash into a single line). */
+export function toast(text: string, short?: string) {
+  setUI({ toast: { text, short, at: performance.now() } })
 }
 
 export function setMuted(muted: boolean) {

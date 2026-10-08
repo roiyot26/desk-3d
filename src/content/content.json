@@ -51,7 +51,9 @@
   "about": {
     "lead": "I build web products end to end: React and Next on the front, Node, TypeScript and MongoDB behind them, AWS underneath, and WordPress/PHP when a site calls for it.",
     "ai": "AI is part of how I work, not a side topic. I ship with Claude Code and agentic workflows every day, and my most recent build is a hybrid-search RAG assistant served over MCP.",
-    "next": "Next I'm bringing 3D into client websites. This room is where I practise."
+    "next": "Next I'm bringing 3D into client websites. This room is where I practise.",
+    "nextShort": "Next I'm bringing 3D into client websites.",
+    "practice": "The 3D room is where I practise."
   },
   "projects": [
     {
@@ -387,6 +389,19 @@
     "realRoom": "From the real room.",
     "neon": "</> blinks back."
   },
+  "toastShort": {
+    "lightsOff": "lights off",
+    "lightsOn": "lights on",
+    "deskOff": "desk lamp off",
+    "deskOn": "desk lamp on",
+    "floorOff": "floor lamp off",
+    "floorOn": "floor lamp on",
+    "rainOff": "rain off",
+    "rainOn": "rain back on",
+    "agentic": "agentic mode on",
+    "realRoom": "from the real room",
+    "neon": "</> blinks back"
+  },
   "secrets": {
     "label": "Secrets",
     "items": [
@@ -420,7 +435,8 @@
     "doneJoke": "There is no seventh secret. Probably.",
     "found": "Secret found",
     "hidden": "???",
-    "_note": "The six secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; tour = visit all seven tour stops. No art secrets: the poster and the pan are just art from the real room."
+    "_note": "The six secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; tour = visit all seven tour stops. No art secrets: the poster and the pan are just art from the real room.",
+    "short": "Secret"
   },
   "duck": {
     "placeholder": "Ask about Roi's work…",
@@ -875,7 +891,9 @@
           }
         ]
       }
-    ]
+    ],
+    "whatsThis": "What's this?",
+    "hideIntro": "Hide intro"
   },
   "labels": {
     "action-lights": "Light switch",

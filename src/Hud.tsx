@@ -4,6 +4,7 @@ import { activate } from './nav'
 import { SECRET_COUNT, momentHeld, setMuted, setUI, useUI } from './store'
 import { audio } from './audio'
 import { LIST_URL } from './links'
+import { SHEET_QUERY, useMedia } from './useMedia'
 
 /**
  * Live viewport rect of the HUD (top bar on phones, top-right cluster on desktop). Tour markers
@@ -96,17 +97,33 @@ function useRecent(at: number | undefined, ms: number) {
   return live
 }
 
-/** One-line status at the bottom (lights, rain, agentic) + the "secret found" line. */
+/** Status toast (lights, rain, agentic) + the "secret found" line. Both auto-dismiss after 3s. */
+const TOAST_MS = 3000
 export function Toast() {
   const toast = useUI((s) => s.toast)
   const flash = useUI((s) => s.secretFlash)
   const count = useUI((s) => s.secrets.length)
-  const showToast = useRecent(toast?.at, 3200)
-  const showFlash = useRecent(flash?.at, 3200)
+  const phone = useMedia(SHEET_QUERY)
+  const showToast = useRecent(toast?.at, TOAST_MS)
+  const showFlash = useRecent(flash?.at, TOAST_MS)
   if (!showToast && !showFlash) return null
   const item = flash ? content.secrets.items.find((i) => i.id === flash.id) : undefined
+  const key = (toast?.at ?? 0) + (flash?.at ?? 0)
+  if (phone) {
+    // Phones: never two stacked bubbles. One line: "★ Secret 2/6 · agentic mode on".
+    const line =
+      showFlash && item
+        ? `★ ${content.secrets.short} ${count}/${SECRET_COUNT} · ${showToast && toast ? toast.short ?? toast.text : item.label}`
+        : toast?.text
+    if (!line) return null
+    return (
+      <div className="toast one" role="status" key={key}>
+        <p className={showFlash && item ? 'toast-secret' : undefined}>{line}</p>
+      </div>
+    )
+  }
   return (
-    <div className="toast" role="status" key={(toast?.at ?? 0) + (flash?.at ?? 0)}>
+    <div className="toast" role="status" key={key}>
       {showToast && toast && <p>{toast.text}</p>}
       {showFlash && item && (
         <p className="toast-secret">

@@ -8,19 +8,21 @@ import { activate } from './nav'
 import { getUI, setUI, useUI } from './store'
 import { markerTargetFor, type Target } from './targets'
 import { hudRect } from './Hud'
+import { SHEET_QUERY, useMedia } from './useMedia'
 
 /** Numbered tour markers, big invisible hit boxes for small objects, and the hover label. */
 export function Hotspots() {
   const targets = useUI((s) => s.targets)
   const ready = useUI((s) => s.stage === 'ready' && s.entered)
   const list = useMemo(() => [...targets.values()], [targets])
+  const screens = useMemo(() => screenBoxes(targets), [targets])
   if (!ready) return null
   return (
     <>
       {list.filter((t) => t.proxy).map((t) => <Proxy key={t.key} t={t} />)}
       {STOPS.map((s) => {
         const t = markerTargetFor(targets, s.id)
-        return t ? <Marker key={s.id} t={t} n={s.n} id={s.id} label={s.label} /> : null
+        return t ? <Marker key={s.id} t={t} n={s.n} id={s.id} label={s.label} screens={screens} /> : null
       })}
       <HoverLabel />
       <ScreenSlot targets={targets} />
@@ -49,10 +51,54 @@ const TOP_SAFE = 64
 const HUD_CLEARANCE = 24 // badge radius (40px on phones -> 20) plus a little air
 const _p = new THREE.Vector3()
 
+/** Phones: 14px dots (index.css), clamped this far inside the viewport. */
+const DOT_R = 7
+const EDGE = 16
+const _c = new THREE.Vector3()
+
+type Rect = { l: number; t: number; r: number; b: number }
+/** Screen-space bounding rect of a world box (null when it is behind the camera). */
+function projectBox(box: THREE.Box3, camera: THREE.Camera, w: number, h: number, out: Rect): Rect | null {
+  out.l = out.t = Infinity
+  out.r = out.b = -Infinity
+  for (let i = 0; i < 8; i++) {
+    _c.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(camera)
+    if (_c.z > 1) return null
+    const x = ((_c.x + 1) / 2) * w
+    const y = ((1 - _c.y) / 2) * h
+    out.l = Math.min(out.l, x)
+    out.r = Math.max(out.r, x)
+    out.t = Math.min(out.t, y)
+    out.b = Math.max(out.b, y)
+  }
+  return out
+}
+
+/** World boxes of the monitor / laptop / frame screens (ScreenSlot_* materials): dots never sit on them. */
+function screenBoxes(targets: Map<string, Target>): THREE.Box3[] {
+  const out: THREE.Box3[] = []
+  const seen = new Set<THREE.Object3D>()
+  for (const t of targets.values())
+    for (const n of t.nodes)
+      n.traverse((o) => {
+        const m = o as THREE.Mesh
+        if (!m.isMesh || seen.has(m)) return
+        const mats = Array.isArray(m.material) ? m.material : [m.material]
+        if (!mats.some((mt) => /screenslot/i.test(mt.name))) return
+        seen.add(m)
+        out.push(new THREE.Box3().setFromObject(m))
+      })
+  return out
+}
+
 const RING_COLOR = new THREE.Color('#ffb46b').multiplyScalar(2.2) // HDR: blooms on high/medium tiers
 const RING_DIM = new THREE.Color('#ffb46b').multiplyScalar(0.5)
 
-function Marker({ t, n, id, label }: { t: Target; n: number; id: string; label: string }) {
+function Marker({ t, n, id, label, screens }: { t: Target; n: number; id: string; label: string; screens: THREE.Box3[] }) {
+  const phone = useMedia(SHEET_QUERY)
+  const rect = useMemo<Rect>(() => ({ l: 0, t: 0, r: 0, b: 0 }), [])
+  const srect = useMemo<Rect>(() => ({ l: 0, t: 0, r: 0, b: 0 }), [])
+  const shift = useRef('')
   const visited = useUI((s) => s.visited.includes(id))
   const active = useUI((s) => s.open?.id === id)
   const hot = useUI((s) => s.hovered !== null && s.targets.get(s.hovered)?.id === id && !s.open)
@@ -71,19 +117,73 @@ function Marker({ t, n, id, label }: { t: Target; n: number; id: string; label: 
     if (!root.current || !btn.current) return
     // Class toggle only (no React re-render per frame).
     root.current.getWorldPosition(_p).project(camera)
-    const x = size.left + ((_p.x + 1) / 2) * size.width
-    const y = size.top + ((1 - _p.y) / 2) * size.height
+    const ax = ((_p.x + 1) / 2) * size.width // where drei <Html> puts the badge (canvas px)
+    const ay = ((1 - _p.y) / 2) * size.height
+    let x = ax
+    let y = ay
+    let offscreen = false
+    let clear = HUD_CLEARANCE
+    if (phone) {
+      // Phones: the dot sits on the TOP edge of its object's silhouette (not floating over its
+      // middle), is pushed off any monitor / laptop / frame screen, and is clamped 16px inside
+      // the viewport. An object that is entirely out of view hides its dot.
+      clear = DOT_R + 4
+      const W = size.width
+      const H = size.height
+      const box = projectBox(t.box, camera, W, H, rect)
+      if (!box || box.r < 0 || box.l > W || box.b < TOP_SAFE || box.t > H) offscreen = true
+      else {
+        x = (box.l + box.r) / 2
+        y = box.t - DOT_R - 3
+        for (const sb of screens) {
+          const s = projectBox(sb, camera, W, H, srect)
+          if (!s) continue
+          const pad = DOT_R + 3
+          if (x < s.l - pad || x > s.r + pad || y < s.t - pad || y > s.b + pad) continue
+          // Nearest way out of the screen rect (up, left, right, down).
+          const moves: [number, number][] = [
+            [x, s.t - pad],
+            [s.l - pad, y],
+            [s.r + pad, y],
+            [x, s.b + pad],
+          ]
+          let best = moves[0]
+          let bd = Infinity
+          for (const m of moves) {
+            if (m[0] < EDGE + DOT_R || m[0] > W - EDGE - DOT_R || m[1] < TOP_SAFE + clear || m[1] > H - EDGE - DOT_R) continue
+            const d = Math.hypot(m[0] - x, m[1] - y)
+            if (d < bd) (bd = d), (best = m)
+          }
+          x = best[0]
+          y = best[1]
+        }
+        x = THREE.MathUtils.clamp(x, EDGE + DOT_R, W - EDGE - DOT_R)
+        y = THREE.MathUtils.clamp(y, TOP_SAFE + clear, H - EDGE - DOT_R)
+      }
+      const next = `${Math.round(x - ax)}px ${Math.round(y - ay)}px`
+      if (next !== shift.current) {
+        shift.current = next
+        btn.current.style.translate = next
+      }
+    } else if (shift.current) {
+      shift.current = ''
+      btn.current.style.translate = ''
+    }
+    x += size.left
+    y += size.top
     const r = hudRect()
     const hide =
-      _p.z < 1 &&
-      (y < TOP_SAFE + HUD_CLEARANCE ||
-        (!!r && x > r.left - HUD_CLEARANCE && x < r.right + HUD_CLEARANCE && y > r.top - HUD_CLEARANCE && y < r.bottom + HUD_CLEARANCE))
+      offscreen ||
+      (_p.z < 1 &&
+        (y < TOP_SAFE + clear ||
+          (!!r && x > r.left - clear && x < r.right + clear && y > r.top - clear && y < r.bottom + clear)))
     if (hide !== blocked.current) {
       blocked.current = hide
       btn.current.classList.toggle('blocked', hide)
     }
     if (ring.current) {
-      ring.current.visible = !active && !off && !hide
+      // Phones: no glowing 3D ring (it read as a lamp bulb); the 14px DOM dot pulses on its own.
+      ring.current.visible = !phone && !active && !off && !hide
       const k = 1 + Math.sin(clock.elapsedTime * 2.4 + n) * 0.08
       ring.current.scale.setScalar(visited ? 1 : k)
     }

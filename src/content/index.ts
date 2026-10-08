@@ -43,7 +43,7 @@ export const content = raw as unknown as {
     linkedin: Link & { handle: string }
     email: { enabled: boolean; label: string; address: string }
   }
-  about: { lead: string; ai: string; next: string }
+  about: { lead: string; ai: string; next: string; nextShort: string; practice: string }
   projects: Project[]
   skills: { intro: string; featured: Skill; items: Skill[]; joke: string }
   career: { items: string[]; teaching: string }
@@ -55,7 +55,9 @@ export const content = raw as unknown as {
   audio: Record<string, string>
   labels: Record<string, string>
   toasts: Record<string, string>
-  secrets: { label: string; found: string; hidden: string; items: { id: string; label: string }[]; doneTitle: string; doneBody: string; doneJoke: string }
+  /** One-line versions for the merged phone toast ("★ Secret 2/6 · agentic mode on"). */
+  toastShort: Record<string, string>
+  secrets: { label: string; short: string; found: string; hidden: string; items: { id: string; label: string }[]; doneTitle: string; doneBody: string; doneJoke: string }
   duck: {
     placeholder: string
     send: string
@@ -63,6 +65,8 @@ export const content = raw as unknown as {
     less: string
     thinking: string
     back: string
+    whatsThis: string
+    hideIntro: string
     fallback: { reply: string; steps: string[] }
     intents: DuckIntent[]
   }

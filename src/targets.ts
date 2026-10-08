@@ -237,7 +237,7 @@ export type Pose = { position: THREE.Vector3; target: THREE.Vector3; fov?: numbe
  * the panel leaves free (left of the side panel on desktop, above the bottom sheet on phones), so
  * we widen the FOV by that ratio and turn the look-at point so the subject sits in that free area.
  */
-export function poseFromStopCam(c: StopCam, size: { width: number; height: number }): Pose {
+export function poseFromStopCam(c: StopCam, size: { width: number; height: number }, sheet = 0.5): Pose {
   const W = size.width
   const H = size.height
   const A = W / H
@@ -257,10 +257,11 @@ export function poseFromStopCam(c: StopCam, size: { width: number; height: numbe
     target.addScaledVector(right, -xc * d * tanH)
     return { position: c.position.clone(), target, fov: vfov }
   }
-  // Portrait: keep the reference width, subject in the top 44% above the sheet.
+  // Portrait: keep the reference width, subject centred in the free area above the bottom sheet
+  // (top 44% for the default 50% sheet, top 29% for the duck's 65% sheet).
   const vfov = THREE.MathUtils.clamp(deg(2 * Math.atan(Math.tan(c.hfov / 2) / A)), 40, 78)
   const tanV = Math.tan(THREE.MathUtils.degToRad(vfov) / 2)
-  const yc = 1 - 0.44
+  const yc = 1 - (1 - sheet - 0.06)
   target.addScaledVector(up, -yc * d * tanV)
   return { position: c.position.clone(), target, fov: vfov }
 }
