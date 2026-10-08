@@ -183,10 +183,17 @@ const DEBUG = new URLSearchParams(window.location.search).has('debug')
 
 /** ?debug: window.__desk3d.screenOf(key) -> pixel position of a target (used by the e2e shots). */
 function DebugHooks() {
-  const { camera, size } = useThree()
+  const { camera, size, controls } = useThree()
   const targets = useUI((s) => s.targets)
   useEffect(() => {
     ;(window as unknown as Record<string, unknown>).__desk3d = {
+      /** Camera + OrbitControls state, to check that GSAP owns the camera during flies. */
+      cam: () => {
+        const c = controls as unknown as { enabled: boolean; target: THREE.Vector3 } | null
+        const r = (v: THREE.Vector3) => v.toArray().map((n) => +n.toFixed(3))
+        return { pos: r(camera.position), target: c ? r(c.target) : null, controlsEnabled: c?.enabled ?? null, fov: +(camera as THREE.PerspectiveCamera).fov.toFixed(2) }
+      },
+      open: (id: string) => activate(id),
       keys: () => [...targets.values()].map((t) => `${t.key}:${t.id}:${t.source}`),
       screenOf: (key: string) => {
         const t = targets.get(key)
@@ -195,6 +202,6 @@ function DebugHooks() {
         return { x: Math.round(((v.x + 1) / 2) * size.width), y: Math.round(((1 - v.y) / 2) * size.height), z: v.z }
       },
     }
-  }, [camera, size, targets])
+  }, [camera, size, targets, controls])
   return null
 }

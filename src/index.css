@@ -86,12 +86,10 @@ a {
   padding: clamp(14px, 4vw, 48px);
   box-sizing: border-box;
   pointer-events: none;
-  transition: opacity 0.8s ease 0.2s;
 }
+/* The fade into the canvas is a GSAP tween (Loader.tsx); this is only the no-JS-animation fallback. */
 .loader.done {
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.8s ease 0.1s, visibility 0s 1s;
+  pointer-events: none;
 }
 .loader-card {
   pointer-events: auto;
@@ -330,13 +328,8 @@ a {
   border: 1px solid var(--line);
   backdrop-filter: blur(10px);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  animation: slidein 0.35s ease both;
-}
-/* Motion only, never opacity: content stays readable even if a slow GPU stalls the animation. */
-@keyframes slidein {
-  from {
-    transform: translateX(16px);
-  }
+  /* Slide-in is a GSAP tween in Overlay.tsx (motion only, never opacity: content stays readable
+     even if a slow GPU stalls the animation). */
 }
 .panel-close {
   position: absolute;
@@ -596,12 +589,6 @@ a {
     max-height: 56vh;
     border-radius: 18px 18px 0 0;
     padding: 18px 16px 12px;
-    animation-name: sheetin;
-  }
-  @keyframes sheetin {
-    from {
-      transform: translateY(24px);
-    }
   }
   .panel h2 {
     font-size: 20px;

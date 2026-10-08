@@ -5,7 +5,8 @@ import { OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import type { RoomInfo } from './analyze'
 import type { Quality } from './quality'
-import { getUI, useUI } from './store'
+import { getUI } from './store'
+import { gsap, useGSAP } from './gsap'
 import { markerTargetFor, poseFor, poseFromStopCam, type Pose } from './targets'
 
 /**
@@ -46,8 +47,16 @@ const DRIFT_AZ = THREE.MathUtils.degToRad(6)
 const DRIFT_POLAR = THREE.MathUtils.degToRad(0.8)
 const DRIFT_PERIOD = 38 // seconds per sway
 const EASE_TIME = 1.15 // seconds per camera move between stops
+const FLY_EASE = 'power3.inOut' // same curve as the old hand-rolled cubic easeInOut
 
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+/**
+ * Camera ownership (one system at a time):
+ *   - free roam: OrbitControls (+ the idle drift and the stay-inside-the-room clamp below)
+ *   - flies (tour stops, marker clicks, duck answers, closing a panel): ONE GSAP tween.
+ * Tour and duck both go through `ui.open`, so this rig is the only thing that moves the camera.
+ * OrbitControls is disabled for the whole fly and while a panel holds the framed view, then
+ * re-enabled (and re-synced) once the camera is back in free roam.
+ */
 
 export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality }) {
   const { camera, size } = useThree()
@@ -107,7 +116,10 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     // Focus (panel / tour) state.
     openKey: '',
     saved: null as Pose | null,
-    anim: null as { from: Pose; to: Pose; t0: number; dur: number; release: boolean } | null,
+    /** Destination of the running fly (so a panel opened mid-fly can still return to it). */
+    flyTo: null as Pose | null,
+    flyRelease: false,
+    flying: false,
     focused: false,
   })
 
@@ -131,6 +143,59 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     }
   }, [])
 
+  // --- GSAP camera controller. `contextSafe` keeps tweens created later (from useFrame) inside
+  // this component's GSAP context, so they are killed on unmount.
+  const tween = useRef<gsap.core.Tween | null>(null)
+  const { contextSafe } = useGSAP(() => () => void tween.current?.kill(), { dependencies: [] })
+  const fly = useMemo(
+    () =>
+      contextSafe((from: Pose, to: Pose, dur: number, release: boolean) => {
+        const c = controls.current
+        if (!c) return
+        const st = state.current
+        const cam = camera as THREE.PerspectiveCamera
+        tween.current?.kill()
+        c.enabled = false
+        st.flying = true
+        st.flyTo = to
+        st.flyRelease = release
+        const p0 = from.position.clone()
+        const t0 = from.target.clone()
+        const f0 = from.fov ?? cam.fov
+        const proxy = { k: 0 }
+        const apply = () => {
+          const e = proxy.k
+          cam.position.lerpVectors(p0, to.position, e)
+          c.target.lerpVectors(t0, to.target, e)
+          if (to.fov !== undefined) {
+            cam.fov = THREE.MathUtils.lerp(f0, to.fov, e)
+            cam.updateProjectionMatrix()
+          }
+          cam.lookAt(c.target)
+        }
+        const done = () => {
+          tween.current = null
+          st.flying = false
+          st.flyTo = null
+          if (release) {
+            st.focused = false
+            st.desired = 0
+            st.lastSet = 0
+            st.driftStart = -1
+            st.lastInput = performance.now() / 1000
+            c.update() // re-sync OrbitControls' spherical state to the pose GSAP left behind
+            c.enabled = true
+          }
+        }
+        // prefers-reduced-motion (or a 0 s move): hard cut.
+        tween.current = gsap.to(proxy, { k: 1, duration: dur, ease: FLY_EASE, onUpdate: apply, onComplete: done, overwrite: true })
+        if (dur <= 0) {
+          tween.current.progress(1)
+        }
+      }),
+    [camera, contextSafe],
+  )
+
   const tmp = useMemo(() => new THREE.Vector3(), [])
   useFrame(() => {
     const c = controls.current
@@ -149,40 +214,21 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
       const current: Pose = { position: cam.position.clone(), target: c.target.clone(), fov: cam.fov }
       const dur = quality.reducedMotion ? 0 : EASE_TIME
       if (t || stopCam) {
-        if (!st.saved) st.saved = st.anim?.release ? st.anim.to : { ...current, fov: fovFor(size.width / size.height) }
-        // Blender's STOP_*_Cam framing wins; otherwise frame the clicked object.
+        if (!st.saved) st.saved = st.flying && st.flyRelease && st.flyTo ? st.flyTo : { ...current, fov: fovFor(size.width / size.height) }
+        // Blender's STOP_*_Cam framing wins (node.quaternion·Rx(-90°) / target_gltf_yup, see
+        // targets.ts); otherwise frame the clicked object.
         const base = fovFor(size.width / size.height)
         const to = stopCam ? poseFromStopCam(stopCam, size) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info }), fov: base }
-        st.anim = { from: current, to, t0: now, dur, release: false }
         st.focused = true
+        fly(current, to, dur, false)
       } else if (st.saved) {
-        st.anim = { from: current, to: st.saved, t0: now, dur, release: true }
+        const back = st.saved
         st.saved = null
+        fly(current, back, dur, true)
       }
     }
-    if (st.anim) {
-      const a = st.anim
-      const k = a.dur > 0 ? Math.min((now - a.t0) / a.dur, 1) : 1
-      const e = easeInOut(k)
-      cam.position.lerpVectors(a.from.position, a.to.position, e)
-      c.target.lerpVectors(a.from.target, a.to.target, e)
-      if (a.to.fov !== undefined) {
-        cam.fov = THREE.MathUtils.lerp(a.from.fov ?? cam.fov, a.to.fov, e)
-        cam.updateProjectionMatrix()
-      }
-      cam.lookAt(c.target)
-      if (k >= 1) {
-        st.anim = null
-        if (a.release) {
-          st.focused = false
-          st.desired = 0
-          st.lastSet = 0
-          st.driftStart = -1
-          st.lastInput = now
-        }
-      }
-      return
-    }
+    // GSAP owns the camera during a fly; a panel's framed view is held still afterwards.
+    if (st.flying) return
     if (st.focused) {
       cam.lookAt(c.target)
       return
@@ -223,12 +269,11 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     st.lastSet = s
   })
 
-  const focused = useFocused()
   return (
     <OrbitControls
       ref={controls}
       makeDefault
-      enabled={!focused}
+      // `enabled` is driven imperatively by the GSAP fly controller (off during flies + panels).
       target={home.target}
       enablePan={false}
       enableDamping
@@ -245,9 +290,4 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
       maxPolarAngle={limits.maxPolar}
     />
   )
-}
-
-function useFocused() {
-  // Controls are off while a panel owns the camera (and during the ease back).
-  return useUI((s) => s.open !== null)
 }

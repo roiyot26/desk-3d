@@ -7,6 +7,7 @@ import { DuckChat } from './duck/DuckChat'
 import { DuckToast, Hud, SecretsCard, Toast } from './Hud'
 import { LIST_URL } from './links'
 import { useTyping } from './keyboard'
+import { gsap, prefersReducedMotion, useGSAP } from './gsap'
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
 /** DOM layer over the canvas: loader, cold open, panels, tour progress, finale, hint. */
@@ -109,6 +110,18 @@ function ColdOpen() {
 function Panel() {
   const open = useUI((s) => s.open)
   const ref = useRef<HTMLHeadingElement>(null)
+  const panel = useRef<HTMLElement>(null)
+  // Slide the panel in (side panel on desktop, bottom sheet on phones). Motion only, never opacity,
+  // so the copy stays readable even if a slow GPU stalls the tween. Reduced motion: no tween.
+  useGSAP(
+    () => {
+      const el = panel.current
+      if (!el || prefersReducedMotion()) return
+      const sheet = window.matchMedia?.('(max-width: 700px), (max-aspect-ratio: 4/5)').matches
+      gsap.from(el, sheet ? { y: 24, duration: 0.35, ease: 'power2.out' } : { x: 16, duration: 0.35, ease: 'power2.out' })
+    },
+    { dependencies: [open?.id], scope: panel, revertOnUpdate: true },
+  )
   const lastFocus = useRef<Element | null>(null)
   useEffect(() => {
     if (open) {
@@ -128,7 +141,7 @@ function Panel() {
   return (
     <>
       <div className="backdrop" onClick={closePanel} aria-hidden="true" />
-      <aside className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}`} role="dialog" aria-labelledby="panel-title" key={open.id}>
+      <aside className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}`} role="dialog" aria-labelledby="panel-title" key={open.id} ref={panel}>
         <button type="button" className="panel-close" onClick={closePanel} aria-label={content.tour.close}>
           ×
         </button>

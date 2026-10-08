@@ -3,6 +3,7 @@ import { audio } from './audio'
 import { content } from './content'
 import { LIST_URL } from './links'
 import { getUI, setUI, useUI } from './store'
+import { gsap, prefersReducedMotion, useGSAP } from './gsap'
 
 /** Enter: unlocks audio (it is a user gesture), reveals the room, then the cold open. */
 export function enter() {
@@ -25,11 +26,21 @@ export function Loader() {
   const lines = content.loader.lines
   const shown = lines.filter((l) => l.at <= p)
   const enterRef = useRef<HTMLButtonElement>(null)
+  const root = useRef<HTMLDivElement>(null)
+  // Fade the poster + log into the canvas once the visitor enters (GSAP on the DOM, hard cut with
+  // reduced motion). autoAlpha also sets visibility:hidden at the end so it stops catching focus.
+  useGSAP(
+    () => {
+      if (!entered || !root.current) return
+      gsap.to(root.current, { autoAlpha: 0, duration: prefersReducedMotion() ? 0 : 0.8, delay: prefersReducedMotion() ? 0 : 0.1, ease: 'power2.out' })
+    },
+    { dependencies: [entered], scope: root },
+  )
   useEffect(() => {
     if (ready) enterRef.current?.focus({ preventScroll: true })
   }, [ready])
   return (
-    <div className={`loader${entered ? ' done' : ''}${ready ? ' ready' : ''}`} aria-live="polite" aria-busy={!ready}>
+    <div ref={root} className={`loader${entered ? ' done' : ''}${ready ? ' ready' : ''}`} aria-live="polite" aria-busy={!ready}>
       <div className="loader-card">
         <p className="loader-title">
           <span className="loader-dots" aria-hidden="true">
