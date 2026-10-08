@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
-import { HalfFloatType } from 'three'
+import { useEffect, useMemo } from 'react'
+import { AgXToneMapping, HalfFloatType, NoToneMapping } from 'three'
+import { useThree } from '@react-three/fiber'
 import {
   Bloom,
   BrightnessContrast,
@@ -20,7 +21,8 @@ import type { Quality } from './quality'
  *   N8AO (desktop, skipped when the GLB has baked AO/lightmaps) -> Bloom on HDR values above 1
  *   (only emissive neon / bulbs / city signs get there) -> AgX tone mapping -> teal/warm split
  *   tone + small saturation / contrast -> vignette -> film grain (desktop) -> SMAA.
- * Low tier drops AO and grain and uses a cheaper bloom.
+ * Medium tier drops AO, grain and SMAA and uses a cheaper bloom. Low tier (and auto-quality
+ * step 1) has no post at all: see <RendererToneMapping>.
  */
 export function Post({ quality, baked }: { quality: Quality; baked: boolean }) {
   const high = quality.tier === 'high'
@@ -52,4 +54,14 @@ export function Post({ quality, baked }: { quality: Quality; baked: boolean }) {
       {effects}
     </EffectComposer>
   )
+}
+
+/** Without the post stack, tone map on the renderer (AgX) so the room keeps its look. */
+export function RendererToneMapping({ post }: { post: boolean }) {
+  const gl = useThree((s) => s.gl)
+  useEffect(() => {
+    gl.toneMapping = post ? NoToneMapping : AgXToneMapping
+    gl.toneMappingExposure = post ? 1 : 1.1
+  }, [gl, post])
+  return null
 }
