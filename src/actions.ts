@@ -17,7 +17,11 @@ function click() {
   audio.play('key', { rate: 0.55, gain: 0.7 })
 }
 
-export function setLights(group: LightGroup | 'all', on: boolean | 'toggle' = 'toggle') {
+/**
+ * `secret: false` for the HUD toggle: it is the always-reachable control (AC-4); the "Flipped a
+ * light" secret stays a find-it-in-the-room thing (wall switch or a lamp).
+ */
+export function setLights(group: LightGroup | 'all', on: boolean | 'toggle' = 'toggle', opts: { secret?: boolean } = {}) {
   const l = getUI().lights
   if (group === 'all') {
     const next = on === 'toggle' ? !(l.desk || l.floor || l.ambient) : on
@@ -28,9 +32,10 @@ export function setLights(group: LightGroup | 'all', on: boolean | 'toggle' = 't
     setUI({ lights: { ...l, [group]: next } })
     if (group === 'desk') say(next ? 'deskOn' : 'deskOff')
     if (group === 'floor') say(next ? 'floorOn' : 'floorOff')
+    if (group === 'ambient') say(next ? 'roomOn' : 'roomOff')
   }
   click()
-  findSecret('switch')
+  if (opts.secret !== false) findSecret('switch')
 }
 
 export function setRain(on: boolean | 'toggle' = 'toggle') {
@@ -67,7 +72,7 @@ export function caption() {
 export function runAction(a: TargetAction) {
   if (a === 'neon') blinkNeon()
   else if (a === 'caption') caption()
-  else if (a === 'lights-all') setLights('all')
+  else if (a === 'lights-room') setLights('ambient')
   else if (a === 'lamp-desk') setLights('desk')
   else if (a === 'lamp-floor') setLights('floor')
   else if (a === 'rain') setRain()

@@ -3,6 +3,7 @@ import { content } from './content'
 import { activate } from './nav'
 import { SECRET_COUNT, momentHeld, setMuted, setUI, useUI } from './store'
 import { audio } from './audio'
+import { setLights } from './actions'
 import { LIST_URL } from './links'
 import { SHEET_QUERY, useMedia } from './useMedia'
 
@@ -13,7 +14,50 @@ import { SHEET_QUERY, useMedia } from './useMedia'
 let hudBox: DOMRect | null = null
 export const hudRect = () => hudBox
 
-/** Top-right corner, always visible: recruiter lane, secrets counter, mute. */
+/** Bulb icon (filled = lights on). Inline SVG: crisp at any DPR, inherits the HUD colour. */
+function BulbIcon({ on }: { on: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2v.5h5v-.5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z"
+        fill={on ? 'currentColor' : 'none'}
+        fillOpacity={on ? 0.9 : 0}
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {!on && <path d="M4 4l16 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />}
+    </svg>
+  )
+}
+
+/**
+ * Room lights: the same circuit as the wall switch (CLICK_Switch_Lights, off-screen from the
+ * default view). Baked: lightmap groups Fill + Pictures and ShelfLEDCyan; live path: the fill
+ * lights. Lamps and neon stay as they are.
+ */
+function LightsToggle() {
+  const on = useUI((s) => s.lights.ambient)
+  const label = on ? content.lightsToggle.off : content.lightsToggle.on
+  return (
+    <button
+      type="button"
+      className={`hud-btn icon lights${on ? ' on' : ''}`}
+      onClick={() => {
+        audio.unlock()
+        setLights('ambient', 'toggle', { secret: false })
+      }}
+      aria-pressed={on}
+      aria-label={label}
+      title={label}
+    >
+      <BulbIcon on={on} />
+    </button>
+  )
+}
+
+/** Top-right corner, always visible: recruiter lane, secrets counter, room lights, mute. */
 export function Hud() {
   const el = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -69,6 +113,7 @@ export function Hud() {
           )}
         </div>
       )}
+      {entered && <LightsToggle />}
       <button
         type="button"
         className="hud-btn icon"

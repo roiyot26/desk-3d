@@ -4,12 +4,15 @@ import { getUI } from './store'
 
 /**
  * Switchable light groups. Lights and emissive materials register with a group and their base
- * intensity; LightMixer eases every group toward its target each frame:
- *   desk / floor / ambient  follow the switch, the lamps and the duck's set_lights tool
+ * intensity; LightMixer moves every group toward its target each frame:
+ *   desk / floor / ambient  follow the switches (~250 ms ramp), the lamps and the duck's set_lights tool
  *   neon                    always on; pulses in agentic mode (typing "claude"), blinks when clicked
  *   eyes                    the duck's eyes: glow while it thinks and in agentic mode
  * In agentic mode the room lights dim to 35%.
- * Bake names in Blender (lights are not exported; these groups mirror them for the baked GLB):
+ * Baked package (src/bake): the same levels drive the lightmap blend, see mixLevel():
+ *   desk = DeskLamp, floor = FloorLamp, ambient = Fill + Pictures (the wall switch / HUD toggle),
+ *   neon = Neon, Window always 1.
+ * Live path (no bake): the web lights mirror the Blender groups:
  *   desk = LGT_DeskLamp_* / LGT_Key_Lamp*, floor = LGT_FloorLamp_*, neon = LGT_Neon_*,
  *   ambient = LGT_Fill_* + LGT_Window_* + LGT_Picture_*.
  */
@@ -21,6 +24,22 @@ type Entry =
 
 const entries = new Set<Entry>()
 const level: Record<MixGroup, number> = { desk: 1, floor: 1, ambient: 1, neon: 1, eyes: 0 }
+
+/** Current eased level of a group (0..1 for switches; neon / eyes can pulse above 1). */
+export function mixLevel(g: MixGroup) {
+  return level[g]
+}
+
+/** Switch ramp: ~250 ms from off to on (the bake README's recommended fade). */
+const RAMP_S = 0.25
+/**
+ * With the bake, "room lights off" really is off (the window, lamps and neon still light the room).
+ * The live path keeps 25% fill so the room never reads as a black void.
+ */
+let ambientOff = 0.25
+export function setAmbientOffLevel(v: number) {
+  ambientOff = v
+}
 
 /** Ref callback for a JSX light: <pointLight ref={mixRef('desk')} />. */
 const refCache = new Map<MixGroup, (l: THREE.Light | null) => void>()
@@ -70,14 +89,18 @@ export function LightMixer() {
     const target: Record<MixGroup, number> = {
       desk: (s.lights.desk ? 1 : 0) * dim,
       floor: (s.lights.floor ? 1 : 0) * dim,
-      ambient: (s.lights.ambient ? 1 : 0.25) * dim,
+      ambient: (s.lights.ambient ? 1 : ambientOff) * dim,
       neon: agentic ? 1.4 + 0.9 * Math.sin(t * 7) : s.neonUntil > now ? (Math.sin(t * 22) > 0 ? 1.8 : 0.25) : 1,
       eyes: s.duckThinking || agentic ? 3 + 1.5 * Math.sin(t * 10) : 0.03,
     }
-    const k = Math.min(1, delta * 5)
+    const step = Math.min(delta, 0.1) / RAMP_S
     for (const g of Object.keys(level) as MixGroup[]) {
-      // Pulses follow immediately; switches ease.
-      level[g] = g === 'neon' || g === 'eyes' ? target[g] : level[g] + (target[g] - level[g]) * k
+      // Pulses follow immediately; switches ramp linearly over ~250 ms.
+      if (g === 'neon' || g === 'eyes') level[g] = target[g]
+      else {
+        const d = target[g] - level[g]
+        level[g] = Math.abs(d) <= step ? target[g] : level[g] + Math.sign(d) * step
+      }
     }
     for (const e of entries) {
       const v = e.base * level[e.group]

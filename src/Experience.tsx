@@ -1,9 +1,11 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer } from '@react-three/drei'
 import type { RoomInfo } from './analyze'
 import { audio } from './audio'
+import { readBake } from './bake/assets'
+import { BakedLighting, preloadBakeTextures } from './bake/BakedLighting'
 import { CameraRig } from './CameraRig'
 import { DuckRig } from './duck/DuckRig'
 import { KeyPresser } from './keyboard'
@@ -13,13 +15,15 @@ import { setCanvasElement } from './interact'
 import { Overlay } from './Overlay'
 import { Post, RendererToneMapping } from './Post'
 import { RainGlass, RainStreaks } from './Rain'
-import { RoomLights, RoomModel, glbRain } from './Room'
+import { BakedCeiling, RoomLights, RoomModel, glbRain, roomScene } from './Room'
 import { qualityFor, type Tier } from './quality'
 import { getUI, setUI, useUI } from './store'
 
 // The whole 3D experience. Loaded as its own chunk so ?view=list stays light.
 
 const BACKGROUND = '#0b0b0e'
+/** Wanda's bake was graded at 2^0.72 in Cycles (README_FORGE.md). */
+const BAKE_EXPOSURE = 1.65
 
 /** Dim, local (no network) environment for reflections: warm lamp side, cool window side. */
 function RoomEnvironment() {
@@ -131,7 +135,37 @@ function DprCap({ max }: { max: number }) {
 
 type Fatal = (reason: string) => void
 
+/** Live path: errors go to the app boundary (plain page) exactly as before. */
+function MaybeBakeBoundary({ bake, onError, children }: { bake: boolean; onError: () => void; children: ReactNode }) {
+  return bake ? <BakeBoundary onError={onError}>{children}</BakeBoundary> : <>{children}</>
+}
+
+/** A broken bake package (missing GLB / lightmap, bad KTX2) drops to the live-light path, not the plain page. */
+class BakeBoundary extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  componentDidCatch(e: unknown) {
+    console.warn('[desk-3d] bake package failed to load, using live lights.', e)
+    this.props.onError()
+  }
+  render() {
+    return this.state.failed ? null : this.props.children
+  }
+}
+
 export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; initialTier: Tier }) {
+  // Baked package in public/bake/? (Inlined at build time; null = live-light path.)
+  const manifest = readBake()
+  const [bakeFailed, setBakeFailed] = useState(false)
+  const bake = bakeFailed ? null : manifest
+  const [bakeReady, setBakeReady] = useState(false)
+  const onBakeReady = useCallback(() => setBakeReady(true), [])
+  const onBakeError = useCallback(() => {
+    setBakeFailed(true)
+    setInfo(null)
+  }, [])
   const [attempt, setAttempt] = useState({ n: 0, tier: initialTier })
   const quality = useMemo(() => qualityFor(attempt.tier), [attempt.tier])
   const [info, setInfo] = useState<RoomInfo | null>(null)
@@ -149,6 +183,7 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
       if (attempt.tier !== 'low') {
         setUI({ stage: 'compile', degrade: 0 })
         setInfo(null)
+        setBakeReady(false)
         setAttempt({ n: attempt.n + 1, tier: 'low' })
       } else onFatal(reason)
     },
@@ -163,12 +198,14 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
   return (
     <>
       <Canvas
-        key={attempt.n}
+        key={`${attempt.n}-${bake ? 'bake' : 'live'}`}
         shadows={quality.shadows ? 'percentage' : false}
         dpr={[1, quality.dprMax]}
         camera={{ position: [2, 1.4, 2.4], fov: 45, near: 0.03, far: 400 }}
         gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
         onCreated={({ gl }) => {
+          gl.outputColorSpace = THREE.SRGBColorSpace
+          if (bake) preloadBakeTextures(gl, bake)
           gl.debug.onShaderError = (ctx, program) => {
             console.warn('[desk-3d] shader program failed to link:', ctx.getProgramInfoLog(program) || '(no log)')
             failRef.current('shader')
@@ -184,14 +221,23 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
       >
         <color attach="background" args={[BACKGROUND]} />
         <DprCap max={dprMax} />
-        <RendererToneMapping post={postOn} />
-        <Suspense fallback={null}>
-          <RoomModel onInfo={onInfo} quality={quality} />
-          <RoomEnvironment />
-        </Suspense>
+        <RendererToneMapping post={postOn} exposure={bake ? BAKE_EXPOSURE : undefined} />
+        <MaybeBakeBoundary bake={!!bake} onError={onBakeError}>
+          <Suspense fallback={null}>
+            <RoomModel onInfo={onInfo} quality={quality} bake={bake} />
+            {/* Live path: drei's local Lightformer env. Baked: Wanda's room_env.ktx2 (BakedLighting). */}
+            {!bake && <RoomEnvironment />}
+          </Suspense>
+          {/* Own boundary: while the lightmaps finish, the room stays mounted (ReadyGate waits). */}
+          {bake && info && roomScene && (
+            <Suspense fallback={null}>
+              <BakedLighting manifest={bake} room={roomScene} lowRes={quality.tier !== 'high'} onReady={onBakeReady} />
+            </Suspense>
+          )}
+        </MaybeBakeBoundary>
         {info && (
           <>
-            <RoomLights info={info} quality={quality} />
+            {bake ? <BakedCeiling info={info} /> : <RoomLights info={info} quality={quality} />}
             {info.glass && degrade < 2 && <RainStreaks info={info} quality={quality} />}
             {info.glass && <RainGlass info={info} quality={quality} />}
             <CameraRig info={info} quality={quality} />
@@ -201,8 +247,8 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
             <DuckRig />
             <AudioSpatial info={info} />
             <GlbRain particles={!!info.glass && degrade < 2} />
-            {postOn && <Post quality={quality} baked={info.baked.aoMap || info.baked.lightMap} />}
-            <ReadyGate key={attempt.n} />
+            {postOn && <Post quality={quality} baked={!!bake || info.baked.aoMap || info.baked.lightMap} />}
+            {(!bake || bakeReady) && <ReadyGate key={attempt.n} />}
             <QualityGovernor enabled={!quality.forced} />
           </>
         )}

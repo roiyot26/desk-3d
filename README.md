@@ -15,7 +15,7 @@ Built with React, Vite, react-three-fiber, drei and @react-three/postprocessing.
 - **Ask the Duck (tour stop 7).** Click the rubber duck (`CLICK_Duck`), marker 7, or open `#stop-7` / `#duck`. It opens a small chat with 13 preset chips and a text box. Free text is fuzzy-matched to the closest preset (keywords, word overlap and edit distance). There is no model and no backend. A monospace ticker shows the tool calls (`search_portfolio("AI project") → 2 sources`, `fly_to("monitor")`, `open("retrieval-tracer")`). Cyan beams run from `DUCK_BeamOrigin` to each cited object, which gets a cyan glow box. The duck quacks (sound + the `Quack` shape key), and `MAT_DuckEyes` glows while it "thinks". Then the camera flies to the answer and opens its panel, and the reply stays in a small card with **Back to the duck**.
   - The interface is `AnswerEngine.ask(question) → { steps, reply, tools[] }` in `src/duck/engine.ts`. `ScriptedIntentEngine` implements it, and a real model behind a server can replace it later without UI changes.
   - The tools are whitelisted: `search_portfolio`, `fly_to`, `open`, `show_contact`, `quack`, `set_lights`, `set_weather`, `set_mode`, `set_audio`. The presets and their tool calls live in `content.json → duck.intents`. Personal questions (age, salary, address…) get a polite deflection.
-- **Light switches & rain.** `CLICK_Switch_Lights` toggles every room light. `CLICK_Lamp_Desk` and `CLICK_Lamp_Floor` each toggle one lamp, and the bulbs' emission follows. `CLICK_Window_Latch` stops or starts the rain: drops dry up on the glass and the streaks fade. `CLICK_Neon_Sign` makes the `</>` sign blink. The neon stays on with the lights off.
+- **Light switches & rain.** `CLICK_Switch_Lights` toggles the room circuit (bake groups `Fill` + `Pictures`, plus the `ShelfLEDCyan` strip). The wall switch is off-screen from the default view, so the HUD has the same control: the **bulb button** next to mute (filled = on). The HUD button doesn't count as the "Flipped a light" secret; the switch and the lamps do. `CLICK_Lamp_Desk` and `CLICK_Lamp_Floor` each toggle one lamp, and the bulbs' emission follows. Switches ramp over ~250 ms. `CLICK_Window_Latch` stops or starts the rain: drops dry up on the glass and the streaks fade. `CLICK_Neon_Sign` makes the `</>` sign blink. The neon stays on with the lights off.
 - **Typing + agentic mode (desktop).** Typing anywhere outside a text field presses the matching `KEY_*` mesh on the 3D keyboard, with a click sound. Shifted symbols press their base key. If a key mesh is missing, typing still works, just without movement. Typing `claude` starts **agentic mode** for 9 s: room lights dim to 35%, the neon pulses, the duck's eyes glow and the hum gets louder.
 - **Secrets found x/6** (HUD, kept in `sessionStorage`). They are: talk to the duck, type `claude`, flip a light (wall switch or a lamp), stop the rain with the window latch, poke the neon sign, and finish the tour. Finding all six shows a small card. The list is in `content.json → secrets`.
 - **Art.** The Grateful Dead poster and the painted pan are art from Roi's real room (the room simulates it). Hovering shows "Poster" / "Painting", and a click shows a tiny "From the real room." caption. There are no art stops, placards or secrets.
@@ -65,7 +65,33 @@ On purpose, the page ignores `STOP_8_Art_Cam` / `STOP_8_Marker` and hides every 
 
 Missing nodes are skipped silently: no marker, no hit area, and the panel stays reachable from the dots, deep links and list. Name fallbacks remain only for optional things that aren't `CLICK_*` in the export. The poster and the pan use `Poster_*`/`PosterFrame_*` and `ArtPan*`. If `CLICK_Duck` is missing, a procedural `PLACEHOLDER_Duck` with `MAT_DuckEyes` and a beam origin is added on the desk (`src/placeholders.ts`). Small objects get an invisible, larger hit box.
 
-**Light groups.** Blender lights aren't exported, so the web lights mirror the bake groups: desk = `LGT_DeskLamp_*`/`LGT_Key_Lamp*`, floor = `LGT_FloorLamp_*`, neon = `LGT_Neon_*`, ambient = `LGT_Fill_*` + `LGT_Window_*` + `LGT_Picture_*`. `src/LightMixer.tsx` eases each group's lights and emissive materials. The `Bulb` material shared by both lamps is cloned per lamp first, so they switch separately.
+**Light groups.** `src/LightMixer.tsx` holds one level per group (desk, floor, ambient, neon, plus the duck's eyes) and ramps it on a switch. With the bake package the levels drive the lightmap blend (below). Without it, Blender lights aren't exported, so the web lights mirror the bake groups: desk = `LGT_DeskLamp_*`/`LGT_Key_Lamp*`, floor = `LGT_FloorLamp_*`, neon = `LGT_Neon_*`, ambient = `LGT_Fill_*` + `LGT_Window_*` + `LGT_Picture_*`. The `Bulb` material shared by both lamps is cloned per lamp first, so they switch separately.
+
+### Baked lighting (Wanda's web package)
+
+The page has two lighting paths and picks one at build time:
+
+- **Baked** when `public/bake/lightmaps/manifest.json` exists and is valid.
+- **Live** otherwise: today's live lights on the unbaked `public/desk.glb`. `?bake=0` forces this path on a baked build, for comparison.
+
+**Drop path.** Copy Wanda's `web/` folder into `public/bake/` 1:1, without `_build/` or `README_FORGE.md`:
+
+```
+public/bake/desk.glb                    Draco + KTX2 room (used instead of public/desk.glb)
+public/bake/lightmaps/manifest.json     the switch: groups, scales, env
+public/bake/lightmaps/lm_<Group>.ktx2   DeskLamp, FloorLamp, Fill, Window, Neon, Pictures
+public/bake/env/room_env.ktx2           reflections only
+```
+
+Then rebuild (`npm run build`, or reload `npm run dev`). No code changes are needed. Keep `public/desk.glb` as the fallback: if the bake package fails to load, the room drops back to the live path instead of the plain page. The manifest is inlined at build time (`import.meta.glob` in `src/bake/assets.ts`), so a site without the package never requests a missing file. In dev, Vite logs "Assets in public directory cannot be imported" for that glob. It's harmless.
+
+**How it works** (`src/bake/`, following `README_FORGE.md`):
+
+- **Loaders.** `GLTFLoader` gets `DRACOLoader` (`KHR_draco_mesh_compression`, glTF-only decoder) and one shared `KTX2Loader` (`KHR_texture_basisu`), which also loads the lightmaps and the env map. The decoders come from the installed three.js (`three/examples/jsm/libs/{draco,basis}`). Vite bundles them as hashed assets in `dist/assets/`, so they always match the three version. There's no CDN and nothing vendored. The wasm is only fetched when a Draco/KTX2 asset needs it.
+- **Lightmap blend.** The six 2048² lightmaps are summed into one `HalfFloatType` render target (mipmapped, 1024² below the high tier) by a fullscreen quad: `Σ lm_g × scale_g × intensity_g`. The quad redraws only when an intensity changes. Every mesh with `TEXCOORD_1` gets `lightMap = rt.texture` (channel 1) and `lightMapIntensity = π`. If a material is shared with a mesh that has no UV2, the material is cloned first. Without float render targets, an 8-bit target with a pre-divided sum is used.
+- **Switches.** `CLICK_Switch_Lights`/HUD bulb → `Fill` + `Pictures` (+ `ShelfLEDCyan`). `CLICK_Lamp_Desk` → `DeskLamp` (+ `Bulb` on `LampBulb`). `CLICK_Lamp_Floor` → `FloorLamp` (+ `Bulb` on `FloorLampBulb`, `MAT_Linen_Shade`). `CLICK_Neon_Sign` → `Neon` (+ `NeonCyan`, `NeonMagenta`, `RimMagenta`). `Window` is always on. Emissives keep Wanda's Cycles strengths, and the shared `Bulb` is cloned per lamp. Agentic mode dims the lamps and the circuit and pulses `Neon`, the same as on the live path.
+- **Env.** `env/room_env.ktx2` → one blit (KTX2 keeps the top row at v = 0, and Blender centres the panorama on −Z) → PMREM → `scene.environment` at `env.scale × 0.5`. It's used for reflections only.
+- **Renderer.** sRGB output, AgX, exposure 1.65. No diffuse scene lights are added, because the lightmaps already contain them. Shadow maps and the AO pass are off. A dark unlit plane closes the ceiling.
 
 ### Resilience
 
@@ -97,7 +123,7 @@ npm run dev
 - The window pane is found by name (`glass`/`pane`), a transmission material, or a transparent material. If there's no pane, a rain overlay plane is placed in the `Win*`/`Window*` frame opening.
 - Lamps come from emissive `*Bulb*` meshes and neon from emissive `*Neon*`/`*LED*` meshes.
 - Anything outside the room (city, sky) is drawn in the window pass behind the glass.
-- Baked lighting: `aoMap`/`lightMap` on UV2 are left as exported. When they are present (or with `?baked=1`), the live lights dim to accents and AO post is skipped.
+- Baked lighting: Wanda's lightmap package goes in `public/bake/` (see **Baked lighting** above). On the live path, `aoMap`/`lightMap` on UV2 are left as exported. When they are present (or with `?baked=1`), the live lights dim to accents and AO post is skipped.
 
 `node scripts/inspect-glb.mjs public/desk.glb` prints the nodes, materials and bounds of a GLB.
 

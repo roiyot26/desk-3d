@@ -4,15 +4,18 @@ import { useLoader, useThree } from '@react-three/fiber'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 import { analyzeScene, type PointHint, type RoomInfo } from './analyze'
+import { BAKE_MODEL_URL, LIVE_MODEL_URL, gltfDecoders, type BakeManifest } from './bake/assets'
 import { sceneHandlers } from './interact'
 import { clearMaterials, mixRef, registerLight, registerMaterial, type MixGroup } from './LightMixer'
 import { addPlaceholders } from './placeholders'
+import { expectFile, fileProgress } from './progress'
 import { EXTERIOR_LAYER } from './Rain'
 import type { Quality } from './quality'
 import { setUI } from './store'
 import { resolveStopCams, resolveTargets } from './targets'
 
-export const MODEL_URL = `${import.meta.env.BASE_URL}desk.glb`
+/** Live-light room (unbaked). With the bake package present, public/bake/desk.glb is used instead. */
+export const MODEL_URL = LIVE_MODEL_URL
 
 // Blender's static rain cards (RAIN_*) are replaced by the animated rain; they come back only when
 // the particle rain is off (auto-quality step 2). Flip to always keep them.
@@ -20,10 +23,9 @@ const KEEP_GLB_RAIN = false
 
 RectAreaLightUniformsLib.init()
 
-/** Real download progress (bytes) for the loader; the GLB is the only big asset. */
+/** Real download progress (bytes) for the loader, summed with the lightmaps when baked (progress.ts). */
 function onProgress(e: ProgressEvent) {
-  if (e.total > 0) setUI({ progress: Math.min(e.loaded / e.total, 1) })
-  else setUI({ progress: Math.min(e.loaded / 6e6, 0.95) })
+  fileProgress('glb', e)
 }
 
 const simplified = new WeakSet<THREE.Material>()
@@ -72,6 +74,46 @@ function emissiveGroup(name: string, deskBulb: string | undefined): MixGroup | n
   return null
 }
 
+/**
+ * Baked package: emissives follow README_FORGE.md's click table exactly (Cycles strengths, not
+ * scaled). Mesh names win over material names, because `Bulb` is shared by both lamps.
+ */
+const BAKED_EMISSIVE_MESH: Record<string, MixGroup> = { LampBulb: 'desk', FloorLampBulb: 'floor' }
+const BAKED_EMISSIVE_MAT: Record<string, MixGroup> = {
+  MAT_Linen_Shade: 'floor',
+  NeonCyan: 'neon',
+  NeonMagenta: 'neon',
+  RimMagenta: 'neon',
+  ShelfLEDCyan: 'ambient',
+}
+
+function registerBakedEmissives(scene: THREE.Object3D) {
+  clearMaterials()
+  scene.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (!m.isMesh || Array.isArray(m.material)) return
+    const mt = m.material as THREE.MeshStandardMaterial
+    if (!('emissiveIntensity' in mt)) return
+    if (/DuckEyes/i.test(mt.name)) {
+      mt.emissive?.set('#22ddff')
+      registerMaterial(mt, 'eyes', 1)
+      return
+    }
+    const group = BAKED_EMISSIVE_MESH[m.name] ?? BAKED_EMISSIVE_MAT[mt.name.replace(/_clone$/, '')]
+    if (!group) return
+    if (!m.userData.mixMaterial) {
+      // One material per mesh, so the desk and floor bulbs (shared `Bulb`) switch independently.
+      m.material = mt.clone()
+      m.userData.mixMaterial = true
+      m.userData.mixBase = mt.emissiveIntensity
+    }
+    const own = m.material as THREE.Material
+    // The shade keeps Wanda's colour and strength; the bottom-to-top falloff still reads as fabric.
+    if (/^FloorLampShade/i.test(m.name) && !own.userData.falloff) fabricFalloff(own, m.geometry)
+    registerMaterial(own, group, m.userData.mixBase)
+  })
+}
+
 function registerEmissives(scene: THREE.Object3D, info: RoomInfo) {
   clearMaterials()
   const deskBulb = [...info.bulbs].sort((a, b) => a.position.distanceTo(info.focus) - b.position.distanceTo(info.focus))[0]?.name
@@ -106,8 +148,12 @@ function registerEmissives(scene: THREE.Object3D, info: RoomInfo) {
   })
 }
 
-export function RoomModel({ onInfo, quality }: { onInfo: (info: RoomInfo) => void; quality: Quality }) {
-  const { scene } = useLoader(GLTFLoader, MODEL_URL, undefined, onProgress)
+export function RoomModel({ onInfo, quality, bake }: { onInfo: (info: RoomInfo) => void; quality: Quality; bake: BakeManifest | null }) {
+  const gl = useThree((s) => s.gl)
+  const url = bake ? BAKE_MODEL_URL : LIVE_MODEL_URL
+  expectFile('glb', bake ? 6e6 : 8e6)
+  // Draco + KTX2 decoders are always attached; the unbaked GLB simply doesn't use them.
+  const { scene } = useLoader(GLTFLoader, url, gltfDecoders(gl), onProgress)
   const info = useMemo(() => analyzeScene(scene), [scene])
 
   useLayoutEffect(() => {
@@ -133,18 +179,40 @@ export function RoomModel({ onInfo, quality }: { onInfo: (info: RoomInfo) => voi
         }
       } else {
         // Lamp shades are thin linen: let light through instead of casting hard cones.
-        m.castShadow = quality.shadows && !/shade/i.test(m.name)
-        m.receiveShadow = quality.shadows
+        // Baked: no scene lights, so no shadow maps (the lightmaps carry the shadows).
+        m.castShadow = quality.shadows && !bake && !/shade/i.test(m.name)
+        m.receiveShadow = quality.shadows && !bake
       }
       if (quality.simpleMaterials && m !== info.glass?.mesh) simplify(m)
-      // Baked lightmaps / AO from Blender stay enabled as exported (UV2); nothing to override.
+      // Baked lighting: the blended lightmap goes on in <BakedLighting> (src/bake), after this.
     })
-    registerEmissives(scene, info)
+    if (bake) registerBakedEmissives(scene)
+    else registerEmissives(scene, info)
     setUI({ targets: resolveTargets(scene), stopCams: resolveStopCams(scene) })
     onInfo(info)
-  }, [scene, info, onInfo, quality])
+  }, [scene, info, onInfo, quality, bake])
 
   return <primitive object={scene} {...sceneHandlers} />
+}
+
+/**
+ * Baked room: no diffuse lights at all (the lightmaps contain them). The GLB has no ceiling, so
+ * close the box with an unlit dark plane (README_FORGE.md §9).
+ */
+export function BakedCeiling({ info }: { info: RoomInfo }) {
+  const r = info.room
+  const c = useMemo(() => {
+    const s = r.getSize(new THREE.Vector3())
+    const ctr = r.getCenter(new THREE.Vector3())
+    return { size: [s.x, s.z] as [number, number], pos: [ctr.x, r.max.y, ctr.z] as [number, number, number] }
+  }, [r])
+  if (info.hasCeiling) return null
+  return (
+    <mesh position={c.pos} rotation={[Math.PI / 2, 0, 0]}>
+      <planeGeometry args={c.size} />
+      <meshBasicMaterial color="#141114" side={THREE.DoubleSide} />
+    </mesh>
+  )
 }
 
 function cluster(points: PointHint[], radius: number) {

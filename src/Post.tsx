@@ -56,12 +56,17 @@ export function Post({ quality, baked }: { quality: Quality; baked: boolean }) {
   )
 }
 
-/** Without the post stack, tone map on the renderer (AgX) so the room keeps its look. */
-export function RendererToneMapping({ post }: { post: boolean }) {
+/**
+ * Without the post stack, tone map on the renderer (AgX) so the room keeps its look. With the
+ * post stack the renderer stays linear and the ToneMapping effect applies AgX (it reads the same
+ * toneMappingExposure uniform). `exposure` overrides both: the baked package wants 1.65
+ * (2^0.72, the Cycles look, README_FORGE.md).
+ */
+export function RendererToneMapping({ post, exposure }: { post: boolean; exposure?: number }) {
   const gl = useThree((s) => s.gl)
   useEffect(() => {
     gl.toneMapping = post ? NoToneMapping : AgXToneMapping
-    gl.toneMappingExposure = post ? 1 : 1.1
-  }, [gl, post])
+    gl.toneMappingExposure = exposure ?? (post ? 1 : 1.1)
+  }, [gl, post, exposure])
   return null
 }

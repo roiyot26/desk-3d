@@ -53,6 +53,8 @@ export const content = raw as unknown as {
   finale: { title: string; body: string; joke: string }
   loader: { title: string; lines: { at: number; text: string; live?: boolean }[]; ready: string }
   audio: Record<string, string>
+  /** HUD room-lights button (same circuit as CLICK_Switch_Lights). */
+  lightsToggle: { on: string; off: string }
   labels: Record<string, string>
   toasts: Record<string, string>
   /** One-line versions for the merged phone toast ("★ Secret 2/6 · agentic mode on"). */

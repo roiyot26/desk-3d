@@ -375,9 +375,15 @@
     "mute": "Mute sound",
     "unmute": "Turn sound on"
   },
+  "lightsToggle": {
+    "off": "Turn the room lights off",
+    "on": "Turn the room lights on"
+  },
   "toasts": {
     "lightsOff": "Lights off. The neon stays on, obviously.",
     "lightsOn": "Lights back on.",
+    "roomOff": "Room lights off. The lamps and the neon are on their own circuit.",
+    "roomOn": "Room lights on.",
     "deskOff": "Desk lamp off.",
     "deskOn": "Desk lamp on.",
     "floorOff": "Floor lamp off.",
@@ -392,6 +398,8 @@
   "toastShort": {
     "lightsOff": "lights off",
     "lightsOn": "lights on",
+    "roomOff": "room lights off",
+    "roomOn": "room lights on",
     "deskOff": "desk lamp off",
     "deskOn": "desk lamp on",
     "floorOff": "floor lamp off",

@@ -29,12 +29,12 @@ import type { RoomInfo } from './analyze'
  *   stop-7  CLICK_Duck: Ask the Duck (morph "Quack", MAT_DuckEyes, DUCK_BeamOrigin)  camera STOP_7_Duck_Cam
  *   aside   CLICK_StickyNote_NowBuilding
  *   actions (no panel, they change the room):
- *           CLICK_Switch_Lights   all room lights        CLICK_Lamp_Desk / CLICK_Lamp_Floor  one lamp
+ *           CLICK_Switch_Lights   room circuit (Fill + Pictures; also the HUD bulb)   CLICK_Lamp_Desk / CLICK_Lamp_Floor  one lamp
  *           CLICK_Window_Latch    rain on / off          CLICK_Neon_Sign                     neon blink
  *   captions  Poster_* / PosterFrame_* and ArtPan*: "From the real room."
  * Ignored on purpose: STOP_8_Art_Cam / STOP_8_Marker and every PLACARD_* node (hidden by Room.tsx).
  */
-export type TargetAction = 'lights-all' | 'lamp-desk' | 'lamp-floor' | 'rain' | 'neon' | 'caption'
+export type TargetAction = 'lights-room' | 'lamp-desk' | 'lamp-floor' | 'rain' | 'neon' | 'caption'
 
 export type TargetDef = {
   /** Unique key of this hit target. */
@@ -79,7 +79,8 @@ export const TARGET_DEFS: TargetDef[] = [
     distance: 5,
   },
   { key: 'sticky', id: 'aside-now-building', click: ['CLICK_StickyNote_NowBuilding'] },
-  { key: 'switch', id: 'action-lights', action: 'lights-all', click: ['CLICK_Switch_Lights'] },
+  // The room circuit (bake groups Fill + Pictures, + ShelfLEDCyan); the lamps and neon have their own.
+  { key: 'switch', id: 'action-lights', action: 'lights-room', click: ['CLICK_Switch_Lights'] },
   { key: 'lamp-desk', id: 'action-lamp-desk', action: 'lamp-desk', click: ['CLICK_Lamp_Desk'] },
   { key: 'lamp-floor', id: 'action-lamp-floor', action: 'lamp-floor', click: ['CLICK_Lamp_Floor'] },
   { key: 'latch', id: 'action-rain', action: 'rain', click: ['CLICK_Window_Latch'] },

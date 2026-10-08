@@ -824,6 +824,8 @@ a {
 .hud-btn:hover { border-color: var(--accent); }
 .hud-btn.resume { color: var(--accent); }
 .hud-btn.icon { width: 32px; justify-content: center; padding: 0; }
+.hud-btn.lights { color: var(--muted); }
+.hud-btn.lights.on { color: var(--accent); }
 .hud-btn.flash { border-color: #8fe3ff; box-shadow: 0 0 0 3px rgba(56, 232, 255, 0.25); }
 .hud-secrets { position: relative; }
 .hud-pop {
