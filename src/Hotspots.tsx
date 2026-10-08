@@ -46,13 +46,15 @@ function Proxy({ t }: { t: Target }) {
 /**
  * Screen-space keep-out for the in-scene badges: never in the top 64px (the HUD / top bar lives
  * there) and never under the HUD's own rect, so "Just the résumé" is always clear and tappable.
+ * Badges (desktop + phone) sit on the TOP edge of their object's silhouette so they never cover
+ * screens or stands.
  */
 const TOP_SAFE = 64
-const HUD_CLEARANCE = 24 // badge radius (40px on phones -> 20) plus a little air
 const _p = new THREE.Vector3()
 
-/** Phones: 14px dots (index.css), clamped this far inside the viewport. */
+/** Badge radii (index.css): phones 14px dots, desktop 34px numbered badges. */
 const DOT_R = 7
+const BADGE_R = 17
 const EDGE = 16
 const _c = new THREE.Vector3()
 
@@ -119,55 +121,50 @@ function Marker({ t, n, id, label, screens }: { t: Target; n: number; id: string
     root.current.getWorldPosition(_p).project(camera)
     const ax = ((_p.x + 1) / 2) * size.width // where drei <Html> puts the badge (canvas px)
     const ay = ((1 - _p.y) / 2) * size.height
+    // Every viewport: sit on the TOP edge of the object's silhouette (not over its middle / screens),
+    // push off monitor / laptop / frame ScreenSlots, clamp inside the viewport. Top-64px + HUD
+    // keep-outs still hide the badge when it would collide.
+    const rad = phone ? DOT_R : BADGE_R
+    let clear = rad + 4
     let x = ax
     let y = ay
     let offscreen = false
-    let clear = HUD_CLEARANCE
-    if (phone) {
-      // Phones: the dot sits on the TOP edge of its object's silhouette (not floating over its
-      // middle), is pushed off any monitor / laptop / frame screen, and is clamped 16px inside
-      // the viewport. An object that is entirely out of view hides its dot.
-      clear = DOT_R + 4
-      const W = size.width
-      const H = size.height
-      const box = projectBox(t.box, camera, W, H, rect)
-      if (!box || box.r < 0 || box.l > W || box.b < TOP_SAFE || box.t > H) offscreen = true
-      else {
-        x = (box.l + box.r) / 2
-        y = box.t - DOT_R - 3
-        for (const sb of screens) {
-          const s = projectBox(sb, camera, W, H, srect)
-          if (!s) continue
-          const pad = DOT_R + 3
-          if (x < s.l - pad || x > s.r + pad || y < s.t - pad || y > s.b + pad) continue
-          // Nearest way out of the screen rect (up, left, right, down).
-          const moves: [number, number][] = [
-            [x, s.t - pad],
-            [s.l - pad, y],
-            [s.r + pad, y],
-            [x, s.b + pad],
-          ]
-          let best = moves[0]
-          let bd = Infinity
-          for (const m of moves) {
-            if (m[0] < EDGE + DOT_R || m[0] > W - EDGE - DOT_R || m[1] < TOP_SAFE + clear || m[1] > H - EDGE - DOT_R) continue
-            const d = Math.hypot(m[0] - x, m[1] - y)
-            if (d < bd) (bd = d), (best = m)
-          }
-          x = best[0]
-          y = best[1]
+    const W = size.width
+    const H = size.height
+    const box = projectBox(t.box, camera, W, H, rect)
+    if (!box || box.r < 0 || box.l > W || box.b < TOP_SAFE || box.t > H) offscreen = true
+    else {
+      x = (box.l + box.r) / 2
+      y = box.t - rad - 3
+      for (const sb of screens) {
+        const s = projectBox(sb, camera, W, H, srect)
+        if (!s) continue
+        const pad = rad + 3
+        if (x < s.l - pad || x > s.r + pad || y < s.t - pad || y > s.b + pad) continue
+        // Nearest way out of the screen rect (up, left, right, down).
+        const moves: [number, number][] = [
+          [x, s.t - pad],
+          [s.l - pad, y],
+          [s.r + pad, y],
+          [x, s.b + pad],
+        ]
+        let best = moves[0]
+        let bd = Infinity
+        for (const m of moves) {
+          if (m[0] < EDGE + rad || m[0] > W - EDGE - rad || m[1] < TOP_SAFE + clear || m[1] > H - EDGE - rad) continue
+          const d = Math.hypot(m[0] - x, m[1] - y)
+          if (d < bd) (bd = d), (best = m)
         }
-        x = THREE.MathUtils.clamp(x, EDGE + DOT_R, W - EDGE - DOT_R)
-        y = THREE.MathUtils.clamp(y, TOP_SAFE + clear, H - EDGE - DOT_R)
+        x = best[0]
+        y = best[1]
       }
-      const next = `${Math.round(x - ax)}px ${Math.round(y - ay)}px`
-      if (next !== shift.current) {
-        shift.current = next
-        btn.current.style.translate = next
-      }
-    } else if (shift.current) {
-      shift.current = ''
-      btn.current.style.translate = ''
+      x = THREE.MathUtils.clamp(x, EDGE + rad, W - EDGE - rad)
+      y = THREE.MathUtils.clamp(y, TOP_SAFE + clear, H - EDGE - rad)
+    }
+    const next = `${Math.round(x - ax)}px ${Math.round(y - ay)}px`
+    if (next !== shift.current) {
+      shift.current = next
+      btn.current.style.translate = next
     }
     x += size.left
     y += size.top
@@ -182,8 +179,10 @@ function Marker({ t, n, id, label, screens }: { t: Target; n: number; id: string
       btn.current.classList.toggle('blocked', hide)
     }
     if (ring.current) {
-      // Phones: no glowing 3D ring (it read as a lamp bulb); the 14px DOM dot pulses on its own.
-      ring.current.visible = !phone && !active && !off && !hide
+      // Phones: no glowing 3D ring (it read as a lamp bulb); the DOM dot pulses on its own.
+      // Desktop: hide the ring when the badge is screen-shifted (world ring would sit on screens).
+      const shifted = Math.hypot(x - size.left - ax, y - size.top - ay) > rad
+      ring.current.visible = !phone && !shifted && !active && !off && !hide
       const k = 1 + Math.sin(clock.elapsedTime * 2.4 + n) * 0.08
       ring.current.scale.setScalar(visited ? 1 : k)
     }
