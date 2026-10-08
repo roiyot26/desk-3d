@@ -1,73 +1,73 @@
-import { Suspense } from 'react'
+import { Suspense, useCallback, useMemo, useState } from 'react'
+import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
-import {
-  Bounds,
-  Center,
-  ContactShadows,
-  Environment,
-  Html,
-  OrbitControls,
-  useGLTF,
-  useProgress,
-} from '@react-three/drei'
+import { AdaptiveDpr, Environment, Lightformer, useProgress } from '@react-three/drei'
+import type { RoomInfo } from './analyze'
+import { CameraRig } from './CameraRig'
+import { Post } from './Post'
+import { RainGlass, RainStreaks } from './Rain'
+import { RoomLights, RoomModel } from './Room'
+import { detectQuality } from './quality'
 
-const MODEL_URL = `${import.meta.env.BASE_URL}desk.glb`
-const BACKGROUND = '#eeece8'
+const BACKGROUND = '#0b0b0e'
 
-function Loader() {
-  const { progress } = useProgress()
+function LoadingOverlay() {
+  const { progress, active } = useProgress()
+  const done = !active && progress >= 100
   return (
-    <Html center>
-      <div className="loader">Loading desk… {progress.toFixed(0)}%</div>
-    </Html>
+    <div className={`loader${done ? ' done' : ''}`} aria-live="polite">
+      <div className="loader-label">Loading room… {progress.toFixed(0)}%</div>
+      <div className="loader-bar">
+        <span style={{ width: `${progress}%` }} />
+      </div>
+    </div>
   )
 }
 
-function Desk() {
-  // Generic load: no mesh names assumed, materials untouched (keeps emissive screens).
-  const { scene } = useGLTF(MODEL_URL)
-  scene.traverse((obj) => {
-    obj.castShadow = true
-    obj.receiveShadow = true
-  })
-  return <primitive object={scene} />
+/** Dim, local (no network) environment for reflections: warm lamp side, cool window side. */
+function RoomEnvironment() {
+  return (
+    <Environment resolution={64} frames={1} environmentIntensity={0.35}>
+      <color attach="background" args={['#0d0b0b']} />
+      <Lightformer form="rect" color="#ffb070" intensity={1.2} position={[-3, 1.5, 2]} scale={[2, 1.5, 1]} target={[0, 1, 0]} />
+      <Lightformer form="rect" color="#9fb6ff" intensity={0.6} position={[1, 1.5, -3]} scale={[2, 1.4, 1]} target={[0, 1, 0]} />
+      <Lightformer form="rect" color="#3a3030" intensity={0.4} position={[0, 4, 0]} scale={[4, 4, 1]} target={[0, 0, 0]} />
+    </Environment>
+  )
 }
 
 export default function App() {
+  const quality = useMemo(() => detectQuality(), [])
+  const [info, setInfo] = useState<RoomInfo | null>(null)
+  const onInfo = useCallback((i: RoomInfo) => setInfo(i), [])
+
   return (
     <>
       <Canvas
-        camera={{ position: [3, 2.2, 3], fov: 40, near: 0.01, far: 200 }}
-        dpr={[1, 2]}
-        gl={{ antialias: true, preserveDrawingBuffer: true }}
+        shadows="percentage"
+        dpr={[1, quality.tier === 'high' ? 2 : 1.5]}
+        camera={{ position: [2, 1.4, 2.4], fov: 45, near: 0.03, far: 400 }}
+        gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
+        performance={{ min: 0.6 }}
       >
         <color attach="background" args={[BACKGROUND]} />
-        <ambientLight intensity={0.25} />
-        <directionalLight position={[4, 6, 3]} intensity={0.8} />
-        <Suspense fallback={<Loader />}>
-          <Bounds fit clip observe margin={1.35}>
-            <Center top>
-              <Desk />
-            </Center>
-          </Bounds>
-          <ContactShadows position={[0, 0, 0]} opacity={0.45} scale={12} blur={2.4} far={4} resolution={1024} />
-          <Environment preset="apartment" />
+        <AdaptiveDpr pixelated={false} />
+        <Suspense fallback={null}>
+          <RoomModel onInfo={onInfo} />
+          <RoomEnvironment />
         </Suspense>
-        <OrbitControls
-          makeDefault
-          autoRotate
-          autoRotateSpeed={0.6}
-          enablePan={false}
-          enableDamping
-          minDistance={1.5}
-          maxDistance={8}
-          minPolarAngle={0.2}
-          maxPolarAngle={Math.PI / 2 - 0.05}
-        />
+        {info && (
+          <>
+            <RoomLights info={info} quality={quality} />
+            {info.glass && <RainStreaks info={info} quality={quality} />}
+            {info.glass && <RainGlass info={info} quality={quality} />}
+            <CameraRig info={info} quality={quality} />
+            <Post quality={quality} baked={info.baked.aoMap || info.baked.lightMap} />
+          </>
+        )}
       </Canvas>
-      <div className="hint">Drag to orbit · scroll to zoom</div>
+      <LoadingOverlay />
+      <div className="hint">Drag to look around · scroll to step closer</div>
     </>
   )
 }
-
-useGLTF.preload(MODEL_URL)
