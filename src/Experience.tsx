@@ -13,9 +13,9 @@ import { LightMixer } from './LightMixer'
 import { Hotspots } from './Hotspots'
 import { setCanvasElement } from './interact'
 import { Overlay } from './Overlay'
-import { Post, RendererToneMapping } from './Post'
+import { Post, RendererToneMapping, toneOverride, type Tone } from './Post'
 import { RainGlass, RainStreaks } from './Rain'
-import { BakedCeiling, OpenWalls, RoomLights, RoomModel, glbRain, roomScene } from './Room'
+import { OpenWalls, RoomLights, RoomModel, glbRain, roomScene } from './Room'
 import { qualityFor, type Tier } from './quality'
 import { getUI, setUI, useUI } from './store'
 
@@ -24,6 +24,8 @@ import { getUI, setUI, useUI } from './store'
 const BACKGROUND = '#0b0b0e'
 /** Wanda's bake was graded at 2^0.72 in Cycles (README_FORGE.md). */
 const BAKE_EXPOSURE = 1.65
+/** Tone curve for the baked room (checked against Wanda's web_check renders, see README). */
+const BAKE_TONE: Tone = 'agx'
 
 /** Dim, local (no network) environment for reflections: warm lamp side, cool window side. */
 function RoomEnvironment() {
@@ -193,6 +195,7 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
   failRef.current = fail
 
   const postOn = quality.post !== 'none' && degrade < 1
+  const tone: Tone = toneOverride() ?? (bake ? BAKE_TONE : 'agx')
   // No DPR step-down: a 1× buffer stretched over a 2×/3× screen blurs every in-scene label.
   const dprMax = quality.dprMax
 
@@ -203,7 +206,10 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
         shadows={quality.shadows ? 'percentage' : false}
         dpr={[1, quality.dprMax]}
         camera={{ position: [2, 1.4, 2.4], fov: 45, near: 0.03, far: 400 }}
-        gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
+        // `flat`: r3f starts with NoToneMapping and never touches it again. (A toneMapping key in `gl`
+        // was re-applied on every Canvas re-render and silently undid <RendererToneMapping>'s AgX.)
+        flat
+        gl={{ antialias: false, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => {
           gl.outputColorSpace = THREE.SRGBColorSpace
           if (bake) preloadBakeTextures(gl, bake)
@@ -222,7 +228,7 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
       >
         <color attach="background" args={[BACKGROUND]} />
         <DprCap max={dprMax} />
-        <RendererToneMapping post={postOn} exposure={bake ? BAKE_EXPOSURE : undefined} />
+        <RendererToneMapping post={postOn} exposure={bake ? BAKE_EXPOSURE : undefined} tone={tone} />
         <MaybeBakeBoundary bake={!!bake} onError={onBakeError}>
           <Suspense fallback={null}>
             <RoomModel onInfo={onInfo} quality={quality} bake={bake} />
@@ -238,8 +244,9 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
         </MaybeBakeBoundary>
         {info && (
           <>
-            {bake ? <BakedCeiling info={info} /> : <RoomLights info={info} quality={quality} />}
-            <OpenWalls info={info} baked={!!bake} />
+            {/* Baked: no scene lights and no fallback planes (the GLB is a closed, lightmapped room). */}
+            {!bake && <RoomLights info={info} quality={quality} />}
+            {!bake && <OpenWalls info={info} />}
             {info.glass && degrade < 2 && <RainStreaks info={info} quality={quality} />}
             {info.glass && <RainGlass info={info} quality={quality} />}
             <CameraRig info={info} quality={quality} />
@@ -249,7 +256,7 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
             <DuckRig />
             <AudioSpatial info={info} />
             <GlbRain particles={!!info.glass && degrade < 2} />
-            {postOn && <Post quality={quality} baked={!!bake || info.baked.aoMap || info.baked.lightMap} />}
+            {postOn && <Post quality={quality} baked={!!bake || info.baked.aoMap || info.baked.lightMap} tone={tone} />}
             {(!bake || bakeReady) && <ReadyGate key={attempt.n} />}
             <QualityGovernor enabled={!quality.forced} />
           </>

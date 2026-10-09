@@ -88,6 +88,53 @@ const BAKED_EMISSIVE_MAT: Record<string, MixGroup> = {
   ShelfLEDCyan: 'ambient',
 }
 
+/**
+ * Baked package: glass uses plain alpha instead of KHR_materials_transmission (Wanda OK'd it).
+ * Transmission makes three render the whole opaque scene a second time into a transmission target
+ * every frame; a 12% pane looks the same here. (The window pane itself gets the rain shader.)
+ */
+const GLASS_ALPHA = 0.12
+function bakedGlassToAlpha(scene: THREE.Object3D) {
+  const done = new Set<THREE.Material>()
+  scene.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (!m.isMesh) return
+    for (const mt of ([] as THREE.Material[]).concat(m.material)) {
+      const p = mt as THREE.MeshPhysicalMaterial
+      if (done.has(mt) || !((p.transmission ?? 0) > 0)) continue
+      done.add(mt)
+      p.transmission = 0
+      p.transparent = true
+      p.opacity = Math.min(p.opacity, GLASS_ALPHA)
+      p.depthWrite = false
+      p.needsUpdate = true
+    }
+  })
+  if (done.size) console.info(`[desk-3d] glass: transmission -> alpha on ${[...done].map((x) => x.name).join(', ')}`)
+}
+
+/**
+ * Baked package: the wall/ceiling paint ships as a near-flat 1024² ETC1S texture whose block
+ * compression shows up as blue-violet blotches on the big walls (Wanda's previews use the raw
+ * PNG, so they don't have them). Its decoded mean is #3A3233 (glb_evidence.txt), so use that as a
+ * plain factor; the lightmap carries all the variation anyway.
+ */
+const FLAT_PAINT: Record<string, string> = { MAT_Paint_Charcoal: '#3A3233' }
+function flattenWallPaint(scene: THREE.Object3D) {
+  scene.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (!m.isMesh) return
+    for (const mt of ([] as THREE.Material[]).concat(m.material)) {
+      const hex = FLAT_PAINT[mt.name.replace(/_clone$/, '')]
+      const s = mt as THREE.MeshStandardMaterial
+      if (!hex || !s.map) continue
+      s.map = null
+      s.color.set(hex)
+      s.needsUpdate = true
+    }
+  })
+}
+
 function registerBakedEmissives(scene: THREE.Object3D) {
   clearMaterials()
   scene.traverse((o) => {
@@ -189,7 +236,11 @@ export function RoomModel({ onInfo, quality, bake }: { onInfo: (info: RoomInfo) 
     })
     // Crisp in-scene type: spines, cards, plaque, screens, sticky note (src/sharp.ts).
     sharpenSceneText(scene, gl)
-    if (bake) registerBakedEmissives(scene)
+    if (bake) {
+      bakedGlassToAlpha(scene)
+      flattenWallPaint(scene)
+      registerBakedEmissives(scene)
+    }
     else registerEmissives(scene, info)
     setUI({ targets: resolveTargets(scene), stopCams: resolveStopCams(scene) })
     onInfo(info)
@@ -199,31 +250,12 @@ export function RoomModel({ onInfo, quality, bake }: { onInfo: (info: RoomInfo) 
 }
 
 /**
- * Baked room: no diffuse lights at all (the lightmaps contain them). The GLB has no ceiling, so
- * close the box with an unlit dark plane (README_FORGE.md §9).
+ * Live path only: 360° free roam on the older unbaked GLB, which has no 4th wall. Close every side
+ * of the room box that has no wall with a matte plane facing into the room, in the walls' own paint
+ * (lit like them). The baked GLB is a closed room (real FrontWall + Ceiling, double-sided, lightmapped),
+ * so no fallback planes are mounted on the bake path.
  */
-export function BakedCeiling({ info }: { info: RoomInfo }) {
-  const r = info.room
-  const c = useMemo(() => {
-    const s = r.getSize(new THREE.Vector3())
-    const ctr = r.getCenter(new THREE.Vector3())
-    return { size: [s.x, s.z] as [number, number], pos: [ctr.x, r.max.y, ctr.z] as [number, number, number] }
-  }, [r])
-  if (info.hasCeiling) return null
-  return (
-    <mesh position={c.pos} rotation={[Math.PI / 2, 0, 0]}>
-      <planeGeometry args={c.size} />
-      <meshBasicMaterial color="#141114" side={THREE.DoubleSide} />
-    </mesh>
-  )
-}
-
-/**
- * 360° free roam: close every side of the room box that has no wall in the GLB (README_FORGE §9:
- * no 4th wall is exported) with a matte plane facing into the room. Live path: the walls' own
- * paint (lit like them). Baked path: an unlit dark plane like BakedCeiling.
- */
-export function OpenWalls({ info, baked }: { info: RoomInfo; baked: boolean }) {
+export function OpenWalls({ info }: { info: RoomInfo }) {
   const r = info.room
   const planes = useMemo(() => {
     const size = r.getSize(new THREE.Vector3())
@@ -241,7 +273,6 @@ export function OpenWalls({ info, baked }: { info: RoomInfo; baked: boolean }) {
     })
   }, [r, info.openSides])
   const material = useMemo(() => {
-    if (baked) return new THREE.MeshBasicMaterial({ color: '#141114' })
     const src = info.wallMesh?.material
     const m = (Array.isArray(src) ? src[0] : src) as THREE.MeshStandardMaterial | undefined
     if (m && 'roughness' in m) {
@@ -251,7 +282,7 @@ export function OpenWalls({ info, baked }: { info: RoomInfo; baked: boolean }) {
       return c
     }
     return new THREE.MeshStandardMaterial({ color: '#1c1a1d', roughness: 0.95 })
-  }, [baked, info.wallMesh])
+  }, [info.wallMesh])
   useEffect(() => () => material.dispose(), [material])
   if (!planes.length) return null
   return (

@@ -25,6 +25,9 @@ import { BAKE_DIR, type BakeGroupName, type BakeManifest, getKTX2Loader } from '
  * lightmaps already contain all diffuse light.
  */
 
+/** ?debug: the blend weights last drawn into the lightmap target (scale × default_intensity × level). */
+export const bakeWeights: Record<string, number> = {}
+
 type Loaded = { maps: Map<BakeGroupName, THREE.Texture>; env: THREE.Texture | null }
 
 let cache: { key: string; promise: Promise<void>; value?: Loaded; error?: unknown } | null = null
@@ -295,6 +298,7 @@ export function BakedLighting({ manifest, room, lowRes, onReady }: Props) {
     }
     if (!changed) return
     last.current = sum.weights.slice()
+    groups.forEach((g, i) => (bakeWeights[g.group] = +sum.weights[i].toFixed(4)))
     renderInto(gl, rt, sum)
   })
 

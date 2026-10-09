@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { debugPose } from './debugPose'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
@@ -362,6 +363,19 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     const st = state.current
     const now = performance.now() / 1000
     const cam = camera as THREE.PerspectiveCamera
+
+    // ?debug pose(): hold an exact camera (render checks against Wanda's reference views).
+    if (debugPose.current) {
+      const p = debugPose.current
+      c.enabled = false
+      cam.position.fromArray(p.position)
+      cam.lookAt(new THREE.Vector3().fromArray(p.target))
+      if (Math.abs(cam.fov - p.fov) > 1e-3) {
+        cam.fov = p.fov
+        cam.updateProjectionMatrix()
+      }
+      return
+    }
 
     // --- Focus: ease to a framed view when a panel opens, back to the saved pose when it closes.
     const ui = getUI()

@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { bakeWeights } from './bake/BakedLighting'
+import { roomScene } from './Room'
+import { debugPose } from './debugPose'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Billboard, Html } from '@react-three/drei'
@@ -371,7 +374,7 @@ const DEBUG = new URLSearchParams(window.location.search).has('debug')
 
 /** ?debug: window.__desk3d.screenOf(key) -> pixel position of a target (used by the e2e shots). */
 function DebugHooks() {
-  const { camera, size, controls } = useThree()
+  const { camera, size, controls, gl } = useThree()
   const targets = useUI((s) => s.targets)
   useEffect(() => {
     ;(window as unknown as Record<string, unknown>).__desk3d = {
@@ -394,6 +397,50 @@ function DebugHooks() {
         c.setPolarAngle(THREE.MathUtils.degToRad(90 + pitchDeg))
         c.update()
         c.enableDamping = damping
+      },
+      /** Fixed camera at a glTF position looking at a target, vertical fov in degrees; pose(null) releases it. */
+      pose: (position: number[] | null, target?: number[], fov?: number) => {
+        debugPose.current = position && target ? { position, target, fov: fov ?? 50 } : null
+        if (!position) {
+          const c = controls as unknown as { enabled: boolean } | null
+          if (c) c.enabled = true
+        }
+      },
+      /** Renderer tone mapping (three constant) + exposure. */
+      tone: () => ({ toneMapping: gl.toneMapping, exposure: gl.toneMappingExposure }),
+      /** Swap a material's base-colour texture for its mean colour (artifact bisecting). */
+      flatMap: (name: string, hex: string) => {
+        let n = 0
+        roomScene?.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (!m.isMesh) return
+          for (const mt of ([] as THREE.Material[]).concat(m.material)) {
+            const s = mt as THREE.MeshStandardMaterial
+            if (mt.name.replace(/_clone$/, '') === name && s.map) {
+              s.map = null
+              s.color.set(hex)
+              s.needsUpdate = true
+              n++
+            }
+          }
+        })
+        return n
+      },
+      /** Bake blend weights + emissive levels of the switchable materials (lights e2e check). */
+      mix: () => {
+        const em: Record<string, number> = {}
+        roomScene?.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (!m.isMesh) return
+          for (const mt of ([] as THREE.Material[]).concat(m.material)) {
+            const n = mt.name.replace(/_clone$/, '')
+            if (/^(ShelfLEDCyan|NeonCyan|NeonMagenta|RimMagenta|MAT_Linen_Shade|Bulb)$/.test(n)) {
+              const k = n === 'Bulb' ? `Bulb@${m.name}` : n
+              em[k] = Math.max(em[k] ?? 0, +((mt as THREE.MeshStandardMaterial).emissiveIntensity ?? 0).toFixed(3))
+            }
+          }
+        })
+        return { weights: { ...bakeWeights }, emissive: em }
       },
       /** Same path as a real click on a hit target (e.g. 'switch' = CLICK_Switch_Lights). */
       tap: (key: string) => tapKey(key, false),
@@ -441,6 +488,6 @@ function DebugHooks() {
         return { x: Math.round(((v.x + 1) / 2) * size.width), y: Math.round(((1 - v.y) / 2) * size.height), z: v.z }
       },
     }
-  }, [camera, size, targets, controls])
+  }, [camera, size, targets, controls, gl])
   return null
 }

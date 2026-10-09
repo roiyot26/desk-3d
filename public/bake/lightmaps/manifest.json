@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "uv": "TEXCOORD_1 (Blender UV map 'UV2')",
+  "resolution": 2048,
+  "encoding": "KTX2 UASTC (zstd), sRGB transfer, 8-bit; linear = srgb_to_linear(texel) * scale",
+  "blend": "irradiance = sum_g( decode(lm_g) * intensity_g );  three.js: lightMap = blended RT, lightMapIntensity = PI (BRDF_Lambert divides by PI)",
+  "samples": 256,
+  "groups": [
+    {
+      "group": "DeskLamp",
+      "file": "lightmaps/lm_DeskLamp.ktx2",
+      "scale": 13.55035,
+      "default_intensity": 1.0,
+      "lights": [
+        "LGT_DeskLamp_Key",
+        "LGT_DeskLamp_Glow"
+      ],
+      "emissive_materials": [],
+      "resolution": 2048
+    },
+    {
+      "group": "FloorLamp",
+      "file": "lightmaps/lm_FloorLamp.ktx2",
+      "scale": 24.065023,
+      "default_intensity": 1.0,
+      "lights": [
+        "LGT_FloorLamp_Bulb"
+      ],
+      "emissive_materials": [
+        "MAT_Linen_Shade"
+      ],
+      "resolution": 2048
+    },
+    {
+      "group": "Fill",
+      "file": "lightmaps/lm_Fill.ktx2",
+      "scale": 5.956414,
+      "default_intensity": 1.0,
+      "lights": [
+        "LGT_Fill_Room",
+        "LGT_Fill_WarmBounce",
+        "LGT_Fill_WarmLow",
+        "LGT_Fill_CeilingWash"
+      ],
+      "emissive_materials": [],
+      "resolution": 2048
+    },
+    {
+      "group": "Window",
+      "file": "lightmaps/lm_Window.ktx2",
+      "scale": 0.757251,
+      "default_intensity": 1.0,
+      "lights": [
+        "LGT_Window_Fill"
+      ],
+      "emissive_materials": [
+        "MAT_SkyGradient",
+        "CityBldgFar",
+        "CityBldgMid",
+        "CityNeonCyan",
+        "CityNeonMag",
+        "CityWinCool",
+        "CityWinCoolFar",
+        "CityWinWarm",
+        "CityWinWarmFar"
+      ],
+      "resolution": 1024
+    },
+    {
+      "group": "Neon",
+      "file": "lightmaps/lm_Neon.ktx2",
+      "scale": 0.345347,
+      "default_intensity": 1.0,
+      "lights": [
+        "LGT_Neon_MonitorRim",
+        "LGT_Neon_Sign"
+      ],
+      "emissive_materials": [
+        "NeonCyan",
+        "NeonMagenta",
+        "RimMagenta",
+        "ScreenSlot_Monitor",
+        "ScreenSlot_Laptop"
+      ],
+      "resolution": 1024
+    },
+    {
+      "group": "Pictures",
+      "file": "lightmaps/lm_Pictures.ktx2",
+      "scale": 0.374987,
+      "default_intensity": 1.0,
+      "lights": [
+        "LGT_Picture_Poster",
+        "LGT_Picture_Pan",
+        "LGT_Picture_Frame3D",
+        "LGT_Picture_Cork"
+      ],
+      "emissive_materials": [
+        "ShelfLEDCyan",
+        "ArtGratefulDead",
+        "ArtPanAsparagus",
+        "ScreenSlot_Frame3DRender"
+      ],
+      "resolution": 1024
+    }
+  ],
+  "env": {
+    "file": "env/room_env.ktx2",
+    "projection": "equirectangular (Blender eye at (0.35,-0.75,1.20) Z-up; +Y Blender = -Z glTF)",
+    "scale": 3.61938,
+    "use": "scene.environment / material.envMap for metals+gloss only (diffuse already in lightmaps): envMapIntensity ~ scale * 0.5"
+  },
+  "resolution_note": "per-group 'resolution'; all groups share the same UV2 (TEXCOORD_1) layout, so sample each by UV and sum (any RT size)"
+}
