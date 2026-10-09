@@ -1,0 +1,493 @@
+import { useEffect, useMemo, useRef } from 'react'
+import { bakeWeights } from './bake/BakedLighting'
+import { roomScene } from './Room'
+import { debugPose } from './debugPose'
+import * as THREE from 'three'
+import { useFrame, useThree } from '@react-three/fiber'
+import { Billboard, Html } from '@react-three/drei'
+import { STOPS, content, labelFor } from './content'
+import { proxyHandlers, tapKey } from './interact'
+import { activate } from './nav'
+import { getUI, setUI, useUI } from './store'
+import { markerTargetFor, type Target } from './targets'
+import { hudRect } from './Hud'
+import { cueDebug } from './duck/DuckRig'
+import { SHEET_QUERY, useMedia } from './useMedia'
+import { sharpenTextTexture, snapToPixel } from './sharp'
+
+/** Numbered tour markers, big invisible hit boxes for small objects, and the hover label. */
+export function Hotspots() {
+  const targets = useUI((s) => s.targets)
+  const ready = useUI((s) => s.stage === 'ready' && s.entered)
+  const list = useMemo(() => [...targets.values()], [targets])
+  const screens = useMemo(() => screenBoxes(targets), [targets])
+  if (!ready) return null
+  return (
+    <>
+      {list.filter((t) => t.proxy).map((t) => <Proxy key={t.key} t={t} />)}
+      {STOPS.map((s) => {
+        const t = markerTargetFor(targets, s.id)
+        return t ? <Marker key={s.id} t={t} n={s.n} id={s.id} label={s.label} screens={screens} /> : null
+      })}
+      <HoverLabel />
+      <ScreenSlot targets={targets} />
+      <SwitchRocker targets={targets} />
+      {DEBUG && <DebugHooks />}
+    </>
+  )
+}
+
+function Proxy({ t }: { t: Target }) {
+  const box = t.proxy!
+  const size = box.getSize(new THREE.Vector3())
+  const center = box.getCenter(new THREE.Vector3())
+  return (
+    <mesh position={center} {...proxyHandlers(t.key)}>
+      <boxGeometry args={[size.x, size.y, size.z]} />
+      <meshBasicMaterial visible={false} />
+    </mesh>
+  )
+}
+
+/**
+ * Screen-space keep-out for the in-scene badges: never in the top 64px (the HUD / top bar lives
+ * there) and never under the HUD's own rect, so "Just the résumé" is always clear and tappable.
+ * Badges (desktop + phone) sit on the TOP edge of their object's silhouette so they never cover
+ * screens or stands.
+ */
+const TOP_SAFE = 64
+const _p = new THREE.Vector3()
+
+/** Badge radii (index.css): phones 14px dots, desktop 34px numbered badges. */
+const DOT_R = 7
+const BADGE_R = 17
+const EDGE = 16
+const _c = new THREE.Vector3()
+
+type Rect = { l: number; t: number; r: number; b: number }
+/** Screen-space bounding rect of a world box (null when it is behind the camera). */
+function projectBox(box: THREE.Box3, camera: THREE.Camera, w: number, h: number, out: Rect): Rect | null {
+  out.l = out.t = Infinity
+  out.r = out.b = -Infinity
+  for (let i = 0; i < 8; i++) {
+    _c.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(camera)
+    if (_c.z > 1) return null
+    const x = ((_c.x + 1) / 2) * w
+    const y = ((1 - _c.y) / 2) * h
+    out.l = Math.min(out.l, x)
+    out.r = Math.max(out.r, x)
+    out.t = Math.min(out.t, y)
+    out.b = Math.max(out.b, y)
+  }
+  return out
+}
+
+/** World boxes of the monitor / laptop / frame screens (ScreenSlot_* materials): dots never sit on them. */
+function screenBoxes(targets: Map<string, Target>): THREE.Box3[] {
+  const out: THREE.Box3[] = []
+  const seen = new Set<THREE.Object3D>()
+  for (const t of targets.values())
+    for (const n of t.nodes)
+      n.traverse((o) => {
+        const m = o as THREE.Mesh
+        if (!m.isMesh || seen.has(m)) return
+        const mats = Array.isArray(m.material) ? m.material : [m.material]
+        if (!mats.some((mt) => /screenslot/i.test(mt.name))) return
+        seen.add(m)
+        out.push(new THREE.Box3().setFromObject(m))
+      })
+  return out
+}
+
+const RING_COLOR = new THREE.Color('#ffb46b').multiplyScalar(2.2) // HDR: blooms on high/medium tiers
+const RING_DIM = new THREE.Color('#ffb46b').multiplyScalar(0.5)
+
+function Marker({ t, n, id, label, screens }: { t: Target; n: number; id: string; label: string; screens: THREE.Box3[] }) {
+  const phone = useMedia(SHEET_QUERY)
+  const rect = useMemo<Rect>(() => ({ l: 0, t: 0, r: 0, b: 0 }), [])
+  const srect = useMemo<Rect>(() => ({ l: 0, t: 0, r: 0, b: 0 }), [])
+  const shift = useRef('')
+  const visited = useUI((s) => s.visited.includes(id))
+  const active = useUI((s) => s.open?.id === id)
+  const hot = useUI((s) => s.hovered !== null && s.targets.get(s.hovered)?.id === id && !s.open)
+  // While any panel is open only the current stop keeps its badge; the bottom stepper is the nav.
+  const off = useUI((s) => s.open !== null && s.open.id !== id)
+  const ring = useRef<THREE.Mesh>(null)
+  const root = useRef<THREE.Group>(null)
+  const btn = useRef<HTMLButtonElement>(null)
+  const blocked = useRef(false)
+  const mat = useMemo(() => new THREE.MeshBasicMaterial({ color: RING_COLOR, toneMapped: false, transparent: true, depthWrite: false }), [])
+  useEffect(() => {
+    mat.color.copy(visited && !active ? RING_DIM : RING_COLOR)
+    mat.opacity = visited ? 0.55 : 0.9
+  }, [mat, visited, active])
+  useFrame(({ clock, camera, size }) => {
+    if (!root.current || !btn.current) return
+    // Class toggle only (no React re-render per frame).
+    root.current.getWorldPosition(_p).project(camera)
+    const ax = ((_p.x + 1) / 2) * size.width // where drei <Html> puts the badge (canvas px)
+    const ay = ((1 - _p.y) / 2) * size.height
+    // Every viewport: sit on the TOP edge of the object's silhouette (not over its middle / screens),
+    // push off monitor / laptop / frame ScreenSlots, clamp inside the viewport. Top-64px + HUD
+    // keep-outs still hide the badge when it would collide.
+    const rad = phone ? DOT_R : BADGE_R
+    let clear = rad + 4
+    let x = ax
+    let y = ay
+    let offscreen = false
+    const W = size.width
+    const H = size.height
+    const box = projectBox(t.box, camera, W, H, rect)
+    if (!box || box.r < 0 || box.l > W || box.b < TOP_SAFE || box.t > H) offscreen = true
+    else {
+      x = (box.l + box.r) / 2
+      y = box.t - rad - 3
+      for (const sb of screens) {
+        const s = projectBox(sb, camera, W, H, srect)
+        if (!s) continue
+        const pad = rad + 3
+        if (x < s.l - pad || x > s.r + pad || y < s.t - pad || y > s.b + pad) continue
+        // Nearest way out of the screen rect (up, left, right, down).
+        const moves: [number, number][] = [
+          [x, s.t - pad],
+          [s.l - pad, y],
+          [s.r + pad, y],
+          [x, s.b + pad],
+        ]
+        let best = moves[0]
+        let bd = Infinity
+        for (const m of moves) {
+          if (m[0] < EDGE + rad || m[0] > W - EDGE - rad || m[1] < TOP_SAFE + clear || m[1] > H - EDGE - rad) continue
+          const d = Math.hypot(m[0] - x, m[1] - y)
+          if (d < bd) (bd = d), (best = m)
+        }
+        x = best[0]
+        y = best[1]
+      }
+      x = THREE.MathUtils.clamp(x, EDGE + rad, W - EDGE - rad)
+      y = THREE.MathUtils.clamp(y, TOP_SAFE + clear, H - EDGE - rad)
+    }
+    const next = `${Math.round(x - ax)}px ${Math.round(y - ay)}px`
+    if (next !== shift.current) {
+      shift.current = next
+      btn.current.style.translate = next
+    }
+    x += size.left
+    y += size.top
+    const r = hudRect()
+    const hide =
+      offscreen ||
+      (_p.z < 1 &&
+        (y < TOP_SAFE + clear ||
+          (!!r && x > r.left - clear && x < r.right + clear && y > r.top - clear && y < r.bottom + clear)))
+    if (hide !== blocked.current) {
+      blocked.current = hide
+      btn.current.classList.toggle('blocked', hide)
+    }
+    if (ring.current) {
+      // Phones: no glowing 3D ring (it read as a lamp bulb); the DOM dot pulses on its own.
+      // Desktop: hide the ring when the badge is screen-shifted (world ring would sit on screens).
+      const shifted = Math.hypot(x - size.left - ax, y - size.top - ay) > rad
+      ring.current.visible = !phone && !shifted && !active && !off && !hide
+      const k = 1 + Math.sin(clock.elapsedTime * 2.4 + n) * 0.08
+      ring.current.scale.setScalar(visited ? 1 : k)
+    }
+  })
+  return (
+    <group position={t.anchor} ref={root}>
+      <Billboard>
+        <mesh ref={ring} material={mat} renderOrder={5} visible={false}>
+          <ringGeometry args={[0.035, 0.045, 40]} />
+        </mesh>
+      </Billboard>
+      <Html center zIndexRange={[30, 10]} wrapperClass="marker-wrap" calculatePosition={snapToPixel}>
+        <button
+          ref={btn}
+          type="button"
+          className={`marker${blocked.current ? ' blocked' : ''}${visited ? ' visited' : ''}${active ? ' active' : ''}${hot ? ' hot' : ''}${off ? ' off' : ''}`}
+          aria-label={`Stop ${n} of ${STOPS.length}: ${label}`}
+          aria-hidden={off || undefined}
+          tabIndex={off ? -1 : undefined}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => activate(id)}
+          onMouseEnter={() => setUI({ hovered: t.key, hoverTouch: false })}
+          onMouseLeave={() => setUI({ hovered: null })}
+          onFocus={() => setUI({ hovered: t.key, hoverTouch: false })}
+          onBlur={() => setUI({ hovered: null })}
+        >
+          <span className="marker-num">{n}</span>
+          <span className="marker-label">{label}</span>
+        </button>
+      </Html>
+    </group>
+  )
+}
+
+/** Label for hit targets without a numbered marker (bonus objects, books, asides). */
+function HoverLabel() {
+  const hovered = useUI((s) => s.hovered)
+  const touch = useUI((s) => s.hoverTouch)
+  const open = useUI((s) => s.open)
+  const targets = useUI((s) => s.targets)
+  const t = hovered ? targets.get(hovered) : undefined
+  if (!t || open) return null
+  if (t.def.marker && !touch) return null // the marker shows its own label
+  return (
+    <Html position={[t.anchor.x, t.anchor.y + (t.def.marker ? 0.09 : 0), t.anchor.z]} center zIndexRange={[35, 30]} calculatePosition={snapToPixel}>
+      <div key={t.key} className={`hover-label${touch ? ' touch' : ''}`} role="status">
+        <span>{labelFor(t.id)}</span>
+        {touch && (
+          <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={() => tapKey(t.key, false)}>
+            Open
+          </button>
+        )}
+      </div>
+    </Html>
+  )
+}
+
+/**
+ * ScreenSlot_Monitor (material under CLICK_Monitor_Projects) ships with Wanda's "Projects" grid.
+ * While the stop-1 panel is open the screen shows the project the carousel is on; when it closes
+ * the original texture comes back. No ScreenSlot material: nothing happens.
+ * (ScreenSlot_Laptop and ScreenSlot_Frame3DRender keep their baked images.)
+ */
+function ScreenSlot({ targets }: { targets: Map<string, Target> }) {
+  const gl = useThree((s) => s.gl)
+  const open = useUI((s) => s.open)
+  const project = useUI((s) => s.slotProject)
+  const slots = useMemo(() => {
+    const out: (THREE.MeshStandardMaterial | THREE.MeshLambertMaterial)[] = []
+    for (const t of targets.values()) {
+      if (t.id !== 'stop-1' || t.source !== 'click') continue
+      for (const n of t.nodes)
+        n.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (!m.isMesh) return
+          for (const mt of Array.isArray(m.material) ? m.material : [m.material])
+            if (/screenslot_monitor/i.test(mt.name) && 'emissiveMap' in mt) out.push(mt as THREE.MeshStandardMaterial)
+        })
+    }
+    return out
+  }, [targets])
+  const tex = useMemo(() => {
+    if (!slots.length) return null
+    // Drawn at 2× (2048×1152) and sampled without mipmaps (+ max anisotropy): crisp text on the
+    // monitor instead of a blurred mip level.
+    const c = document.createElement('canvas')
+    c.width = 2048
+    c.height = 1152
+    const t = new THREE.CanvasTexture(c)
+    t.colorSpace = THREE.SRGBColorSpace
+    t.flipY = false // glTF UV convention
+    sharpenTextTexture(t, gl)
+    return t
+  }, [slots, gl])
+  const original = useMemo(() => slots.map((m) => ({ m, map: m.map, emissiveMap: m.emissiveMap, emissive: m.emissive.clone() })), [slots])
+  useEffect(() => {
+    if (!tex) return
+    if (open?.id !== 'stop-1') {
+      for (const o of original) {
+        o.m.map = o.map
+        o.m.emissiveMap = o.emissiveMap
+        o.m.emissive.copy(o.emissive)
+        o.m.needsUpdate = true
+      }
+      return
+    }
+    const p = content.projects.find((x) => x.slug === (open?.id === 'stop-1' ? open.project ?? project : project)) ?? content.projects[0]
+    const c = tex.image as HTMLCanvasElement
+    const g = c.getContext('2d')!
+    g.setTransform(2, 0, 0, 2, 0, 0) // layout below is in 1024×576 units
+    g.fillStyle = '#0c0f16'
+    g.fillRect(0, 0, 1024, 576)
+    g.fillStyle = '#f0b273'
+    g.font = '600 64px system-ui, sans-serif'
+    g.fillText(p.name, 64, 200)
+    g.fillStyle = '#c9d2e3'
+    g.font = '30px system-ui, sans-serif'
+    g.fillText(p.tagline, 64, 270)
+    g.fillStyle = '#7d8799'
+    g.font = '28px ui-monospace, monospace'
+    g.fillText(p.repo.replace('https://', ''), 64, 480)
+    tex.needsUpdate = true
+    for (const m of slots) {
+      m.map = tex
+      m.emissiveMap = tex
+      m.emissive.set('#ffffff')
+      m.needsUpdate = true
+    }
+  }, [tex, slots, original, open, project])
+  return null
+}
+
+/**
+ * The wall switch's rocker shows the room-lights state, whichever control flipped it (the switch
+ * itself, the HUD bulb or the duck): one shared `lights.ambient` flag drives both. The rocker
+ * tilts ~9° about the horizontal axis along the wall, around its own centre. No Switch_Rocker
+ * in the GLB: nothing happens.
+ */
+function SwitchRocker({ targets }: { targets: Map<string, Target> }) {
+  const on = useUI((s) => s.lights.ambient)
+  const rig = useMemo(() => {
+    const t = targets.get('switch')
+    if (!t) return null
+    let rocker: THREE.Object3D | undefined
+    let plate: THREE.Object3D | undefined
+    for (const n of t.nodes)
+      n.traverse((o) => {
+        if (!rocker && /rocker/i.test(o.name)) rocker = o
+        if (!plate && /plate/i.test(o.name)) plate = o
+      })
+    if (!rocker || !rocker.parent) return null
+    rocker.updateWorldMatrix(true, true)
+    const box = new THREE.Box3().setFromObject(rocker)
+    const ref = plate ? new THREE.Box3().setFromObject(plate) : box
+    const size = ref.getSize(new THREE.Vector3())
+    // Wall normal = the plate's thinnest axis; tilt about the horizontal axis lying in the wall.
+    const normal = size.x <= size.z ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1)
+    const axisWorld = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), normal).normalize()
+    const parent = rocker.parent
+    const parentQ = parent.getWorldQuaternion(new THREE.Quaternion())
+    const axis = axisWorld.applyQuaternion(parentQ.invert()).normalize()
+    const pivot = parent.worldToLocal(box.getCenter(new THREE.Vector3()))
+    return { rocker, axis, pivot, p0: rocker.position.clone(), q0: rocker.quaternion.clone() }
+  }, [targets])
+  useEffect(() => {
+    if (!rig) return
+    const r = new THREE.Quaternion().setFromAxisAngle(rig.axis, on ? 0.16 : -0.16)
+    rig.rocker.quaternion.copy(r).multiply(rig.q0)
+    rig.rocker.position.copy(rig.p0).sub(rig.pivot).applyQuaternion(r).add(rig.pivot)
+  }, [rig, on])
+  useEffect(
+    () => () => {
+      if (!rig) return
+      rig.rocker.quaternion.copy(rig.q0)
+      rig.rocker.position.copy(rig.p0)
+    },
+    [rig],
+  )
+  return null
+}
+
+const DEBUG = new URLSearchParams(window.location.search).has('debug')
+
+/** ?debug: window.__desk3d.screenOf(key) -> pixel position of a target (used by the e2e shots). */
+function DebugHooks() {
+  const { camera, size, controls, gl } = useThree()
+  const targets = useUI((s) => s.targets)
+  useEffect(() => {
+    ;(window as unknown as Record<string, unknown>).__desk3d = {
+      /** Camera + OrbitControls state, to check that GSAP owns the camera during flies. */
+      cam: () => {
+        const c = controls as unknown as { enabled: boolean; target: THREE.Vector3 } | null
+        const r = (v: THREE.Vector3) => v.toArray().map((n) => +n.toFixed(3))
+        return { pos: r(camera.position), target: c ? r(c.target) : null, controlsEnabled: c?.enabled ?? null, fov: +(camera as THREE.PerspectiveCamera).fov.toFixed(2) }
+      },
+      open: (id: string) => activate(id),
+      /** Free roam: face a compass heading (0 = N = -Z window wall, 90 = E = +X door wall, 180 = S, 270 = W) and pitch. */
+      look: (yawDeg: number, pitchDeg = 0) => {
+        const c = controls as unknown as { enableDamping: boolean; setAzimuthalAngle: (a: number) => void; setPolarAngle: (a: number) => void; update: () => void } | null
+        if (!c) return
+        window.dispatchEvent(new Event('desk3d:look'))
+        // Snap (no damping tail), so slow headless frames can't leave it half-way when the drift starts.
+        const damping = c.enableDamping
+        c.enableDamping = false
+        c.setAzimuthalAngle(-THREE.MathUtils.degToRad(yawDeg))
+        c.setPolarAngle(THREE.MathUtils.degToRad(90 + pitchDeg))
+        c.update()
+        c.enableDamping = damping
+      },
+      /** Fixed camera at a glTF position looking at a target, vertical fov in degrees; pose(null) releases it. */
+      pose: (position: number[] | null, target?: number[], fov?: number) => {
+        debugPose.current = position && target ? { position, target, fov: fov ?? 50 } : null
+        if (!position) {
+          const c = controls as unknown as { enabled: boolean } | null
+          if (c) c.enabled = true
+        }
+      },
+      /** Renderer tone mapping (three constant) + exposure. */
+      tone: () => ({ toneMapping: gl.toneMapping, exposure: gl.toneMappingExposure }),
+      /** Swap a material's base-colour texture for its mean colour (artifact bisecting). */
+      flatMap: (name: string, hex: string) => {
+        let n = 0
+        roomScene?.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (!m.isMesh) return
+          for (const mt of ([] as THREE.Material[]).concat(m.material)) {
+            const s = mt as THREE.MeshStandardMaterial
+            if (mt.name.replace(/_clone$/, '') === name && s.map) {
+              s.map = null
+              s.color.set(hex)
+              s.needsUpdate = true
+              n++
+            }
+          }
+        })
+        return n
+      },
+      /** Bake blend weights + emissive levels of the switchable materials (lights e2e check). */
+      mix: () => {
+        const em: Record<string, number> = {}
+        roomScene?.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (!m.isMesh) return
+          for (const mt of ([] as THREE.Material[]).concat(m.material)) {
+            const n = mt.name.replace(/_clone$/, '')
+            if (/^(ShelfLEDCyan|NeonCyan|NeonMagenta|RimMagenta|MAT_Linen_Shade|Bulb)$/.test(n)) {
+              const k = n === 'Bulb' ? `Bulb@${m.name}` : n
+              em[k] = Math.max(em[k] ?? 0, +((mt as THREE.MeshStandardMaterial).emissiveIntensity ?? 0).toFixed(3))
+            }
+          }
+        })
+        return { weights: { ...bakeWeights }, emissive: em }
+      },
+      /** Same path as a real click on a hit target (e.g. 'switch' = CLICK_Switch_Lights). */
+      tap: (key: string) => tapKey(key, false),
+      ui: () => {
+        const u = getUI()
+        return { open: u.open, visited: u.visited, finale: u.finale, thinking: u.duckThinking, sources: u.sources.keys, secrets: u.secrets, lights: u.lights }
+      },
+      keys: () => [...targets.values()].map((t) => `${t.key}:${t.id}:${t.source}`),
+      /** Duck rig state for the e2e check: Quack morph influence, MAT_DuckEyes emissive, beam origin. */
+      duck: () => {
+        const d = targets.get('duck')
+        if (!d) return null
+        let quack: number | null = null
+        let eyes: number | null = null
+        let beamOrigin = false
+        for (const n of d.nodes)
+          n.traverse((c) => {
+            if (/DUCK_BeamOrigin/i.test(c.name)) beamOrigin = true
+            const m = c as THREE.Mesh
+            const i = m.morphTargetDictionary ? Object.entries(m.morphTargetDictionary).find(([k]) => /quack/i.test(k))?.[1] : undefined
+            if (i !== undefined && m.morphTargetInfluences) quack = Math.max(quack ?? 0, m.morphTargetInfluences[i])
+            const mats = m.material ? (Array.isArray(m.material) ? m.material : [m.material]) : []
+            for (const mt of mats) if (/DuckEyes/i.test(mt.name)) eyes = Math.max(eyes ?? 0, (mt as THREE.MeshStandardMaterial).emissiveIntensity ?? 0)
+          })
+        return { source: d.source, quack, eyes, beamOrigin }
+      },
+      /** Duck pointer cues (beam tube + ring): live visibility/opacity, peak seen, screen path. */
+      beams: () =>
+        [...cueDebug].map((c) => ({
+          kind: c.kind,
+          mounted: c.mounted,
+          visible: c.visible(),
+          opacity: +c.opacity().toFixed(3),
+          maxOpacity: +c.maxOpacity.toFixed(3),
+          shownFrames: c.shownFrames,
+          path: c.points.map((p) => {
+            const v = p.clone().project(camera)
+            return [Math.round(((v.x + 1) / 2) * size.width), Math.round(((1 - v.y) / 2) * size.height), +v.z.toFixed(3)]
+          }),
+        })),
+      screenOf: (key: string) => {
+        const t = targets.get(key)
+        if (!t) return null
+        const v = t.center.clone().project(camera)
+        return { x: Math.round(((v.x + 1) / 2) * size.width), y: Math.round(((1 - v.y) / 2) * size.height), z: v.z }
+      },
+    }
+  }, [camera, size, targets, controls, gl])
+  return null
+}

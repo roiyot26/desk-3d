@@ -1,0 +1,912 @@
+{
+  "_note": "Single source of truth for every word on the site (3D panels, hover labels and the ?view=list page). DRAFT copy for review before merge. Tone: serious lines plus one dry joke per panel. Never add phone, employer or client names here.",
+  "site": {
+    "name": "Roi Yotvat",
+    "role": "AI-driven full-stack developer, building 3D for the web",
+    "coldOpen": "Roi Yotvat, AI-driven full-stack developer, building 3D for the web.",
+    "title": "Roi Yotvat · AI-driven full-stack developer, building 3D for the web",
+    "description": "Roi Yotvat is an AI-driven full-stack developer, building 3D for the web. He builds web products end to end with React, Next, Node and TypeScript, ships with Claude Code and agentic workflows, and is bringing 3D into client websites. Walk through the room, or read the plain version.",
+    "hintDesktop": "Drag to look around 360° · scroll to zoom · click a glowing number",
+    "hintTouch": "Drag to look around 360° · pinch to zoom · tap a glowing dot",
+    "loading": "Setting up the room",
+    "compiling": "Warming up the lights",
+    "listLink": "Plain HTML version",
+    "enterRoom": "Enter the 3D room",
+    "webglFallback": "Your browser couldn't run the 3D room, so here is the same content as a plain page.",
+    "resume": "Just the résumé →",
+    "enter": "Enter",
+    "enterHint": "Turns on sound · press Enter",
+    "enterHintTouch": "Turns on sound",
+    "phoneNote": "This is the plain version. The 3D room runs on phones too: tap Enter the 3D room."
+  },
+  "tour": {
+    "start": "Start the tour",
+    "explore": "Look around on my own",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Free roam",
+    "close": "Close",
+    "of": "of",
+    "foundIt": "Found a bonus",
+    "more": "Scroll for more",
+    "expand": "Expand panel",
+    "collapse": "Shrink panel"
+  },
+  "contact": {
+    "github": {
+      "label": "GitHub",
+      "handle": "roiyot26",
+      "url": "https://github.com/roiyot26"
+    },
+    "linkedin": {
+      "label": "LinkedIn",
+      "handle": "roi-yotvat",
+      "url": "https://linkedin.com/in/roi-yotvat"
+    },
+    "email": {
+      "enabled": false,
+      "label": "Email",
+      "address": ""
+    }
+  },
+  "about": {
+    "lead": "I build web products end to end: React and Next on the front, Node, TypeScript and MongoDB behind them, AWS underneath, and WordPress/PHP when a site calls for it.",
+    "ai": "AI is part of how I work, not a side topic. I ship with Claude Code and agentic workflows every day, and my most recent build is a hybrid-search RAG assistant served over MCP.",
+    "next": "Next I'm bringing 3D into client websites. This room is where I practise.",
+    "nextShort": "Next I'm bringing 3D into client websites.",
+    "practice": "The 3D room is where I practise.",
+    "short": "I build web products end to end, and AI is part of how I ship.",
+    "intro": "I build web products end to end, and next I'm bringing 3D into client websites.",
+    "stackLine": "React · Next · Node · TypeScript · MongoDB · AWS · WordPress/PHP"
+  },
+  "projects": [
+    {
+      "slug": "virtual-garden",
+      "name": "Virtual Garden",
+      "tagline": "A Chrome extension that grows a garden from your focus.",
+      "serious": "Time on sites you mark as productive grows a small garden on the page, and the rest makes it wilt. It's built with WXT (Manifest V3), TypeScript and Vitest, with CI on every PR. Four looks: zen, cosmic, ocean and pixel.",
+      "joke": "Doomscrolling wilts it. It has opinions.",
+      "tags": [
+        "WXT",
+        "MV3",
+        "TypeScript",
+        "Vitest"
+      ],
+      "repo": "https://github.com/roiyot26/virtual-garden",
+      "live": "https://roiyot26.github.io/virtual-garden/"
+    },
+    {
+      "slug": "retrieval-tracer",
+      "name": "retrieval-tracer",
+      "tagline": "Retrieval, up close, in the browser.",
+      "serious": "Sentence embeddings (all-MiniLM-L6-v2) run in the browser through transformers.js, and you can see how cosine similarity is built up dimension by dimension. It's the groundwork for the chunking and hybrid-search steps that come next.",
+      "joke": "It agrees that a cat on a mat and a feline on a rug are related. Cautiously.",
+      "tags": [
+        "Embeddings",
+        "transformers.js",
+        "React",
+        "Vite"
+      ],
+      "repo": "https://github.com/roiyot26/retrieval-tracer"
+    },
+    {
+      "slug": "chord-cycle-open",
+      "name": "chord-cycle-open",
+      "tagline": "A chord wheel you play with your hands.",
+      "serious": "You play it in the browser with a pointer, touch or a webcam. MediaPipe hand tracking picks the chord, opening your hand swells it, and Web Audio plays it. No plugins and no MIDI hardware.",
+      "joke": "Air guitar, except the chords are correct.",
+      "tags": [
+        "MediaPipe",
+        "Web Audio",
+        "TypeScript"
+      ],
+      "repo": "https://github.com/roiyot26/chord-cycle-open",
+      "live": "https://roiyot26.github.io/chord-cycle-open/"
+    },
+    {
+      "slug": "desk-3d",
+      "name": "desk-3d",
+      "tagline": "This room.",
+      "serious": "A Blender-built scene running in react-three-fiber. It has GPU rain on the glass, AgX grading, an eye-height interior camera, a mobile tier, and a plain-HTML version for recruiters and search engines.",
+      "joke": "It has been raining here since the first commit.",
+      "tags": [
+        "react-three-fiber",
+        "Blender",
+        "GLSL",
+        "Postprocessing"
+      ],
+      "repo": "https://github.com/roiyot26/desk-3d",
+      "live": "https://roiyot26.github.io/desk-3d/"
+    }
+  ],
+  "skills": {
+    "intro": "These are the tools I use daily, roughly in the order I reach for them.",
+    "featured": {
+      "id": "claude-code",
+      "book": "ClaudeCode",
+      "name": "Claude Code & agentic workflows",
+      "line": "This one leans out of the shelf on purpose. Agents help me plan, build and review, with tests and a human in the loop."
+    },
+    "items": [
+      {
+        "id": "react",
+        "book": "React",
+        "name": "React",
+        "line": "Component systems, state that stays sane, and UI that holds up."
+      },
+      {
+        "id": "next",
+        "book": "Next",
+        "name": "Next.js",
+        "line": "Routing, server rendering and the parts of SEO that pay rent."
+      },
+      {
+        "id": "node",
+        "book": "Node",
+        "name": "Node.js",
+        "line": "APIs, workers and the glue between services."
+      },
+      {
+        "id": "typescript",
+        "book": "TS",
+        "name": "TypeScript",
+        "line": "Types from the database to the button."
+      },
+      {
+        "id": "mongo",
+        "book": "Mongo",
+        "name": "MongoDB",
+        "line": "Schemas that bend without breaking."
+      },
+      {
+        "id": "aws",
+        "book": "AWS",
+        "name": "AWS",
+        "line": "Deploys, storage and the bill at the end of the month."
+      },
+      {
+        "id": "wordpress-php",
+        "book": "WordPressPHP",
+        "name": "WordPress / PHP",
+        "line": "Custom themes and plugins for sites that already run on it."
+      },
+      {
+        "id": "rag-mcp",
+        "book": "",
+        "name": "Hybrid-search RAG over MCP",
+        "line": "Keyword plus vector retrieval, served to assistants through the Model Context Protocol."
+      }
+    ],
+    "joke": "The books are sorted by how often I open them. TypeScript has a cracked spine."
+  },
+  "career": {
+    "items": [
+      "Full-stack web development: product features from the database to the UI, across React, Next, Node and WordPress/PHP.",
+      "AI in the workflow: agentic coding with Claude Code, retrieval systems, and a hybrid-search RAG assistant over MCP.",
+      "Now: adding 3D to the toolkit so the sites I ship next can have real depth."
+    ],
+    "teaching": "Also: I've taught full-stack development since 2022."
+  },
+  "stops": [
+    {
+      "id": "stop-1",
+      "n": 1,
+      "aliases": [
+        "projects",
+        "work",
+        "about"
+      ],
+      "label": "Desk · who I am",
+      "kicker": "Stop 1 · The desk",
+      "title": "AI-driven full-stack developer, building 3D for the web",
+      "kind": "projects",
+      "body": [
+        "@about.lead",
+        "@about.ai"
+      ],
+      "joke": "Yes, the code on that monitor compiles. I checked before the photo."
+    },
+    {
+      "id": "stop-2",
+      "n": 2,
+      "aliases": [
+        "3d",
+        "goal"
+      ],
+      "label": "Laptop · 3D for the web",
+      "kicker": "Stop 2 · The laptop",
+      "title": "3D on the sites you already have",
+      "kind": "pitch",
+      "body": [
+        "My goal is to bring 3D artwork into client websites: product scenes, interactive rooms, and small moments that make a page memorable, without hurting load time or accessibility.",
+        "This room is the training ground. It's modelled in Blender, exported as glTF, then lit and graded in react-three-fiber. It has a lighter mobile tier and a plain-HTML fallback.",
+        "If your site could use a third dimension, let's talk."
+      ],
+      "joke": "The laptop is rendering the room you're standing in. It's turtles all the way down, with lightmaps."
+    },
+    {
+      "id": "stop-3",
+      "n": 3,
+      "aliases": [
+        "skills",
+        "stack"
+      ],
+      "label": "Bookshelf · the stack",
+      "kicker": "Stop 3 · The bookshelf",
+      "title": "The stack",
+      "kind": "skills",
+      "body": [
+        "@skills.intro"
+      ],
+      "joke": "@skills.joke"
+    },
+    {
+      "id": "stop-4",
+      "n": 4,
+      "aliases": [
+        "garden",
+        "virtual-garden"
+      ],
+      "label": "Terrarium · Virtual Garden",
+      "kicker": "Stop 4 · The terrarium",
+      "title": "Virtual Garden",
+      "kind": "garden",
+      "project": "virtual-garden",
+      "body": [
+        "This garden grows from your focus. Time on sites you mark as productive grows it, and the rest makes it wilt.",
+        "The score is productive ÷ (productive + non-productive). Neutral sites don't dilute it, and it stays at 50 until there are five minutes of data. It's built with WXT and TypeScript, tested with Vitest, and runs CI on every PR."
+      ],
+      "joke": "It's low maintenance with high judgement."
+    },
+    {
+      "id": "stop-5",
+      "n": 5,
+      "aliases": [
+        "career",
+        "path"
+      ],
+      "label": "Cork board · career path",
+      "kicker": "Stop 5 · The cork board",
+      "title": "The path so far",
+      "kind": "career",
+      "body": [],
+      "joke": "The cork board is load-bearing. Please don't remove any pins."
+    },
+    {
+      "id": "stop-6",
+      "n": 6,
+      "aliases": [
+        "contact",
+        "hire",
+        "hello"
+      ],
+      "label": "Mug · say hi",
+      "kicker": "Stop 6 · The mug",
+      "title": "Let's talk",
+      "kind": "contact",
+      "body": [
+        "I'm open to work on AI-driven products and on 3D for the web. The fastest way to reach me is a message on LinkedIn, and all my code is on GitHub."
+      ],
+      "joke": "The coffee's still warm, so your message won't wait long."
+    },
+    {
+      "id": "stop-7",
+      "n": 7,
+      "aliases": [
+        "duck",
+        "ask",
+        "ask-the-duck"
+      ],
+      "label": "Duck · ask me anything",
+      "kicker": "Stop 7 · The rubber duck",
+      "title": "Ask the duck",
+      "kind": "duck",
+      "body": [
+        "Every developer talks to a rubber duck. Mine talks back, and it has tool access.",
+        "Pick a question or type your own. The duck searches the room, points at its sources, and flies you there."
+      ],
+      "joke": "Scripted for now. It only knows what's in this room."
+    }
+  ],
+  "bonus": [
+    {
+      "id": "bonus-sculpture",
+      "label": "Icosahedron",
+      "title": "Twenty faces",
+      "body": [
+        "Twenty faces and zero bugs. It's the only flawless object in the room."
+      ],
+      "joke": ""
+    }
+  ],
+  "asides": [
+    {
+      "id": "aside-now-building",
+      "label": "Sticky note · now building",
+      "title": "Now building",
+      "body": [
+        "Next up: chunking and hybrid search in retrieval-tracer, plus a baked-light version of this room."
+      ],
+      "joke": "The sticky note is the roadmap. Strong adhesive, flexible deadlines."
+    }
+  ],
+  "finale": {
+    "title": "You've seen the room",
+    "body": "That's all seven stops. If anything here is useful to you, say hi.",
+    "joke": "The duck takes follow-up questions. Just saying."
+  },
+  "loader": {
+    "lines": [
+      {
+        "at": 0.0,
+        "text": "unpacking the room",
+        "live": true
+      },
+      {
+        "at": 0.55,
+        "text": "watering the plants"
+      },
+      {
+        "at": 0.75,
+        "text": "convincing the rain to fall",
+        "live": true
+      },
+      {
+        "at": 0.95,
+        "text": "warming up the lamps"
+      },
+      {
+        "at": 1.0,
+        "text": "teaching the duck to talk"
+      }
+    ],
+    "ready": "room ready. Bring headphones, or don't.",
+    "title": "roi@desk ~/room"
+  },
+  "audio": {
+    "mute": "Mute sound",
+    "unmute": "Turn sound on"
+  },
+  "lightsToggle": {
+    "off": "Turn the room lights off",
+    "on": "Turn the room lights on"
+  },
+  "toasts": {
+    "lightsOff": "Lights off. The neon stays on, obviously.",
+    "lightsOn": "Lights back on.",
+    "roomOff": "Room lights off. Lamps and neon stay on.",
+    "roomOn": "Room lights on.",
+    "deskOff": "Desk lamp off.",
+    "deskOn": "Desk lamp on.",
+    "floorOff": "Floor lamp off.",
+    "floorOn": "Floor lamp on.",
+    "rainOff": "Window latched. The rain stops for you.",
+    "rainOn": "Window unlatched. The rain is back.",
+    "agentic": "agentic mode: on. The duck is listening.",
+    "secret": "Secret found",
+    "neon": "</> blinks back."
+  },
+  "toastShort": {
+    "lightsOff": "lights off",
+    "lightsOn": "lights on",
+    "roomOff": "room lights off",
+    "roomOn": "room lights on",
+    "deskOff": "desk lamp off",
+    "deskOn": "desk lamp on",
+    "floorOff": "floor lamp off",
+    "floorOn": "floor lamp on",
+    "rainOff": "rain off",
+    "rainOn": "rain back on",
+    "agentic": "agentic mode on",
+    "neon": "</> blinks back"
+  },
+  "secrets": {
+    "label": "Secrets",
+    "items": [
+      {
+        "id": "duck",
+        "label": "Talked to the duck"
+      },
+      {
+        "id": "claude",
+        "label": "Typed claude"
+      },
+      {
+        "id": "switch",
+        "label": "Flipped a light"
+      },
+      {
+        "id": "latch",
+        "label": "Stopped the rain"
+      },
+      {
+        "id": "neon",
+        "label": "Poked the neon sign"
+      },
+      {
+        "id": "tour",
+        "label": "Finished the tour"
+      }
+    ],
+    "doneTitle": "All six secrets",
+    "doneBody": "You found everything. That's exactly the kind of thoroughness I look for in a code reviewer.",
+    "doneJoke": "There is no seventh secret. Probably.",
+    "found": "Secret found",
+    "hidden": "???",
+    "_note": "The six secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; tour = visit all seven tour stops. No art secrets.",
+    "short": "Secret"
+  },
+  "duck": {
+    "placeholder": "Ask about Roi's work…",
+    "send": "Ask",
+    "more": "More questions",
+    "less": "Fewer questions",
+    "thinking": "thinking",
+    "back": "Back to the duck",
+    "fallback": {
+      "reply": "I'm a duck. I only know Roi's portfolio, and that wasn't in it. Try one of these.",
+      "steps": [
+        "search_portfolio(\"{q}\") → 0 sources"
+      ]
+    },
+    "intents": [
+      {
+        "id": "best-ai",
+        "chip": "Show me your best AI project",
+        "keywords": [
+          "ai",
+          "llm",
+          "rag",
+          "embedding",
+          "machine learning",
+          "best",
+          "retrieval"
+        ],
+        "reply": "retrieval-tracer. Sentence embeddings run in your browser, and you can watch cosine similarity build up dimension by dimension. It's the base layer of Roi's hybrid-search RAG work. Opening it on the monitor.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "AI project"
+            ],
+            "sources": [
+              "monitor",
+              "career"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "monitor"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "retrieval-tracer"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "stack",
+        "chip": "What's your stack?",
+        "keywords": [
+          "stack",
+          "tech",
+          "react",
+          "node",
+          "typescript",
+          "next",
+          "mongo",
+          "aws",
+          "wordpress",
+          "php",
+          "skills",
+          "tools",
+          "languages"
+        ],
+        "reply": "React, Next, Node, TypeScript, MongoDB and AWS, plus WordPress/PHP when a site already runs on it. Claude Code is leaning out of the shelf on purpose.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "stack"
+            ],
+            "sources": [
+              "bookshelf",
+              "desk-books"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "bookshelf"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-3"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "3d",
+        "chip": "Can you do 3D for my site?",
+        "keywords": [
+          "3d",
+          "three",
+          "webgl",
+          "blender",
+          "site",
+          "website",
+          "client",
+          "3d site",
+          "r3f"
+        ],
+        "reply": "Yes. That's where Roi is heading: 3D artwork inside client websites, without wrecking load time. You're standing in the demo.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "3D for the web"
+            ],
+            "sources": [
+              "laptop",
+              "monitor"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "laptop"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-2"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "hire",
+        "chip": "How do I hire you?",
+        "keywords": [
+          "hire",
+          "contact",
+          "email",
+          "reach",
+          "work together",
+          "available",
+          "job",
+          "freelance",
+          "linkedin",
+          "github",
+          "talk"
+        ],
+        "reply": "Message Roi on LinkedIn. His code is on GitHub. I'll put both on the mug.",
+        "tools": [
+          {
+            "name": "show_contact",
+            "args": [],
+            "sources": [
+              "mug"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "mug"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-6"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "why-duck",
+        "chip": "Why a duck?",
+        "keywords": [
+          "duck",
+          "why",
+          "rubber",
+          "quack",
+          "who are you"
+        ],
+        "reply": "Rubber-duck debugging: explain the bug out loud and you usually find it yourself. I'm the duck that answers back, about Roi's work only.",
+        "tools": [
+          {
+            "name": "quack",
+            "args": []
+          }
+        ]
+      },
+      {
+        "id": "projects",
+        "chip": "What have you built?",
+        "keywords": [
+          "projects",
+          "built",
+          "portfolio",
+          "work",
+          "examples",
+          "show me",
+          "repos"
+        ],
+        "reply": "Four public projects: Virtual Garden, retrieval-tracer, chord-cycle-open and this room. The monitor has the carousel.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "projects"
+            ],
+            "sources": [
+              "monitor",
+              "terrarium",
+              "laptop"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "monitor"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-1"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "garden",
+        "chip": "What's the plant about?",
+        "keywords": [
+          "garden",
+          "virtual garden",
+          "plant",
+          "extension",
+          "chrome",
+          "terrarium",
+          "productivity"
+        ],
+        "reply": "Virtual Garden, a Chrome extension. Your focus grows it, and doomscrolling wilts it.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "virtual-garden"
+            ],
+            "sources": [
+              "terrarium"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "terrarium"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-4"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "career",
+        "chip": "What's your background?",
+        "keywords": [
+          "background",
+          "career",
+          "experience",
+          "history",
+          "cv",
+          "resume",
+          "résumé",
+          "teach",
+          "teaching",
+          "years"
+        ],
+        "reply": "Full-stack first, then AI in the workflow, now 3D. It's all pinned to the board.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "career"
+            ],
+            "sources": [
+              "career"
+            ]
+          },
+          {
+            "name": "fly_to",
+            "args": [
+              "career"
+            ]
+          },
+          {
+            "name": "open",
+            "args": [
+              "stop-5"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "claude",
+        "chip": "Do you use Claude Code?",
+        "keywords": [
+          "claude",
+          "agent",
+          "agentic",
+          "copilot",
+          "cursor",
+          "workflow",
+          "mcp"
+        ],
+        "reply": "Every day. Agents plan, build and review, with tests and a human in the loop. Switching the room to agentic mode so you can feel it.",
+        "tools": [
+          {
+            "name": "search_portfolio",
+            "args": [
+              "agentic workflows"
+            ],
+            "sources": [
+              "bookshelf",
+              "monitor"
+            ]
+          },
+          {
+            "name": "set_mode",
+            "args": [
+              "agentic"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "lights",
+        "chip": "Turn the lights off",
+        "keywords": [
+          "lights",
+          "light",
+          "dark",
+          "lamp",
+          "off",
+          "night",
+          "on"
+        ],
+        "reply": "Done. The neon stays on. It has a contract.",
+        "tools": [
+          {
+            "name": "set_lights",
+            "args": [
+              "all",
+              "toggle"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "rain",
+        "chip": "Make it stop raining",
+        "keywords": [
+          "rain",
+          "weather",
+          "stop raining",
+          "clear",
+          "sun",
+          "storm",
+          "raining"
+        ],
+        "reply": "Latched the window. Weather is a tool call now.",
+        "tools": [
+          {
+            "name": "set_weather",
+            "args": [
+              "toggle"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "bug",
+        "chip": "Can you fix my bug?",
+        "keywords": [
+          "bug",
+          "fix",
+          "error",
+          "broken",
+          "debug",
+          "crash",
+          "help"
+        ],
+        "reply": "Have you tried explaining it to me slowly?",
+        "tools": [
+          {
+            "name": "quack",
+            "args": []
+          }
+        ]
+      },
+      {
+        "id": "music",
+        "chip": "Play some music",
+        "keywords": [
+          "music",
+          "sound",
+          "audio",
+          "lofi",
+          "song",
+          "play"
+        ],
+        "reply": "Lofi on. It's synthesized in-house, so the license is fine.",
+        "tools": [
+          {
+            "name": "set_audio",
+            "args": [
+              "on"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "personal",
+        "chip": "",
+        "keywords": [
+          "age",
+          "old",
+          "salary",
+          "married",
+          "wife",
+          "girlfriend",
+          "address",
+          "phone",
+          "religion",
+          "politics"
+        ],
+        "reply": "I'm a duck. Ask Roi. He's on LinkedIn.",
+        "tools": [
+          {
+            "name": "show_contact",
+            "args": [],
+            "sources": [
+              "mug"
+            ]
+          }
+        ]
+      }
+    ],
+    "whatsThis": "What's this?",
+    "hideIntro": "Hide intro",
+    "chips": [
+      "best-ai",
+      "claude",
+      "3d",
+      "stack",
+      "lights",
+      "why-duck"
+    ],
+    "visible": 3
+  },
+  "labels": {
+    "action-lights": "Light switch",
+    "action-lamp-desk": "Desk lamp · click to switch",
+    "action-lamp-floor": "Floor lamp · click to switch",
+    "action-rain": "Window latch · rain on/off",
+    "action-neon": "Neon sign · </>"
+  }
+}

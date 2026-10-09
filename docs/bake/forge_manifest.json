@@ -1,0 +1,555 @@
+{
+ "glb": "web/desk.glb",
+ "glb_cycles_reference": "desk.glb (unbaked, PBR, for reference only)",
+ "required_extensions": [
+  "KHR_draco_mesh_compression",
+  "KHR_texture_basisu"
+ ],
+ "loaders": "GLTFLoader + DRACOLoader + KTX2Loader",
+ "click": [
+  "CLICK_Book_AWS",
+  "CLICK_Book_ClaudeCode",
+  "CLICK_Book_Mongo",
+  "CLICK_Book_Next",
+  "CLICK_Book_Node",
+  "CLICK_Book_React",
+  "CLICK_Book_TS",
+  "CLICK_Book_WordPressPHP",
+  "CLICK_Chalkboard_Career",
+  "CLICK_Duck",
+  "CLICK_Frame_3DRender",
+  "CLICK_Lamp_Desk",
+  "CLICK_Lamp_Floor",
+  "CLICK_Laptop_3D",
+  "CLICK_Monitor_Projects",
+  "CLICK_Mug_Contact",
+  "CLICK_Neon_Sign",
+  "CLICK_StickyNote_NowBuilding",
+  "CLICK_Switch_Lights",
+  "CLICK_Terrarium_VirtualGarden",
+  "CLICK_Window_Latch"
+ ],
+ "click_detail": [
+  {
+   "name": "CLICK_Book_AWS",
+   "top_level": true,
+   "meshes": 5,
+   "position": [
+    -1.394,
+    1.335,
+    1.936
+   ]
+  },
+  {
+   "name": "CLICK_Book_ClaudeCode",
+   "top_level": true,
+   "meshes": 5,
+   "position": [
+    -1.393,
+    1.335,
+    2.076
+   ]
+  },
+  {
+   "name": "CLICK_Book_Mongo",
+   "top_level": true,
+   "meshes": 5,
+   "position": [
+    -1.405,
+    1.335,
+    1.898
+   ]
+  },
+  {
+   "name": "CLICK_Book_Next",
+   "top_level": true,
+   "meshes": 5,
+   "position": [
+    -1.403,
+    1.335,
+    1.778
+   ]
+  },
+  {
+   "name": "CLICK_Book_Node",
+   "top_level": true,
+   "meshes": 5,
+   "position": [
+    -1.395,
+    1.335,
+    1.818
+   ]
+  },
+  {
+   "name": "CLICK_Book_React",
+   "top_level": true,
+   "meshes": 5,
+   "position": [
+    -1.398,
+    1.335,
+    1.743
+   ]
+  },
+  {
+   "name": "CLICK_Book_TS",
+   "top_level": true,
+   "meshes": 5,
+   "position": [
+    -1.4,
+    1.335,
+    1.86
+   ]
+  },
+  {
+   "name": "CLICK_Book_WordPressPHP",
+   "top_level": true,
+   "meshes": 5,
+   "position": [
+    -1.401,
+    1.335,
+    1.981
+   ]
+  },
+  {
+   "name": "CLICK_Chalkboard_Career",
+   "top_level": true,
+   "meshes": 22,
+   "position": [
+    2.5,
+    1.45,
+    0.7
+   ]
+  },
+  {
+   "name": "CLICK_Duck",
+   "top_level": true,
+   "meshes": 3,
+   "position": [
+    0.172,
+    0.74,
+    0.095
+   ]
+  },
+  {
+   "name": "CLICK_Frame_3DRender",
+   "top_level": true,
+   "meshes": 9,
+   "position": [
+    2.5,
+    1.47,
+    -0.3
+   ]
+  },
+  {
+   "name": "CLICK_Lamp_Desk",
+   "top_level": true,
+   "meshes": 4,
+   "position": [
+    -0.36,
+    1.115,
+    -0.08
+   ]
+  },
+  {
+   "name": "CLICK_Lamp_Floor",
+   "top_level": true,
+   "meshes": 2,
+   "position": [
+    -1.15,
+    1.5,
+    1.3
+   ]
+  },
+  {
+   "name": "CLICK_Laptop_3D",
+   "top_level": true,
+   "meshes": 135,
+   "position": [
+    0.42,
+    0.74,
+    0.02
+   ]
+  },
+  {
+   "name": "CLICK_Monitor_Projects",
+   "top_level": true,
+   "meshes": 6,
+   "position": [
+    -0.1,
+    0.74,
+    -0.2
+   ]
+  },
+  {
+   "name": "CLICK_Mug_Contact",
+   "top_level": true,
+   "meshes": 4,
+   "position": [
+    0.6,
+    0.74,
+    0.24
+   ]
+  },
+  {
+   "name": "CLICK_Neon_Sign",
+   "top_level": true,
+   "meshes": 6,
+   "position": [
+    -0.95,
+    1.98,
+    -1.08
+   ]
+  },
+  {
+   "name": "CLICK_StickyNote_NowBuilding",
+   "top_level": true,
+   "meshes": 1,
+   "position": [
+    0.138,
+    1.192,
+    -0.172
+   ]
+  },
+  {
+   "name": "CLICK_Switch_Lights",
+   "top_level": true,
+   "meshes": 2,
+   "position": [
+    2.5,
+    1.1,
+    1.62
+   ]
+  },
+  {
+   "name": "CLICK_Terrarium_VirtualGarden",
+   "top_level": true,
+   "meshes": 35,
+   "position": [
+    1.13,
+    0.882,
+    -1
+   ]
+  },
+  {
+   "name": "CLICK_Window_Latch",
+   "top_level": true,
+   "meshes": 2,
+   "position": [
+    0.65,
+    1.26,
+    -1.12
+   ]
+  }
+ ],
+ "stops": [
+  "STOP_1_Desk_Cam",
+  "STOP_2_Laptop_Cam",
+  "STOP_3_Bookshelf_Cam",
+  "STOP_4_Terrarium_Cam",
+  "STOP_5_Corkboard_Cam",
+  "STOP_6_Mug_Cam",
+  "STOP_7_Duck_Cam"
+ ],
+ "stop_detail": [
+  {
+   "name": "STOP_1_Desk_Cam",
+   "position": [
+    0.62,
+    1.33,
+    1.22
+   ],
+   "quaternion": [
+    0.61051,
+    0.16844,
+    -0.13495,
+    0.76203
+   ],
+   "fov_mm": 30,
+   "sensor_mm": 36,
+   "target_gltf_yup": [
+    -0.04,
+    0.98,
+    -0.2
+   ]
+  },
+  {
+   "name": "STOP_2_Laptop_Cam",
+   "position": [
+    -0.35,
+    1.24,
+    0.78
+   ],
+   "quaternion": [
+    0.5849,
+    -0.35173,
+    0.31106,
+    0.66138
+   ],
+   "fov_mm": 28,
+   "sensor_mm": 36,
+   "target_gltf_yup": [
+    1.4,
+    0.98,
+    -0.4
+   ]
+  },
+  {
+   "name": "STOP_3_Bookshelf_Cam",
+   "position": [
+    -0.4,
+    1.45,
+    1.85
+   ],
+   "quaternion": [
+    0.42662,
+    0.56855,
+    -0.544,
+    0.44587
+   ],
+   "fov_mm": 30,
+   "sensor_mm": 36,
+   "target_gltf_yup": [
+    -1.5,
+    1.4,
+    2.12
+   ]
+  },
+  {
+   "name": "STOP_4_Terrarium_Cam",
+   "position": [
+    1.42,
+    1.2,
+    -0.28
+   ],
+   "quaternion": [
+    0.5967,
+    0.1511,
+    -0.11565,
+    0.77958
+   ],
+   "fov_mm": 35,
+   "sensor_mm": 36,
+   "target_gltf_yup": [
+    1.13,
+    0.99,
+    -1
+   ]
+  },
+  {
+   "name": "STOP_5_Corkboard_Cam",
+   "position": [
+    1.4,
+    1.45,
+    1.2
+   ],
+   "quaternion": [
+    0.59522,
+    -0.37698,
+    0.37088,
+    0.60502
+   ],
+   "fov_mm": 32,
+   "sensor_mm": 36,
+   "target_gltf_yup": [
+    2.5,
+    1.43,
+    0.66
+   ]
+  },
+  {
+   "name": "STOP_6_Mug_Cam",
+   "position": [
+    1.05,
+    1.15,
+    0.88
+   ],
+   "quaternion": [
+    0.53573,
+    0.25177,
+    -0.17126,
+    0.78758
+   ],
+   "fov_mm": 35,
+   "sensor_mm": 36,
+   "target_gltf_yup": [
+    0.58,
+    0.83,
+    0.22
+   ]
+  },
+  {
+   "name": "STOP_7_Duck_Cam",
+   "position": [
+    0.52,
+    1.02,
+    0.58
+   ],
+   "quaternion": [
+    0.57466,
+    0.24335,
+    -0.18416,
+    0.75936
+   ],
+   "fov_mm": 35,
+   "sensor_mm": 36,
+   "target_gltf_yup": [
+    0.17,
+    0.85,
+    0.09
+   ]
+  }
+ ],
+ "markers": [
+  "STOP_1_Marker",
+  "STOP_2_Marker",
+  "STOP_3_Marker",
+  "STOP_4_Marker",
+  "STOP_5_Marker",
+  "STOP_6_Marker",
+  "STOP_7_Marker"
+ ],
+ "screen_slots": [
+  "ScreenSlot_Frame3DRender",
+  "ScreenSlot_Laptop",
+  "ScreenSlot_Monitor"
+ ],
+ "keys": [
+  "KEY_0",
+  "KEY_1",
+  "KEY_2",
+  "KEY_3",
+  "KEY_4",
+  "KEY_5",
+  "KEY_6",
+  "KEY_7",
+  "KEY_8",
+  "KEY_9",
+  "KEY_A",
+  "KEY_Alt",
+  "KEY_B",
+  "KEY_Backslash",
+  "KEY_Backspace",
+  "KEY_C",
+  "KEY_Caps",
+  "KEY_Cmd",
+  "KEY_CmdR",
+  "KEY_Comma",
+  "KEY_Ctrl",
+  "KEY_D",
+  "KEY_Delete",
+  "KEY_Down",
+  "KEY_E",
+  "KEY_End",
+  "KEY_Enter",
+  "KEY_Equal",
+  "KEY_F",
+  "KEY_Fn",
+  "KEY_G",
+  "KEY_Grave",
+  "KEY_H",
+  "KEY_I",
+  "KEY_J",
+  "KEY_K",
+  "KEY_L",
+  "KEY_LBracket",
+  "KEY_Left",
+  "KEY_M",
+  "KEY_Minus",
+  "KEY_N",
+  "KEY_O",
+  "KEY_P",
+  "KEY_Period",
+  "KEY_Q",
+  "KEY_Quote",
+  "KEY_R",
+  "KEY_RBracket",
+  "KEY_Right",
+  "KEY_S",
+  "KEY_Semicolon",
+  "KEY_Shift",
+  "KEY_ShiftR",
+  "KEY_Slash",
+  "KEY_Space",
+  "KEY_T",
+  "KEY_Tab",
+  "KEY_U",
+  "KEY_Up",
+  "KEY_V",
+  "KEY_W",
+  "KEY_X",
+  "KEY_Y",
+  "KEY_Z"
+ ],
+ "keys_note": "origin = keycap bottom centre; press = ~3 mm along local down",
+ "other": [
+  "DUCK_BeamOrigin",
+  "TERRARIUM_Soil",
+  "RAIN_Glass",
+  "RAIN_Streaks",
+  "RAIN_StreaksFaint",
+  "CITY_Backdrop"
+ ],
+ "morph_targets": {
+  "Duck_Body": [
+   "Quack"
+  ]
+ },
+ "stop_cam_note": "glTF node looks down local -Y, up = local -Z (Blender camera axes after Y-up conversion); use node.quaternion * Rx(-90deg) or lookAt(extras.target_gltf_yup). extras: fov_mm, sensor_mm=36",
+ "lightmaps": {
+  "manifest": "web/lightmaps/manifest.json",
+  "uv": "TEXCOORD_1",
+  "resolution": 2048,
+  "groups": [
+   "DeskLamp",
+   "FloorLamp",
+   "Fill",
+   "Window",
+   "Neon",
+   "Pictures"
+  ],
+  "blend": "irradiance = sum_g( decode(lm_g) * intensity_g );  three.js: lightMap = blended RT, lightMapIntensity = PI (BRDF_Lambert divides by PI)",
+  "click_to_groups": {
+   "CLICK_Switch_Lights": [
+    "Fill",
+    "Pictures"
+   ],
+   "CLICK_Lamp_Desk": [
+    "DeskLamp"
+   ],
+   "CLICK_Lamp_Floor": [
+    "FloorLamp"
+   ],
+   "CLICK_Neon_Sign": [
+    "Neon"
+   ]
+  },
+  "lit_rule": "every primitive with TEXCOORD_1 gets the blended lightmap",
+  "lit_mesh_count": 512,
+  "unlit_meshes": [
+   "CITY_Backdrop",
+   "FloorLampBulb",
+   "LampBulb",
+   "MonitorRim",
+   "Neon_GT1",
+   "Neon_GT2",
+   "Neon_LT1",
+   "Neon_LT2",
+   "Neon_Slash",
+   "RAIN_Glass",
+   "RAIN_Streaks",
+   "RAIN_StreaksFaint",
+   "ScreenSlot_Laptop",
+   "ScreenSlot_Monitor",
+   "ShelfLED",
+   "Terr_Glass",
+   "WinGlass"
+  ]
+ },
+ "env": {
+  "file": "env/room_env.ktx2",
+  "projection": "equirectangular (Blender eye at (0.35,-0.75,1.20) Z-up; +Y Blender = -Z glTF)",
+  "scale": 3.61938,
+  "use": "scene.environment / material.envMap for metals+gloss only (diffuse already in lightmaps): envMapIntensity ~ scale * 0.5"
+ },
+ "tone_mapping": "AgXToneMapping, exposure 1.65 (2^0.72), outputColorSpace sRGB"
+}

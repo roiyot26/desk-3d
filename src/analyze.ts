@@ -15,6 +15,8 @@ export type GlassFrame = {
   height: number
 }
 
+export type Side = 'minX' | 'maxX' | 'minZ' | 'maxZ'
+
 export type PointHint = { position: THREE.Vector3; color: THREE.Color; name: string }
 
 export type RoomInfo = {
@@ -26,7 +28,16 @@ export type RoomInfo = {
   bulbs: PointHint[]
   neon: PointHint[]
   focus: THREE.Vector3
+  /** World box of the desk top (portrait home framing), if the GLB has one. */
+  deskBox: THREE.Box3 | null
   hasCeiling: boolean
+  /**
+   * Sides of the room box with no wall mesh (Wanda's GLB has no 4th wall: maxZ). The 360° free
+   * roam closes them with a dark matte plane (Room.tsx OpenWalls) so you never look into the void.
+   */
+  openSides: Side[]
+  /** A wall mesh to borrow the paint from for those planes (live-light path). */
+  wallMesh: THREE.Mesh | null
   baked: { lightMap: boolean; aoMap: boolean }
 }
 
@@ -133,7 +144,8 @@ export function analyzeScene(scene: THREE.Object3D): RoomInfo {
   // 5) Focus point: the desk top if we can find it, else room centre at desk height.
   let focus = roomCenter.clone().setY(room.min.y + 0.95)
   const desk = all.find((m) => /desk.?top/i.test(m.name)) ?? all.find((m) => /desk/i.test(m.name))
-  if (desk) focus = worldBox(desk).getCenter(new THREE.Vector3())
+  const deskBox = desk ? worldBox(desk) : null
+  if (deskBox) focus = deskBox.getCenter(new THREE.Vector3())
 
   let lightMap = false
   let aoMap = false
@@ -144,5 +156,22 @@ export function analyzeScene(scene: THREE.Object3D): RoomInfo {
     }
 
   const hasCeiling = all.some((m) => /ceiling|roof/i.test(m.name))
-  return { room, glass, exterior, bulbs, neon, focus, hasCeiling, baked: { lightMap, aoMap } }
+
+  // 6) Which of the four sides has a wall? A wall = a "wall"-named mesh, thin across that axis,
+  //    sitting on that side and covering at least half of it.
+  const walls = all.filter((m) => /wall/i.test(fullName(m)) && !exterior.includes(m))
+  const rs = room.getSize(new THREE.Vector3())
+  const covers = (side: Side) =>
+    walls.some((m) => {
+      const b = worldBox(m)
+      const s = b.getSize(new THREE.Vector3())
+      const ax = side.endsWith('X') ? 'x' : 'z'
+      const other = ax === 'x' ? 'z' : 'x'
+      const edge = side.startsWith('min') ? room.min[ax] : room.max[ax]
+      const near = Math.min(Math.abs(b.min[ax] - edge), Math.abs(b.max[ax] - edge)) < 0.15
+      return near && s[ax] < 0.35 && s[other] > rs[other] * 0.5
+    })
+  const openSides = (['minX', 'maxX', 'minZ', 'maxZ'] as Side[]).filter((sd) => !room.isEmpty() && !covers(sd))
+  const wallMesh = walls.find((m) => /^(left|right)wall/i.test(m.name)) ?? walls[0] ?? null
+  return { room, glass, exterior, bulbs, neon, focus, deskBox, hasCeiling, openSides, wallMesh, baked: { lightMap, aoMap } }
 }

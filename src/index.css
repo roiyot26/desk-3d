@@ -1,59 +1,1332 @@
+:root {
+  --bg: #0b0b0e;
+  --ink: #ece6dd;
+  --muted: #b3aba0;
+  --accent: #f0b273;
+  --accent-ink: #1a1208;
+  --panel: rgba(16, 15, 19, 0.9);
+  --line: rgba(255, 255, 255, 0.1);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ink);
+  /* Light text on dark glass: grayscale antialiasing reads crisper than subpixel. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
 html,
 body,
 #root {
   margin: 0;
   width: 100%;
+  min-height: 100%;
+  background: var(--bg);
+}
+
+.room-mode,
+.room-mode body,
+.room-mode #root {
   height: 100%;
   overflow: hidden;
-  background: #0b0b0e;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* The room owns every touch gesture: no page scroll, rubber-band or pull-to-refresh fights. */
+  overscroll-behavior: none;
+}
+.room-mode canvas {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 canvas {
   touch-action: none;
 }
 
+a {
+  color: var(--accent);
+}
+
+.btn {
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 178, 115, 0.45);
+  background: rgba(20, 18, 22, 0.75);
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+.btn:hover {
+  border-color: var(--accent);
+}
+.btn.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.btn.ghost {
+  background: transparent;
+}
+.btn.small {
+  min-height: 32px;
+  padding: 4px 12px;
+}
+.btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- loader: agent-style log over the poster, waits for Enter ---------- */
 .loader {
   position: fixed;
   inset: 0;
+  z-index: 20;
   display: grid;
-  place-content: center;
-  gap: 10px;
-  background: #0b0b0e;
-  color: #b9b2a8;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  transition: opacity 0.8s ease 0.2s;
+  align-items: end;
+  justify-items: start;
+  padding: clamp(14px, 4vw, 48px);
+  box-sizing: border-box;
   pointer-events: none;
 }
-
+/* The fade into the canvas is a GSAP tween (Loader.tsx); this is only the no-JS-animation fallback. */
 .loader.done {
-  opacity: 0;
+  pointer-events: none;
 }
-
+.loader-card {
+  pointer-events: auto;
+  width: min(460px, 100%);
+  box-sizing: border-box;
+  padding: 14px 18px 16px;
+  border-radius: 12px;
+  background: rgba(9, 9, 12, 0.82);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(6px);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+.loader-title {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.loader-dots { display: inline-flex; gap: 5px; }
+.loader-dots i { width: 9px; height: 9px; border-radius: 50%; background: #3a3633; }
+.loader-dots i:first-child { background: var(--accent); }
+.loader-dots i:nth-child(2) { background: #5a5450; }
+.loader-dots i:nth-child(3) { background: #46413e; }
+.loader-name {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.loader-name span { color: var(--muted); font-weight: 400; }
+.loader-log {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  line-height: 1.65;
+  min-height: 9.9em;
+}
+.loader-log li { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.loader-log li.ok .mark { color: var(--accent); }
+.loader-log li.run { color: var(--accent); }
+.loader-log li.ready { color: #f5cf9f; margin-top: 4px; white-space: normal; }
 .loader-bar {
-  width: 180px;
-  height: 2px;
+  height: 3px;
   background: #2a2724;
+  border-radius: 2px;
   overflow: hidden;
 }
-
 .loader-bar span {
   display: block;
   height: 100%;
-  background: #f0b273;
-  transition: width 0.2s ease;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+.loader-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.loader-actions .btn { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+.loader.ready .loader-actions .btn.primary {
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(240, 178, 115, 0.22), 0 0 22px rgba(240, 178, 115, 0.45);
+}
+.loader-actions kbd { font: inherit; font-size: 12px; opacity: 0.7; }
+.loader-hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+
+/* ---------- cold open ---------- */
+.cold-open {
+  position: fixed;
+  left: clamp(16px, 4vw, 48px);
+  top: clamp(56px, 7vh, 72px); /* clears the HUD */
+  z-index: 15;
+  max-width: 400px;
+  padding: 22px 24px;
+  border-radius: 16px;
+  background: rgba(11, 11, 14, 0.74);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  animation: rise 0.6s ease both;
+}
+.cold-open h1 {
+  margin: 0;
+  font-size: clamp(26px, 4vw, 34px);
+  letter-spacing: -0.01em;
+}
+.cold-role {
+  margin: 4px 0 10px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.cold-about {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.cold-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cold-list {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+@keyframes rise {
+  from {
+    transform: translateY(8px);
+  }
 }
 
+/* ---------- markers & labels (drei <Html>) ---------- */
+.marker-wrap {
+  pointer-events: none;
+}
+.marker {
+  pointer-events: auto;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: rgba(20, 14, 8, 0.82);
+  color: var(--accent);
+  font: 700 15px system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(240, 178, 115, 0.65), 0 0 2px rgba(240, 178, 115, 0.9) inset;
+  transition: opacity 0.3s, transform 0.2s, box-shadow 0.2s;
+  animation: pulse 2.6s ease-in-out infinite;
+}
+.marker::before {
+  /* larger invisible hit area for fingers */
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+}
+.marker:hover,
+.marker.hot,
+.marker:focus-visible {
+  transform: scale(1.12);
+  box-shadow: 0 0 22px rgba(240, 178, 115, 0.9);
+}
+.marker.visited {
+  opacity: 0.5;
+  animation: none;
+  box-shadow: none;
+}
+.marker.active {
+  opacity: 1;
+  background: var(--accent);
+  color: var(--accent-ink);
+  animation: none;
+}
+.marker.off,
+.marker.blocked {
+  /* .off: another stop's panel is open; .blocked: would sit in the top 64px / under the HUD */
+  opacity: 0 !important;
+  pointer-events: none;
+  animation: none;
+}
+.marker-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(11, 11, 14, 0.88);
+  color: var(--ink);
+  font: 500 13px system-ui, sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease 0.25s; /* short idle before the label shows */
+}
+.marker:hover .marker-label,
+.marker.hot .marker-label,
+.marker:focus-visible .marker-label {
+  opacity: 1;
+}
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 22px rgba(240, 178, 115, 0.95), 0 0 2px rgba(240, 178, 115, 0.9) inset;
+  }
+}
+.hover-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(11, 11, 14, 0.88);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: 500 13px system-ui, sans-serif;
+  transform: translateY(-26px);
+  pointer-events: none;
+  animation: fadein 0.2s ease 0.3s both;
+}
+.hover-label.touch {
+  pointer-events: auto;
+  animation-delay: 0s;
+}
+.hover-label button {
+  font: inherit;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  min-height: 34px;
+}
+@keyframes fadein {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- panel ---------- */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 38;
+}
+.panel {
+  position: fixed;
+  z-index: 40;
+  top: 56px; /* below the HUD */
+  right: 16px;
+  bottom: 16px;
+  width: min(420px, 40vw);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 22px 16px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  /* Slide-in is a GSAP tween in Overlay.tsx (motion only, never opacity: content stays readable
+     even if a slow GPU stalls the animation). */
+}
+.panel-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 20px;
+  cursor: pointer;
+}
+.panel-kicker {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.panel h2 {
+  margin: 6px 40px 12px 0;
+  font-size: 24px;
+  line-height: 1.2;
+  outline: none;
+}
+.panel-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* 32px fade + chevron while there is more below the fold */
+.panel-scroll::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 32px;
+  background: linear-gradient(to bottom, rgba(16, 15, 19, 0), rgba(16, 15, 19, 0.96));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.panel-scroll.more::after { opacity: 1; }
+.scroll-more {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  z-index: 1;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(240, 178, 115, 0.16);
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  animation: nudge 1.6s ease-in-out infinite;
+}
+@keyframes nudge { 50% { transform: translate(-50%, 3px); } }
+.sheet-handle { display: none; }
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  line-height: 1.5;
+  font-size: 15px;
+  color: #ddd6cc;
+  padding-right: 4px;
+}
+.panel-body p {
+  margin: 0 0 10px;
+}
+.joke {
+  color: var(--muted);
+  font-style: italic;
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.links a {
+  font-weight: 600;
+}
+.panel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+}
+.panel-count {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.panel-skip {
+  align-self: center;
+  margin-top: 8px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.card {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+}
+.card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+.tagline {
+  color: var(--accent);
+  margin: 2px 0 8px !important;
+}
+.tags {
+  font-size: 12px;
+  color: var(--muted);
+}
+.carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  background: transparent;
+  cursor: pointer;
+}
+.dot.on {
+  background: var(--accent);
+}
+.skill,
+.skills li {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.skill span,
+.skills li span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.skill.featured {
+  border: 1px solid var(--accent);
+  transform: translateX(-4px);
+  background: rgba(240, 178, 115, 0.1);
+}
+.skills {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.skills li.hl,
+.skill.hl {
+  outline: 1px solid var(--accent);
+}
+.career {
+  padding-left: 20px;
+}
+.career li {
+  margin-bottom: 8px;
+}
+.pin {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---------- tour progress ---------- */
+.progress {
+  position: fixed;
+  /* Centred with auto margins, not translateX(-50%): no half-pixel offsets on text. */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
+  bottom: 66px;
+  z-index: 30;
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(11, 11, 14, 0.6);
+  backdrop-filter: blur(6px);
+}
+.progress.with-panel,
+.hint.with-panel {
+  left: 0;
+  right: calc(min(420px, 40vw) + 16px);
+}
+.pdot {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid rgba(240, 178, 115, 0.7);
+  background: transparent;
+  color: var(--accent);
+  font: 600 12px system-ui, sans-serif;
+  cursor: pointer;
+}
+.pdot.seen {
+  background: rgba(240, 178, 115, 0.35);
+  color: var(--ink);
+}
+.pdot.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.pdot.bonus {
+  cursor: default;
+  border-style: dashed;
+  color: rgba(240, 178, 115, 0.45);
+}
+.pdot.bonus.seen {
+  border-style: solid;
+  color: var(--accent-ink);
+  background: #ffd36b;
+  box-shadow: 0 0 12px rgba(255, 211, 107, 0.8);
+}
+
+/* ---------- finale ---------- */
+.finale {
+  position: fixed;
+  z-index: 35;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  width: min(360px, 86vw);
+  padding: 22px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+}
+.finale h2 {
+  margin: 0 30px 8px 0;
+}
+
+/* ---------- hint (cold-open line under the canvas) ---------- */
 .hint {
   position: fixed;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
-  color: #8a837b;
-  font-size: 12px;
-  letter-spacing: 0.03em;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  bottom: 12px;
+  z-index: 12;
+  text-align: center;
   pointer-events: none;
   user-select: none;
+  width: max-content;
+  max-width: 94vw;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: rgba(11, 11, 14, 0.55);
+}
+.hint p {
+  margin: 0;
+}
+.hint {
+  transition: opacity 0.8s ease;
+}
+.hint.gone {
+  opacity: 0;
+}
+.hint-line {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f2ece4;
+}
+.hint-sub {
+  font-size: 12.5px;
+  color: #e9c597;
+}
+
+/* ---------- phones: bottom sheet, bigger hint ---------- */
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  /* Bottom sheet: 50% by default, drag the handle up to snap to full height. */
+  .panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: 50vh;
+    height: 50dvh;
+    max-height: none;
+    border-radius: 18px 18px 0 0;
+    padding: 25px 16px 10px;
+    transition: height 0.28s ease;
+  }
+  .panel.full {
+    height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
+  }
+  .sheet-handle {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 96px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: grab;
+    touch-action: none;
+  }
+  .sheet-handle span {
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: 8px auto 0;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.32);
+  }
+  .panel-skip { margin-top: 4px; }
+  .panel h2 {
+    font-size: 20px;
+  }
+  .progress {
+    bottom: 72px;
+  }
+  .progress.with-panel {
+    left: 0;
+    right: 0;
+    bottom: calc(50vh + 10px);
+    bottom: calc(50dvh + 10px);
+  }
+  .progress.sheet-full {
+    display: none;
+  }
+  .hidden-mobile {
+    display: none;
+  }
+  .hint {
+    bottom: 10px;
+  }
+  .hint-line {
+    font-size: 15px;
+  }
+  .hint-sub {
+    font-size: 14px;
+    color: #e9c597;
+  }
+  .cold-open {
+    left: 12px;
+    right: 12px;
+    top: 60px; /* below the HUD top bar */
+    max-width: none;
+    padding: 16px 18px;
+  }
+  .cold-about {
+    display: none;
+  }
+  /* Phones: badges are small 24px dots (44px hit area); the numbers live on the bottom stepper. */
+  .marker {
+    width: 24px;
+    height: 24px;
+    background: var(--accent);
+    border-color: rgba(26, 18, 8, 0.55);
+  }
+  .marker.visited {
+    background: rgba(240, 178, 115, 0.55);
+  }
+  .marker::before {
+    inset: -13px; /* 20px padding box + 26 = 46px hit area */
+  }
+  .marker-num {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- plain list view ---------- */
+.list {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.list h1 {
+  font-size: 38px;
+  margin: 0;
+}
+.list-role {
+  color: var(--accent);
+  font-weight: 600;
+  margin-top: 0;
+}
+.list header h1 { margin-bottom: 4px; }
+.list-links { margin: 0 0 16px; }
+.list-bio { margin-top: 4px; }
+.list-stack { color: var(--muted); font-size: 14px; letter-spacing: 0.01em; }
+
+.list h2 {
+  margin-top: 40px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.list h3 {
+  margin-bottom: 0;
+}
+.list .small {
+  font-size: 14px;
+  color: var(--muted);
+}
+.list-note {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+}
+@media print {
+  html,
+  body,
+  #root,
+  .list {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .list a {
+    color: #000;
+  }
+  .list .btn {
+    display: none;
+  }
+  #poster {
+    display: none;
+  }
+}
+
+/* ---------- HUD (top-right, always visible) ---------- */
+.hud {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 45;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.hud-btn {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: rgba(14, 13, 17, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  min-height: 32px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.hud-btn:hover { border-color: var(--accent); }
+.hud-btn.resume { color: var(--accent); }
+.hud-btn.icon { width: 32px; justify-content: center; padding: 0; }
+.hud-btn.lights { color: var(--muted); }
+.hud-btn.lights.on { color: var(--accent); }
+.hud-btn.flash { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(240, 178, 115, 0.25); }
+.hud-secrets { position: relative; }
+.hud-pop {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  margin: 0;
+  padding: 10px 14px;
+  list-style: none;
+  min-width: 190px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.hud-pop li.got { color: var(--ink); }
+/* Phones: the HUD becomes a clean top bar. Résumé on the left, secrets + mute on the right,
+   on a soft dark gradient. Badges stay out of the top 64px (Hotspots.tsx), so nothing covers it. */
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  .hud {
+    top: 0;
+    left: 0;
+    right: 0;
+    gap: 6px;
+    padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 14px max(10px, env(safe-area-inset-left));
+    background: linear-gradient(to bottom, rgba(8, 8, 10, 0.86) 0%, rgba(8, 8, 10, 0.55) 62%, rgba(8, 8, 10, 0) 100%);
+    pointer-events: none;
+  }
+  .hud > * { pointer-events: auto; }
+  .hud-btn { font-size: 13px; padding: 4px 12px; min-height: 36px; }
+  .hud-btn.icon { width: 36px; }
+  .hud-btn.resume { margin-right: auto; font-weight: 600; border-color: rgba(240, 178, 115, 0.55); }
+}
+
+/* ---------- toasts ---------- */
+.toast {
+  position: fixed;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
+  max-width: 94vw;
+  /* Sits at 64px (clear of the HUD bar) and never animates into the top 64px: it rises 8px
+     from below while fading in. */
+  top: 64px;
+  z-index: 44;
+  pointer-events: none;
+  text-align: center;
+  animation: toast-in 0.25s ease;
+}
+.toast p {
+  margin: 0;
+  display: inline-block;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(14, 13, 17, 0.88);
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+.toast p + p { display: block; width: fit-content; margin: 6px auto 0; }
+.toast .toast-secret { color: var(--accent); border-color: rgba(240, 178, 115, 0.45); }
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------- Ask the duck ---------- */
+.duck-log {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  background: rgba(10, 10, 12, 0.7);
+  border: 1px solid rgba(240, 178, 115, 0.28);
+  border-radius: 10px;
+}
+.duck-turn + .duck-turn { margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255, 255, 255, 0.08); }
+.duck-q { margin: 0 0 6px; color: var(--ink); font-weight: 600; }
+.duck-ticker {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #c9bfb2;
+}
+.duck-ticker li::before { content: '▸ '; opacity: 0.7; }
+.duck-ticker li.done::before { content: '✓ '; color: var(--accent); opacity: 1; }
+.duck-ticker li.run { animation: tick 0.9s ease-in-out infinite; }
+@keyframes tick { 50% { color: #fff1df; } }
+.duck-a { margin: 6px 0 0; }
+.duck-a.miss { color: var(--muted); }
+.caret { display: inline-block; width: 7px; height: 1em; vertical-align: -2px; background: var(--accent); margin-left: 2px; }
+.duck-dock { flex: none; padding-top: 10px; }
+.duck-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+/* Phones: one horizontally scrolling row */
+.duck-chips.row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 10px; padding: 0 16px; scroll-padding: 0 16px; }
+.duck-chips.row::-webkit-scrollbar { display: none; }
+.duck-chips.row .chip { flex: none; white-space: nowrap; min-height: 34px; }
+.chip.more { background: transparent; border-style: dashed; color: var(--accent); }
+.chip {
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(240, 178, 115, 0.35);
+  border-radius: 999px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.chip:hover:not(:disabled) { border-color: var(--accent); }
+.chip:disabled { opacity: 0.4; cursor: default; }
+.duck-form { display: flex; gap: 8px; }
+.duck-form input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+.duck-form input:focus { outline: none; border-color: var(--accent); }
+.duck-toast {
+  position: fixed;
+  left: clamp(12px, 3vw, 28px);
+  top: 64px;
+  z-index: 42;
+  width: min(360px, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid rgba(240, 178, 115, 0.35);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.duck-toast p { margin: 0 0 8px; }
+.duck-toast-q { color: var(--muted); font-size: 12.5px; }
+.duck-toast-actions { display: flex; gap: 8px; }
+
+/* ---------- secrets card ---------- */
+.secrets-list { list-style: none; padding: 0; margin: 8px 0; line-height: 1.7; color: var(--accent); font-size: 14px; }
+
+/* ---------- list view: poster hero + phone note ---------- */
+.list-hero {
+  position: relative;
+  display: block;
+  margin: 0 0 20px;
+  border-radius: 14px;
+  overflow: hidden;
+  aspect-ratio: 21 / 9;
+  max-height: 46vh;
+  background: #15131a;
+}
+.list-hero img { width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(0.8); }
+.list-hero .btn { position: absolute; left: 0; right: 0; margin-inline: auto; width: fit-content; bottom: 16px; white-space: nowrap; }
+.panel.duck { width: min(470px, 44vw); }
+@media (max-width: 700px), (max-aspect-ratio: 4/5) { .panel.duck { width: auto; } }
+
+/* ---------- polish round (Shuri re-check of 84b2301) ---------- */
+/* 24px top fade once the panel body is scrolled away from the top. */
+.panel-scroll::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 24px;
+  z-index: 1;
+  background: linear-gradient(to top, rgba(16, 15, 19, 0), rgba(16, 15, 19, 0.96));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.panel-scroll.scrolled::before { opacity: 1; }
+/* Desktop duck: chips + input follow the answer card directly (no dead gap); Back/Next stay at the bottom. */
+.panel.duck .panel-scroll,
+.panel.duck .panel-body { flex: 0 1 auto; }
+.panel.duck .panel-nav { margin-top: auto; }
+.panel.duck .duck-dock { margin-bottom: 10px; }
+/* Phones, after the first answer: intro folds behind "What's this?" */
+.intro-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  margin: 0 0 4px;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.intro-toggle[aria-expanded='true'] { color: var(--ink); }
+.panel-intro p:last-child { margin-bottom: 10px; }
+.duck-scripted { margin: 8px 0 2px !important; font-size: 13px; }
+.panel-body .duck-a { margin-bottom: 0; }
+.panel-body .duck-q { margin-bottom: 6px; }
+/* Phones: merged single-line toast. */
+.toast.one p {
   white-space: nowrap;
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  .panel.duck .panel-scroll,
+  .panel.duck .panel-body { flex: 0 1 auto; min-height: 0; }
+  .panel.duck.full .panel-scroll,
+  .panel.duck.full .panel-body { flex: 1; }
+  .panel.duck .panel-nav { margin-top: 8px; }
+  .panel.duck .duck-dock { margin-bottom: 0; }
+  .panel.duck .panel-body { font-size: 14.5px; line-height: 1.45; }
+  .panel.duck .duck-log { margin-top: 4px; }
+  /* The duck's sheet is sized to its content, capped at 65% of the viewport (the duck-sheet gate);
+     past that its body scrolls. Dragging the handle up still opens it to full height. */
+  .panel.duck { height: auto; max-height: 65vh; max-height: 65dvh; }
+  .panel.duck.full { height: calc(100vh - 56px); height: calc(100dvh - 56px); max-height: none; }
+  .progress.with-panel.duck-sheet { bottom: calc(var(--sheet-h, 65dvh) + 10px); }
+  /* Free-roam dots: 14px, 1px amber ring, slow 2s pulse (44px hit area). Positioned at the top
+     edge of their object and clamped 16px inside the viewport by Hotspots.tsx. */
+  .marker,
+  .marker.visited {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--accent);
+    background: rgba(240, 178, 115, 0.28);
+    box-shadow: 0 0 0 0 rgba(240, 178, 115, 0.5);
+    animation: dot-pulse 2s ease-in-out infinite;
+  }
+  .marker.visited { opacity: 0.45; animation: none; }
+  .marker.active { background: var(--accent); animation: none; }
+  .marker::before { inset: -17px; } /* 12px padding box + 34 = 46px hit area */
+  .marker:hover,
+  .marker.hot,
+  .marker:focus-visible { transform: scale(1.25); box-shadow: 0 0 10px rgba(240, 178, 115, 0.7); }
+}
+@keyframes dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 178, 115, 0.45); background: rgba(240, 178, 115, 0.22); }
+  50% { box-shadow: 0 0 0 5px rgba(240, 178, 115, 0); background: rgba(240, 178, 115, 0.5); }
+}
+
+/* ---------- Ask the duck on phones: chip row + pinned "More questions" ---------- */
+/* Collapsed: 3 chips + "More questions"; expanded: a plain left-aligned list of all 6. */
+.duck-chips-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
+.duck-chips-bar .duck-chips { margin: 0; }
+.duck-chips-bar.phone { flex-wrap: nowrap; margin: 0 -16px 10px; padding: 0 16px; }
+.duck-chips-bar.phone .duck-chips { flex: 1; min-width: 0; margin: 0; padding: 0; }
+.duck-more {
+  flex: none;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 4px 6px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.duck-list-wrap { margin-bottom: 8px; }
+.duck-list { list-style: none; margin: 0 0 2px; padding: 0; border-top: 1px solid var(--line); }
+.duck-list li { border-bottom: 1px solid var(--line); }
+.duck-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 2px;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.duck-list button:hover:not(:disabled) { color: var(--accent); }
+.duck-list button:disabled { opacity: 0.4; cursor: default; }
+.duck-list .arrow { color: var(--accent); font-weight: 700; }
+
+/* ---------- AC-5: 44×44 minimum hit area on touch / phones ----------
+   Every interactive control gets at least a 44×44 box (getBoundingClientRect, so it is also the
+   hit area). Tiny visuals (stepper dots, carousel dots, scroll chevron) keep their look: the
+   button is a transparent 44px box and the visual is drawn by ::before. */
+@media (max-width: 700px), (max-aspect-ratio: 4/5), (pointer: coarse) {
+  .btn,
+  .btn.small { min-height: 44px; min-width: 44px; justify-content: center; }
+  .hud-btn { min-height: 44px; }
+  .hud-btn.icon { width: 44px; flex: none; }
+  .hud-pop { top: 50px; }
+  .panel-close { width: 44px; height: 44px; top: 6px; right: 6px; }
+  .panel h2 { margin-right: 50px; }
+  .finale h2 { margin-right: 44px; }
+
+  /* Bottom stepper: 26px rings, 44px buttons. */
+  .progress { gap: 0; padding: 0 6px; }
+  .pdot,
+  .pdot.seen,
+  .pdot.on,
+  .pdot.bonus,
+  .pdot.bonus.seen {
+    position: relative;
+    z-index: 0;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .pdot::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 9px;
+    z-index: -1;
+    width: 26px;
+    height: 26px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1.5px solid rgba(240, 178, 115, 0.7);
+  }
+  .pdot.seen::before { background: rgba(240, 178, 115, 0.35); }
+  .pdot.on::before { background: var(--accent); }
+  .pdot.bonus::before { border-style: dashed; }
+  .pdot.bonus.seen::before { border-style: solid; background: #ffd36b; box-shadow: 0 0 12px rgba(255, 211, 107, 0.8); }
+
+  /* Project carousel: 10px dots, 44px buttons. */
+  .carousel-nav { gap: 0; }
+  .dot,
+  .dot.on {
+    position: relative;
+    z-index: 0;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+  }
+  .dot::before {
+    content: '';
+    position: absolute;
+    left: 17px;
+    top: 17px;
+    z-index: -1;
+    width: 10px;
+    height: 10px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+  }
+  .dot.on::before { background: var(--accent); }
+
+  /* Scroll chevron: 30×22 pill drawn inside a 44px button. */
+  .scroll-more {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    bottom: 0;
+    background: transparent;
+  }
+  .scroll-more::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 11px;
+    z-index: -1;
+    width: 30px;
+    height: 22px;
+    border-radius: 999px;
+    background: rgba(240, 178, 115, 0.16);
+  }
+
+  .sheet-handle { width: 120px; height: 44px; display: flex; align-items: flex-start; justify-content: center; }
+  .sheet-handle span { margin: 7px 0 0; }
+  .panel-skip { min-height: 44px; min-width: 44px; padding: 0 14px; margin-top: 0; }
+  .intro-toggle { min-height: 44px; }
+  .hover-label button { min-height: 44px; min-width: 44px; }
+
+  .links { gap: 4px 14px; }
+  .links a,
+  .list a:not(.list-hero),
+  .cold-list {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    min-width: 44px;
+    vertical-align: middle;
+  }
+  .cold-list { margin-top: 4px; }
+
+  .chip,
+  .duck-chips.row .chip,
+  .duck-list button { min-height: 44px; }
+  .duck-more { min-height: 44px; min-width: 44px; }
+  .duck-form input { min-height: 44px; box-sizing: border-box; }
+}
+
+/* Phone duck sheet, folded intro: "What's this?" on the title row (right of the title, left of ×). */
+.intro-toggle.head { position: absolute; top: 44px; right: 56px; margin: 0; z-index: 2; background: var(--panel); }
+.panel.duck.folded h2 { margin-bottom: 22px; }
+
+/* ---------- Scroll chevron: its own 24px row under the text ---------- */
+.panel-scroll.chev { padding-bottom: 24px; }
+.panel-scroll.chev::after { bottom: 24px; }
+.panel-scroll.chev .scroll-more { bottom: 1px; }
+@media (max-width: 700px), (max-aspect-ratio: 4/5), (pointer: coarse) {
+  /* 44px hit area: the top 24px is the chevron row, the rest reaches into the empty gap above
+     the Back/Next bar (its 8px margin + 12px padding), never over text. */
+  .panel-scroll.chev .scroll-more { bottom: -20px; }
+  .panel-scroll.chev .scroll-more::before { top: 1px; }
+  .panel-scroll.chev .scroll-more span { margin-bottom: 20px; }
+}
+
+/* Plain page on phones (no WebGL excluded): sticky way into the 3D room. */
+.enter-sticky {
+  position: sticky;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex;
+  width: fit-content;
+  margin: 24px auto 0;
+  min-height: 48px;
+  padding: 10px 22px;
+  font-size: 16px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  z-index: 5;
+}
+
+/* 2D: name/role/links first, a shorter hero, projects sooner. */
+@media (max-width: 700px) {
+  .list { padding-top: 24px; }
+  .list-hero { aspect-ratio: 2 / 1; }
+}
+/* Duck presets already asked: still tappable, visually spent. */
+.duck-chips .chip.asked,
+.duck-list button.asked { opacity: 0.55; }
+
+/* ---------- Duck presets on phones: rows folded (3) and unfolded (5) ---------- */
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  /* The "Scripted for now" note ends the copy; the rows start 16px under it. */
+  .panel.duck .panel-body > .joke,
+  .panel.duck .duck-scripted { margin-bottom: 0 !important; }
+  .duck-presets.phone { margin-top: 16px; }
+  .duck-presets.phone .duck-list { margin: 0; }
+  .duck-more-row { display: flex; }
+  .duck-presets.phone .duck-more { padding-left: 0; text-align: left; }
+  .panel.duck .duck-dock { padding-top: 10px; }
+  /* 12px from the drag handle (7px + 4px bar) to the STOP 7 eyebrow. */
+  .panel.duck { padding-top: 23px; }
+}
+
+/* Tool-call ticker: the call on one line (ellipsis if long), its result on its own line. */
+.duck-ticker li { position: relative; padding-left: 1.3em; }
+.duck-ticker li::before { position: absolute; left: 0; top: 0; }
+.duck-ticker .call { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.duck-ticker .res { display: block; white-space: nowrap; color: #e9c597; }
+
+/* Phones: the stop dots ride 12px above the first-visit caption while it shows. */
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  .progress:not(.with-panel) { bottom: max(72px, calc(var(--hint-h, 0px) + 22px)); }
+}
+
+/* AC-5: with a sheet open, the stop dots sit above the backdrop (z 38) so a tap on a dot goes to
+   that stop instead of closing the sheet. The Back/Next bar never shrinks below its 44px buttons
+   when a capped sheet (the duck's 65%) runs out of room. */
+.progress.with-panel { z-index: 41; }
+.panel-nav { flex: none; }
+.panel-nav .btn { flex-shrink: 0; }
+/* Narrow phones (360px): the top bar's text pills give up a little padding so the 44px icon
+   buttons never get squeezed. */
+@media (max-width: 380px) {
+  .hud { gap: 4px; }
+  .hud-btn:not(.icon) { padding-inline: 10px; }
 }
