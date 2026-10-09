@@ -10,7 +10,7 @@ import type { RoomInfo } from './analyze'
  * with its meshes as children. A raycast hit walks up the parents to the nearest registered node,
  * so any child mesh opens the target.
  *
- * Wanda's portfolio GLB (public/desk.glb) carries every CLICK_* below, so none of them needs a
+ * Wanda's portfolio GLB (public/bake/desk.glb) carries every CLICK_* below, so none of them needs a
  * mesh-name fallback any more. Fallbacks are kept only for optional things that are genuinely not
  * in the export:
  *   - the duck: if CLICK_Duck ever goes missing, Room.tsx adds a procedural PLACEHOLDER_Duck,

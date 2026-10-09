@@ -137,19 +137,14 @@ function DprCap({ max }: { max: number }) {
 
 type Fatal = (reason: string) => void
 
-/** Live path: errors go to the app boundary (plain page) exactly as before. */
-function MaybeBakeBoundary({ bake, onError, children }: { bake: boolean; onError: () => void; children: ReactNode }) {
-  return bake ? <BakeBoundary onError={onError}>{children}</BakeBoundary> : <>{children}</>
-}
-
-/** A broken bake package (missing GLB / lightmap, bad KTX2) drops to the live-light path, not the plain page. */
+/** A broken bake package (missing GLB / lightmap, bad KTX2) shows the plain page (there is no live-light GLB). */
 class BakeBoundary extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
   static getDerivedStateFromError() {
     return { failed: true }
   }
   componentDidCatch(e: unknown) {
-    console.warn('[desk-3d] bake package failed to load, using live lights.', e)
+    console.warn('[desk-3d] bake package failed to load, showing the plain page.', e)
     this.props.onError()
   }
   render() {
@@ -158,16 +153,15 @@ class BakeBoundary extends Component<{ onError: () => void; children: ReactNode 
 }
 
 export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; initialTier: Tier }) {
-  // Baked package in public/bake/? (Inlined at build time; null = live-light path.)
-  const manifest = readBake()
-  const [bakeFailed, setBakeFailed] = useState(false)
-  const bake = bakeFailed ? null : manifest
+  // Baked package in public/bake/ (inlined at build time). It's the only 3D path: no manifest or a
+  // failed package means the plain page.
+  const bake = readBake()
+  useEffect(() => {
+    if (!bake) onFatal('no-bake')
+  }, [bake, onFatal])
   const [bakeReady, setBakeReady] = useState(false)
   const onBakeReady = useCallback(() => setBakeReady(true), [])
-  const onBakeError = useCallback(() => {
-    setBakeFailed(true)
-    setInfo(null)
-  }, [])
+  const onBakeError = useCallback(() => onFatal('bake'), [onFatal])
   const [attempt, setAttempt] = useState({ n: 0, tier: initialTier })
   const quality = useMemo(() => qualityFor(attempt.tier), [attempt.tier])
   const [info, setInfo] = useState<RoomInfo | null>(null)
@@ -199,6 +193,7 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
   // No DPR step-down: a 1× buffer stretched over a 2×/3× screen blurs every in-scene label.
   const dprMax = quality.dprMax
 
+  if (!bake) return null
   return (
     <>
       <Canvas
@@ -229,7 +224,7 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
         <color attach="background" args={[BACKGROUND]} />
         <DprCap max={dprMax} />
         <RendererToneMapping post={postOn} exposure={bake ? BAKE_EXPOSURE : undefined} tone={tone} />
-        <MaybeBakeBoundary bake={!!bake} onError={onBakeError}>
+        <BakeBoundary onError={onBakeError}>
           <Suspense fallback={null}>
             <RoomModel onInfo={onInfo} quality={quality} bake={bake} />
             {/* Live path: drei's local Lightformer env. Baked: Wanda's room_env.ktx2 (BakedLighting). */}
@@ -241,7 +236,7 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
               <BakedLighting manifest={bake} room={roomScene} lowRes={quality.tier !== 'high'} onReady={onBakeReady} />
             </Suspense>
           )}
-        </MaybeBakeBoundary>
+        </BakeBoundary>
         {info && (
           <>
             {/* Baked: no scene lights and no fallback planes (the GLB is a closed, lightmapped room). */}

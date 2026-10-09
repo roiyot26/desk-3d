@@ -374,7 +374,7 @@
   "toasts": {
     "lightsOff": "Lights off. The neon stays on, obviously.",
     "lightsOn": "Lights back on.",
-    "roomOff": "Room lights off. The lamps and the neon are on their own circuit.",
+    "roomOff": "Room lights off. Lamps and neon stay on.",
     "roomOn": "Room lights on.",
     "deskOff": "Desk lamp off.",
     "deskOn": "Desk lamp on.",

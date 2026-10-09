@@ -69,21 +69,18 @@ Missing nodes are skipped silently: no marker, no hit area, and the panel stays 
 
 ### Baked lighting (Wanda's web package)
 
-The page has two lighting paths and picks one at build time:
-
-- **Baked** when `public/bake/lightmaps/manifest.json` exists and is valid.
-- **Live** otherwise: today's live lights on the unbaked `public/desk.glb`. `?bake=0` forces this path on a baked build, for comparison.
+The bake is the only 3D path. The unbaked live-light `public/desk.glb` is no longer shipped, and `?bake=0` is gone. If `public/bake/lightmaps/manifest.json` is missing or invalid, or the package fails to load, the page shows the plain (no-WebGL) page. Wanda's notes (`README_FORGE.md`, `forge_manifest.json`) are kept in `docs/bake/`, outside the deploy; the runtime copy of the manifest is `src/content/forge_manifest.json`.
 
 **Drop path.** Copy Wanda's `web/` folder into `public/bake/` 1:1, without `_build/` or `README_FORGE.md`:
 
 ```
-public/bake/desk.glb                    Draco + KTX2 room (used instead of public/desk.glb)
+public/bake/desk.glb                    Draco + KTX2 room
 public/bake/lightmaps/manifest.json     the switch: groups, scales, env
 public/bake/lightmaps/lm_<Group>.ktx2   DeskLamp, FloorLamp, Fill, Window, Neon, Pictures
 public/bake/env/room_env.ktx2           reflections only
 ```
 
-Then rebuild (`npm run build`, or reload `npm run dev`). No code changes are needed. Keep `public/desk.glb` as the fallback: if the bake package fails to load, the room drops back to the live path instead of the plain page. The manifest is inlined at build time (`import.meta.glob` in `src/bake/assets.ts`), so a site without the package never requests a missing file. In dev, Vite logs "Assets in public directory cannot be imported" for that glob. It's harmless.
+Then rebuild (`npm run build`, or reload `npm run dev`). No code changes are needed. If the bake package fails to load, the page shows the plain page. The manifest is inlined at build time (`import.meta.glob` in `src/bake/assets.ts`), so a site without the package never requests a missing file. In dev, Vite logs "Assets in public directory cannot be imported" for that glob. It's harmless.
 
 **How it works** (`src/bake/`, following `README_FORGE.md`):
 
@@ -118,7 +115,7 @@ npm run dev
 
 ## Swapping the model
 
-`public/desk.glb` is a replaceable asset. Drop in a new export with the same name and the page adapts. Mesh names are hints only, and each one has a geometric fallback:
+`public/bake/desk.glb` is a replaceable asset. Drop in a new export with the same name and the page adapts. Mesh names are hints only, and each one has a geometric fallback:
 
 - The room bounds come from wall and floor meshes (they keep the camera inside).
 - The window pane is found by name (`glass`/`pane`), a transmission material, or a transparent material. If there's no pane, a rain overlay plane is placed in the `Win*`/`Window*` frame opening.
@@ -126,7 +123,7 @@ npm run dev
 - Anything outside the room (city, sky) is drawn in the window pass behind the glass.
 - Baked lighting: Wanda's lightmap package goes in `public/bake/` (see **Baked lighting** above). On the live path, `aoMap`/`lightMap` on UV2 are left as exported. When they are present (or with `?baked=1`), the live lights dim to accents and AO post is skipped.
 
-`node scripts/inspect-glb.mjs public/desk.glb` prints the nodes, materials and bounds of a GLB.
+`node scripts/inspect-glb.mjs public/bake/desk.glb` prints the nodes, materials and bounds of a GLB.
 
 ## License
 

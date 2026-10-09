@@ -4,7 +4,7 @@ import { useLoader, useThree } from '@react-three/fiber'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 import { analyzeScene, type PointHint, type RoomInfo } from './analyze'
-import { BAKE_MODEL_URL, LIVE_MODEL_URL, gltfDecoders, type BakeManifest } from './bake/assets'
+import { BAKE_MODEL_URL, gltfDecoders, type BakeManifest } from './bake/assets'
 import { sceneHandlers } from './interact'
 import { clearMaterials, mixRef, registerLight, registerMaterial, type MixGroup } from './LightMixer'
 import { addPlaceholders } from './placeholders'
@@ -14,9 +14,6 @@ import type { Quality } from './quality'
 import { setUI } from './store'
 import { resolveStopCams, resolveTargets } from './targets'
 import { sharpenSceneText } from './sharp'
-
-/** Live-light room (unbaked). With the bake package present, public/bake/desk.glb is used instead. */
-export const MODEL_URL = LIVE_MODEL_URL
 
 // Blender's static rain cards (RAIN_*) are replaced by the animated rain; they come back only when
 // the particle rain is off (auto-quality step 2). Flip to always keep them.
@@ -198,7 +195,7 @@ function registerEmissives(scene: THREE.Object3D, info: RoomInfo) {
 
 export function RoomModel({ onInfo, quality, bake }: { onInfo: (info: RoomInfo) => void; quality: Quality; bake: BakeManifest | null }) {
   const gl = useThree((s) => s.gl)
-  const url = bake ? BAKE_MODEL_URL : LIVE_MODEL_URL
+  const url = BAKE_MODEL_URL
   expectFile('glb', bake ? 6e6 : 8e6)
   // Draco + KTX2 decoders are always attached; the unbaked GLB simply doesn't use them.
   const { scene } = useLoader(GLTFLoader, url, gltfDecoders(gl), onProgress)

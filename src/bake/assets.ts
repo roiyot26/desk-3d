@@ -7,12 +7,13 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
  * Wanda's baked web package (see README → "Baked lighting").
  *
  * Drop path: `public/bake/`, mirroring her `web/` folder 1:1:
- *   public/bake/desk.glb                    Draco + KTX2 room (replaces public/desk.glb while present)
+ *   public/bake/desk.glb                    Draco + KTX2 room (the only room model shipped)
  *   public/bake/lightmaps/manifest.json     groups, scales, blend formula, env      <- the switch
  *   public/bake/lightmaps/lm_<Group>.ktx2   one 2048² lightmap per light group (TEXCOORD_1)
  *   public/bake/env/room_env.ktx2           equirect of the lit room (reflections only)
- * The page uses the bake path only when the manifest is there and valid. Otherwise it keeps the
- * live-light path on the unbaked public/desk.glb. `?bake=0` forces the live path for comparison.
+ * The bake is the only 3D path: the unbaked live-light GLB is no longer shipped. If the manifest is
+ * missing or invalid, or the package fails to load, the page shows the plain (no-WebGL) page.
+ * Wanda's notes (README_FORGE.md, forge_manifest.json) live in docs/bake/, outside the deploy.
  *
  * Decoders: three r186's DRACOLoader / KTX2Loader point at their own wasm in
  * three/examples/jsm/libs via `new URL(..., import.meta.url)`, which Vite bundles as hashed
@@ -27,7 +28,6 @@ const BASE = import.meta.env.BASE_URL
 const DEV_LIBS = `${BASE}node_modules/three/examples/jsm/libs/`
 export const BAKE_DIR = `${BASE}bake/`
 export const BAKE_MODEL_URL = `${BAKE_DIR}desk.glb`
-export const LIVE_MODEL_URL = `${BASE}desk.glb`
 
 export type BakeGroupName = 'DeskLamp' | 'FloorLamp' | 'Fill' | 'Window' | 'Neon' | 'Pictures'
 export const BAKE_GROUPS: BakeGroupName[] = ['DeskLamp', 'FloorLamp', 'Fill', 'Window', 'Neon', 'Pictures']
@@ -69,13 +69,12 @@ const found = import.meta.glob('../../public/bake/lightmaps/manifest.json', { ea
 
 let resolved: BakeManifest | null | undefined
 
-/** The bake manifest, or null for the live-light path (`?bake=0` forces live for comparison). */
+/** The bake manifest, or null when the package is missing/invalid (the page then shows the plain page). */
 export function readBake(): BakeManifest | null {
   if (resolved !== undefined) return resolved
   const m = Object.values(found)[0]
-  const off = new URLSearchParams(window.location.search).get('bake') === '0'
-  if (m && !valid(m)) console.warn('[desk-3d] public/bake/lightmaps/manifest.json is not a bake manifest: using live lights.')
-  resolved = !off && valid(m) ? m : null
+  if (m && !valid(m)) console.warn('[desk-3d] public/bake/lightmaps/manifest.json is not a bake manifest.')
+  resolved = valid(m) ? m : null
   if (resolved) console.info(`[desk-3d] baked lighting: ${resolved.groups.length} lightmap groups from public/bake/`)
   return resolved
 }
