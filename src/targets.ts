@@ -172,7 +172,7 @@ export function resolveTargets(scene: THREE.Object3D): Map<string, Target> {
     if (def.markerOffset) anchor.add(new THREE.Vector3(...def.markerOffset))
     let proxy: THREE.Box3 | null = null
     if (Math.max(size.x, size.y, size.z) < 0.2) {
-      proxy = new THREE.Box3().setFromCenterAndSize(center, size.clone().max(new THREE.Vector3(0.18, 0.18, 0.18)))
+      proxy = new THREE.Box3().setFromCenterAndSize(center, size.clone().max(new THREE.Vector3(0.32, 0.28, 0.32)))
     }
     out.set(def.key, { key: def.key, id: def.id, def, source, nodes, box, center, anchor, proxy })
   }

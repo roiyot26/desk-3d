@@ -1,3 +1,4 @@
+import { audio } from './audio'
 import type { ThreeEvent } from '@react-three/fiber'
 import { runAction } from './actions'
 import { activate } from './nav'
@@ -25,20 +26,19 @@ export function hoverKey(key: string | null) {
   if (s.hovered !== key) setUI({ hovered: key, hoverTouch: false })
 }
 
-export function tapKey(key: string | null, touch: boolean) {
+export function tapKey(key: string | null, _touch = false) {
   const s = getUI()
   const t = key ? s.targets.get(key) : undefined
   if (!t) {
     if (s.hoverTouch) setUI({ hovered: null, hoverTouch: false })
     return
   }
-  // The duck is the chat: one tap opens it (sheet to half), no label step.
-  if (touch && t.id !== 'stop-7' && !(s.hovered === key && s.hoverTouch)) {
-    setUI({ hovered: key, hoverTouch: true })
-    return
-  }
+  // Touch ↔ desktop parity: one tap / click opens (or flips an action). A drag that ends on a
+  // mesh is filtered by CLICK_SLOP in the handlers — free look never requires a precise hit to
+  // keep orbiting; opening only happens on a true tap.
+  if (s.hoverTouch) setUI({ hovered: null, hoverTouch: false })
+  audio.unlock()
   if (t.def.action) {
-    if (s.hoverTouch) setUI({ hovered: null, hoverTouch: false })
     runAction(t.def.action)
     return
   }

@@ -6,8 +6,8 @@
     "coldOpen": "Roi Yotvat, AI-driven full-stack developer, building 3D for the web.",
     "title": "Roi Yotvat · AI-driven full-stack developer, building 3D for the web",
     "description": "Roi Yotvat is an AI-driven full-stack developer, building 3D for the web. He builds web products end to end with React, Next, Node and TypeScript, ships with Claude Code and agentic workflows, and is bringing 3D into client websites. Walk through the room, or read the plain version.",
-    "hintDesktop": "Drag to look around 360° · scroll to zoom",
-    "hintTouch": "Drag to look around 360° · pinch to zoom",
+    "hintDesktop": "Drag to look · scroll to zoom",
+    "hintTouch": "Drag to look · pinch to zoom",
     "loading": "Setting up the room",
     "compiling": "Warming up the lights",
     "listLink": "Plain HTML version",
@@ -427,8 +427,8 @@
     "short": "Feature"
   },
   "duck": {
-    "placeholder": "Ask about Roi's work…",
-    "send": "Ask",
+    "placeholder": "Say something to the duck",
+    "send": "send",
     "more": "More questions",
     "less": "Fewer questions",
     "thinking": "thinking",
@@ -896,27 +896,27 @@
       "line": "Hi, I'm the duck. Look around, or ask me anything.",
       "chips": [
         {
-          "label": "What's here?",
-          "ask": "What have you built?"
-        },
-        {
-          "label": "Show me your best project",
+          "label": "what's on the monitor?",
           "ask": "Show me your best AI project"
         },
         {
-          "label": "Surprise me",
+          "label": "show me something you made",
+          "ask": "What have you built?"
+        },
+        {
+          "label": "surprise me",
           "ask": [
             "Turn the lights off",
             "Play some music"
           ]
         }
       ],
-      "touch": "Tap anything on the desk to look closer."
+      "touch": ""
     },
     "status": {
       "around": "looking around the room",
       "at": "looking at the {x}",
-      "thinking": "thinking…",
+      "thinking": "looking around…",
       "pointing": "pointing at the {x}",
       "thinkingSr": "Duck is thinking…"
     },
@@ -925,7 +925,7 @@
     "expandChat": "Chat with the duck",
     "sheetUp": "Show more of the chat",
     "sheetDown": "Show less of the chat",
-    "empty": "Ask me about Roi's work, or pick a question below.",
+    "empty": "",
     "error": "I lost my train of thought. Try that again?",
     "retry": "Retry",
     "newBelow": "New message",
