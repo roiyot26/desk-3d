@@ -23,27 +23,106 @@ class AudioEngine {
   /** Spatial weights 0..1 fed by the canvas each few frames. */
   near = { window: 0.5, neon: 0 }
 
-  /** Call from a user gesture (Enter). Safe to call more than once. */
+  /** True once the context has actually run (iOS can leave it 'suspended' or 'interrupted'). */
+  running = false
+  private armed = false
+
+  /**
+   * Call from a user gesture. Safe to call more than once. Mobile (iOS Safari, Android Chrome):
+   * the context must be created AND resumed inside a gesture, and iOS also wants a sound started
+   * in that same gesture, so we play one silent sample. If it still isn't running (the gesture
+   * was a scroll, or iOS interrupted it for a call / the lock screen), the next tap anywhere
+   * retries: no silent fail.
+   */
   unlock() {
-    if (this.ctx) {
-      void this.ctx.resume()
-      return
+    this.arm()
+    if (!this.ctx) {
+      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (!AC) {
+        console.info('[desk-3d] Web Audio not supported here')
+        return
+      }
+      try {
+        this.ctx = new AC({ latencyHint: 'interactive' })
+      } catch {
+        this.ctx = new AC()
+      }
+      this.master = this.ctx.createGain()
+      this.master.gain.value = getUI().muted ? 0 : 1
+      this.master.connect(this.ctx.destination)
+      this.ctx.onstatechange = () => {
+        this.running = this.ctx?.state === 'running'
+        if (this.running) this.mix()
+      }
+      subscribe(() => this.mix())
+      for (const n of FILES) void this.load(n)
     }
-    const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!AC) return
-    this.ctx = new AC()
-    this.master = this.ctx.createGain()
-    this.master.gain.value = getUI().muted ? 0 : 1
-    this.master.connect(this.ctx.destination)
-    void this.ctx.resume()
-    subscribe(() => this.mix())
-    for (const n of FILES) void this.load(n)
+    this.kick()
+  }
+
+  /** Resume + a one-sample silent buffer: the iOS unlock (must run inside the gesture). */
+  private kick() {
+    const ctx = this.ctx
+    if (!ctx) return
+    try {
+      const b = ctx.createBuffer(1, 1, 22050)
+      const s = ctx.createBufferSource()
+      s.buffer = b
+      s.connect(ctx.destination)
+      s.start(0)
+    } catch {
+      /* ignore */
+    }
+    if (ctx.state !== 'running') {
+      ctx.resume().then(
+        () => {
+          this.running = ctx.state === 'running'
+          this.mix()
+        },
+        (e) => console.info('[desk-3d] audio resume blocked, will retry on next tap', e),
+      )
+    } else this.running = true
+  }
+
+  /**
+   * Gesture listeners for the whole visit: every tap / key retries until the context runs, and
+   * coming back to the tab (or iOS ending an interruption) resumes it.
+   */
+  private arm() {
+    if (this.armed || typeof window === 'undefined') return
+    this.armed = true
+    const retry = () => {
+      if (!getUI().entered) return
+      if (!this.ctx || this.ctx.state !== 'running') this.unlock()
+    }
+    for (const ev of ['pointerdown', 'touchend', 'click', 'keydown'] as const) window.addEventListener(ev, retry, { capture: true, passive: true })
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this.ctx && this.ctx.state !== 'running') void this.ctx.resume().catch(() => {})
+    })
+    window.addEventListener('pageshow', () => {
+      if (this.ctx && this.ctx.state !== 'running') void this.ctx.resume().catch(() => {})
+    })
   }
 
   private async load(n: Name) {
     try {
       const res = await fetch(url(n))
-      const buf = await this.ctx!.decodeAudioData(await res.arrayBuffer())
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.arrayBuffer()
+      const ctx = this.ctx!
+      // Older iOS Safari only has the callback form of decodeAudioData.
+      const buf = await new Promise<AudioBuffer>((ok, bad) => {
+        let settled = false
+        const done = (v: AudioBuffer) => { if (!settled) { settled = true; ok(v) } }
+        const fail = (e: unknown) => { if (!settled) { settled = true; bad(e instanceof Error ? e : new Error(String(e))) } }
+        try {
+          const ret = ctx.decodeAudioData(data.slice(0), done, fail) as Promise<AudioBuffer> | undefined
+          // Modern browsers return a Promise and may ignore the callbacks.
+          ret?.then(done, fail)
+        } catch (e) {
+          fail(e)
+        }
+      })
       this.buffers.set(n, buf)
       if ((LOOPS as readonly string[]).includes(n)) this.startLoop(n, buf)
     } catch (e) {
@@ -95,6 +174,7 @@ class AudioEngine {
   play(n: 'key' | 'quack', opts: { rate?: number; gain?: number } = {}) {
     const buf = this.buffers.get(n)
     if (!this.ctx || !buf || getUI().muted) return
+    if (this.ctx.state !== 'running') void this.ctx.resume().catch(() => {})
     const src = this.ctx.createBufferSource()
     src.buffer = buf
     src.playbackRate.value = opts.rate ?? 1

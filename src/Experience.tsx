@@ -18,6 +18,7 @@ import { RainGlass, RainStreaks } from './Rain'
 import { OpenWalls, RoomLights, RoomModel, glbRain, roomScene } from './Room'
 import { qualityFor, type Tier } from './quality'
 import { getUI, setUI, useUI } from './store'
+import { closePanel } from './nav'
 
 // The whole 3D experience. Loaded as its own chunk so ?view=list stays light.
 
@@ -204,6 +205,9 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
         // `flat`: r3f starts with NoToneMapping and never touches it again. (A toneMapping key in `gl`
         // was re-applied on every Canvas re-render and silently undid <RendererToneMapping>'s AgX.)
         flat
+        onPointerMissed={() => {
+          if (getUI().open) closePanel()
+        }}
         gl={{ antialias: false, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => {
           gl.outputColorSpace = THREE.SRGBColorSpace

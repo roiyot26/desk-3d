@@ -144,7 +144,7 @@ function Panel() {
   const chev = more && !isDuck && !nearCarousel(body.current)
   return (
     <>
-      <div className="backdrop" onClick={closePanel} aria-hidden="true" />
+      <div className="backdrop" aria-hidden="true" />
       <aside
         className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}${stop?.kind === 'duck' ? ' duck' : ''}${foldIntro ? ' folded' : ''}${full ? ' full' : ''}`}
         role="dialog"
