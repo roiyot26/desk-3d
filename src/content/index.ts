@@ -85,6 +85,7 @@ export const content = raw as unknown as {
     empty: string
     error: string
     retry: string
+    backToChat: string
     newBelow: string
     stations: string
   }

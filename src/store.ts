@@ -157,7 +157,7 @@ export function setMuted(muted: boolean) {
   setUI({ muted })
 }
 
-export const SECRET_COUNT = 5
+export const SECRET_COUNT = 6
 
 /**
  * Test hook for screenshots on very slow (software-GL) machines: with `?debug`, setting

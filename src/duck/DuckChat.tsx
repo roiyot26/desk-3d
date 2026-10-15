@@ -161,25 +161,17 @@ function Turn({ e }: { e: DuckEntry }) {
  * content shows a "New message ↓" pill instead of yanking the view.
  */
 /**
- * Where "pinned" is. Normally the bottom. When the latest answer plus its card is taller than the
- * scroller (half sheet on small phones), the answer's first line goes to the top and the card stays
- * pinned at the bottom (sticky), so neither the answer's start nor the card is ever hidden and the
- * sheet doesn't have to grow over the focused station.
+ * Pinned = the bottom: the latest card sits just above the chips and never gets clipped. If the
+ * answer + card are taller than the half sheet (already content-sized up to 62vh), the sheet goes
+ * to full; with a station open (full is off then) the answer's top fades under the header instead.
  */
 function pin(el: HTMLElement) {
-  const bubbles = el.querySelectorAll<HTMLElement>('.bubble.duck')
-  const last = bubbles[bubbles.length - 1]
-  const card = last?.parentElement?.querySelector<HTMLElement>('.duck-card')
-  const bottom = el.scrollHeight - el.clientHeight
-  if (last && card) {
-    const top = el.scrollTop + last.getBoundingClientRect().top - el.getBoundingClientRect().top - 8
-    const need = last.offsetHeight + card.offsetHeight + 24
-    if (need > el.clientHeight) {
-      el.scrollTop = Math.min(bottom, top)
-      return
-    }
-  }
-  el.scrollTop = bottom
+  el.scrollTop = el.scrollHeight - el.clientHeight
+  const turns = el.querySelectorAll<HTMLElement>('.duck-turn')
+  const last = turns[turns.length - 1]
+  const u = getUI()
+  if (last?.querySelector('.duck-card') && u.sheet === 'half' && !u.open && last.offsetHeight + 16 > el.clientHeight && el.closest('.chat.sheet'))
+    setUI({ sheet: 'full' })
 }
 
 function Log() {
@@ -188,6 +180,7 @@ function Log() {
   const atBottom = useRef(true)
   const userAt = useRef(0)
   const [pill, setPill] = useState(false)
+  const [faded, setFaded] = useState(false)
   const toBottom = (smooth: boolean) => {
     const el = box.current
     if (!el) return
@@ -219,7 +212,7 @@ function Log() {
   }, [log])
   return (
     <div
-      className="chat-scroll"
+      className={`chat-scroll${faded ? ' faded' : ''}`}
       ref={box}
       // Only the visitor's own scrolling (wheel / touch / keys) unpins; programmatic scrolls never do.
       onWheel={() => (userAt.current = performance.now())}
@@ -227,6 +220,7 @@ function Log() {
       onKeyDown={() => (userAt.current = performance.now())}
       onScroll={(ev) => {
         const el = ev.currentTarget
+        setFaded(el.scrollTop > 4)
         const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24
         if (bottom || performance.now() - userAt.current >= 800) {
           if (!bottom) return
@@ -264,7 +258,7 @@ function Chips() {
     if (asked.has(norm(c.label)) || (a && asked.has(a)) || (a && seen.has(a))) return false
     if (a) seen.add(a)
     return true
-  })
+  }).slice(0, log.some((e) => !e.greet) ? undefined : 3)
   const row = useRef<HTMLDivElement>(null)
   const [end, setEnd] = useState(false)
   const check = () => {
@@ -412,7 +406,8 @@ function PeekLine() {
   const last = [...log].reverse().find((e) => e.reply)
   const text = thinking ? content.duck.status.thinkingSr : last ? (last.greet && isTouch() ? `${content.duck.greet.line} ${content.duck.greet.touch}` : last.reply!) : content.duck.empty
   return (
-    <p className="peek-last" onClick={() => setUI({ sheet: 'half' })}>
+    // Phones at peek: the log region is on the page too, so the first answer is announced.
+    <p className="peek-last" role="log" aria-live="polite" aria-label="Chat with the duck" onClick={() => setUI({ sheet: 'half' })}>
       {text}
     </p>
   )

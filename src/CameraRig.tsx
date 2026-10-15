@@ -6,7 +6,7 @@ import { OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import type { RoomInfo } from './analyze'
 import type { Quality } from './quality'
-import { getUI, setUI, useUI } from './store'
+import { getUI, setUI, subscribe, useUI } from './store'
 import { gsap, useGSAP } from './gsap'
 import { markerTargetFor, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
 import { STOPS } from './content'
@@ -86,8 +86,8 @@ export const chatShiftPx = () => chatShift
 function dockedLayout(w: number): [number, number | undefined, { l: number; r: number } | undefined] {
   if (!document.documentElement.classList.contains('chat-docked')) return [0, undefined, undefined]
   const chat = chatWidth(w) + CHAT_INSET
-  const panel = Math.min(420, 0.4 * w)
-  return [chat, fitCache.key ? fitCache.shift : chat / 2, { l: 24 + panel + 12, r: w - chat - 12 }]
+  // The station panel overlays the chat column, so the station frames in the canvas area.
+  return [chat, fitCache.key ? fitCache.shift : chat / 2, { l: 12, r: w - chat - 12 }]
 }
 
 /** The duck's bottom sheet opens at 65% on phones (index.css .panel.duck); frame above it. */
@@ -226,6 +226,55 @@ function duckFill(pose: Pose, box: THREE.Box3, fov: number, aspect: number) {
   return (hi - lo) / 2
 }
 
+/** Duck height share of the frame from its real mesh vertices (the hit box overstates it ~1.6×). */
+function meshFill(pose: Pose, nodes: THREE.Object3D[], fov: number, aspect: number) {
+  _lp.fov = fov
+  _lp.aspect = aspect
+  _lp.near = 0.03
+  _lp.far = 100
+  _lp.position.copy(pose.position)
+  _lp.lookAt(pose.target)
+  _lp.updateProjectionMatrix()
+  _lp.updateMatrixWorld()
+  let lo = Infinity
+  let hi = -Infinity
+  for (const n of nodes)
+    n.traverse((o) => {
+      const g = (o as THREE.Mesh).isMesh ? (o as THREE.Mesh).geometry : null
+      const pos = g?.attributes.position
+      if (!pos) return
+      const step = Math.max(1, Math.floor(pos.count / 400))
+      for (let i = 0; i < pos.count; i += step) {
+        _lv.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).project(_lp)
+        lo = Math.min(lo, _lv.y)
+        hi = Math.max(hi, _lv.y)
+      }
+    })
+  return hi > lo ? (hi - lo) / 2 : 0
+}
+
+/** CAM_DuckIntro: arrival uses a tighter lens on the duck + desk; the first input eases it out to the room view. */
+export const INTRO_FILL = 0.08
+function introOf(home: Pose & { zoom?: number }, duck: Target | undefined, aspect: number): Pose & { zoom?: number; roomZoom?: number } {
+  const roomZoom = home.zoom ?? 1
+  if (!duck) return home
+  const c = duck.box.getCenter(new THREE.Vector3())
+  // Aim between the room view's look point and the duck: the duck sits a little below centre with the desk around it.
+  const target = home.target.clone().lerp(c, 0.8)
+  const pose = { position: home.position.clone(), target }
+  const base = fovFor(aspect)
+  const fill = (z: number) => meshFill(pose, duck.nodes, base * z, aspect)
+  if (fill(roomZoom) >= INTRO_FILL) return { ...pose, zoom: roomZoom, roomZoom }
+  let lo = 0.2
+  let hi = roomZoom
+  for (let i = 0; i < 24; i++) {
+    const m = (lo + hi) / 2
+    if (fill(m) >= INTRO_FILL) lo = m
+    else hi = m
+  }
+  return { ...pose, zoom: lo, roomZoom }
+}
+
 /**
  * Arrival framing: step from the room's home spot toward the duck (same heading, look-at lowered
  * halfway to the duck) until the duck is DUCK_FILL of the frame height. Free roam then looks
@@ -297,7 +346,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const duck = useUI((s) => s.targets.get('duck'))
   const home = useMemo(
-    () => leadHome(homeView(info, portrait, size.width / size.height), duck, size.width / size.height, !window.matchMedia?.(CHAT_SHEET_QUERY).matches),
+    () => introOf(leadHome(homeView(info, portrait, size.width / size.height), duck, size.width / size.height, !window.matchMedia?.(CHAT_SHEET_QUERY).matches), duck, size.width / size.height),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [info, portrait, tall, duck],
   )
@@ -360,13 +409,34 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     flyRelease: false,
     flying: false,
     focused: false,
+    /** CAM_DuckIntro is on until the first input (drag, wheel, pinch, a question, a station). */
+    intro: true,
   })
+  // First input releases the intro lens to the room view (eased by the free-roam FOV ease).
+  const release = useRef(() => {})
+  release.current = () => {
+    const st = state.current
+    if (!st.intro) return
+    st.intro = false
+    st.zoom = (home as { roomZoom?: number }).roomZoom ?? st.zoom
+    st.lastInput = performance.now() / 1000
+  }
+  useEffect(() => {
+    const ui0 = getUI()
+    const n0 = ui0.duckLog.filter((e) => !e.greet).length
+    const off = subscribe(() => {
+      const u = getUI()
+      if (u.open || u.duckLog.filter((e) => !e.greet).length > n0) release.current()
+    })
+    return () => void off()
+  }, [])
 
   useEffect(() => {
     const c = controls.current
     if (!c) return
     const st = state.current
     const start = () => {
+      release.current()
       st.interacting = true
       st.driftStart = -1
       if (!getUI().dragged) setUI({ dragged: true })
@@ -401,6 +471,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     const onWheel = (e: WheelEvent) => {
       if (!free()) return
       e.preventDefault()
+      release.current()
       st.zoom = clampZ(st.zoom * Math.exp(e.deltaY * 0.0012))
       st.lastInput = performance.now() / 1000
     }
@@ -551,7 +622,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     }
 
     // --- Free roam. Slow idle drift: a gentle sway around wherever the viewer left the camera.
-    if (!quality.reducedMotion && !st.interacting && now - st.lastInput > IDLE_AFTER) {
+    if (!st.intro && !quality.reducedMotion && !st.interacting && now - st.lastInput > IDLE_AFTER) {
       if (st.driftStart < 0) {
         // From the camera itself, not OrbitControls' cached spherical (stale until its next
         // update(): it once swung the phone home ~70° off the desk toward the default camera).

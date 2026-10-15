@@ -17,7 +17,8 @@
     "enter": "Enter",
     "enterHint": "Turns on sound · press Enter",
     "enterHintTouch": "Turns on sound",
-    "phoneNote": "This is the plain version. The 3D room runs on phones too: tap Enter the 3D room."
+    "phoneNote": "This is the plain version. The 3D room runs on phones too: tap Enter the 3D room.",
+    "more": "Room features, lights and sound"
   },
   "tour": {
     "close": "Close",
@@ -372,7 +373,7 @@
     "rainOff": "Window latched. The rain stops for you.",
     "rainOn": "Window unlatched. The rain is back.",
     "agentic": "agentic mode: on. The duck is listening.",
-    "secret": "Secret found",
+    "secret": "Feature found",
     "neon": "</> blinks back."
   },
   "toastShort": {
@@ -390,7 +391,7 @@
     "neon": "</> blinks back"
   },
   "secrets": {
-    "label": "Secrets",
+    "label": "Room features",
     "items": [
       {
         "id": "duck",
@@ -411,15 +412,19 @@
       {
         "id": "neon",
         "label": "Poked the neon sign"
+      },
+      {
+        "id": "stations",
+        "label": "Visited every station"
       }
     ],
-    "doneTitle": "All five secrets",
+    "doneTitle": "All six room features",
     "doneBody": "You found everything. That's exactly the kind of thoroughness I look for in a code reviewer.",
-    "doneJoke": "There is no seventh secret. Probably.",
-    "found": "Secret found",
+    "doneJoke": "",
+    "found": "Feature found",
     "hidden": "???",
-    "_note": "The five secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign. No art secrets.",
-    "short": "Secret"
+    "_note": "The six room features (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; stations = visit every station (stop-1..6), shown by the six progress dots. No art features.",
+    "short": "Feature"
   },
   "duck": {
     "placeholder": "Ask about Roi's work…",
@@ -924,7 +929,8 @@
     "error": "I lost my train of thought. Try that again?",
     "retry": "Retry",
     "newBelow": "New message",
-    "stations": "Stations"
+    "stations": "Stations",
+    "backToChat": "Back to chat"
   },
   "labels": {
     "action-lights": "Light switch",

@@ -90,16 +90,23 @@ export function Hud() {
   const flash = useUI((s) => s.secretFlash)
   const muted = useUI((s) => s.muted)
   const [open, setOpen] = useState(false)
+  const [menu, setMenu] = useState(false)
   const recent = useRecent(flash?.at, 2600)
   const toggleMute = () => {
     audio.unlock()
     setMuted(!muted)
   }
   return (
-    <div className="hud" ref={el}>
+    <div className={`hud${menu ? ' menu-open' : ''}`} ref={el}>
       <a className="hud-btn resume" href={LIST_URL}>
         {content.site.resume}
       </a>
+      {/* Phones (≤430px): features, lights and sound fold into one 44px "⋯" menu. */}
+      <button type="button" className="hud-btn icon hud-more" aria-expanded={menu} aria-controls="hud-group" aria-label={content.site.more} onClick={() => setMenu(!menu)}>
+        <span aria-hidden="true">⋯</span>
+        {recent && <i className="hud-dot" aria-hidden="true" />}
+      </button>
+      <div className="hud-group" id="hud-group">
       {entered && (
         <div className="hud-secrets">
           <button
@@ -115,7 +122,7 @@ export function Hud() {
             <ul className="hud-pop">
               {content.secrets.items.map((it) => (
                 <li key={it.id} className={found.includes(it.id) ? 'got' : ''}>
-                  {found.includes(it.id) ? `✓ ${it.label}` : `· ${content.secrets.hidden}`}
+                  {found.includes(it.id) ? `✓ ${it.label}` : `· ${it.label}`}
                 </li>
               ))}
             </ul>
@@ -133,6 +140,7 @@ export function Hud() {
       >
         <SoundIcon muted={muted} />
       </button>
+      </div>
     </div>
   )
 }
@@ -203,7 +211,7 @@ export function SecretsCard() {
           <li key={i.id}>✓ {i.label}</li>
         ))}
       </ul>
-      <p className="joke">{content.secrets.doneJoke}</p>
+      {content.secrets.doneJoke && <p className="joke">{content.secrets.doneJoke}</p>}
     </section>
   )
 }

@@ -113,8 +113,10 @@ function Panel() {
     if (open) {
       if (!lastFocus.current) lastFocus.current = document.activeElement
       ref.current?.focus({ preventScroll: true })
-    } else if (lastFocus.current) {
-      ;(lastFocus.current as HTMLElement).focus?.({ preventScroll: true })
+    } else {
+      // Back to where the visitor came from: usually the card's "Take me there".
+      const back = lastFocus.current && document.contains(lastFocus.current) && lastFocus.current !== document.body ? lastFocus.current : [...document.querySelectorAll('.duck-go')].pop()
+      ;(back as HTMLElement | undefined)?.focus?.({ preventScroll: true })
       lastFocus.current = null
     }
     if (!open && getUI().sheetFull) setUI({ sheetFull: false })
@@ -144,6 +146,10 @@ function Panel() {
         ref={panel}
       >
         <SheetHandle full={full} />
+        {/* Desktop with the chat open: the panel is an overlay inside the chat column. */}
+        <button type="button" className="panel-back" onClick={closePanel}>
+          <span aria-hidden="true">←</span> {content.duck.backToChat}
+        </button>
         <button type="button" className="panel-close" onClick={closePanel} aria-label={content.tour.close}>
           ×
         </button>

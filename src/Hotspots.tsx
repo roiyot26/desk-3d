@@ -266,6 +266,13 @@ function DebugHooks() {
         const u = getUI()
         return { open: u.open, visited: u.visited, sheet: u.sheet, chatOpen: u.chatOpen, chatUnread: u.chatUnread, thinking: u.duckThinking, sources: u.sources.keys, secrets: u.secrets, lights: u.lights }
       },
+      /** Show / hide a target's meshes (pixel-diff size checks: render with and without). */
+      vis: (key: string, on: boolean) => {
+        const t = targets.get(key)
+        if (!t) return false
+        for (const n of t.nodes) n.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.visible = on })
+        return true
+      },
       /** World box of a hit target (centre + size, glTF metres). */
       box: (key: string) => {
         const t = targets.get(key)
