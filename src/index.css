@@ -255,6 +255,9 @@ a {
   position: fixed;
   inset: 0;
   z-index: 38;
+  /* Pass pinches / look-drags through to the canvas (framed-station zoom). Close is a single
+     tap on the room (interact.ts) or Esc / panel controls — not this layer. */
+  pointer-events: none;
 }
 .panel {
   position: fixed;

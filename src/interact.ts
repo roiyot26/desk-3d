@@ -1,13 +1,13 @@
 import { audio } from './audio'
 import type { ThreeEvent } from '@react-three/fiber'
 import { runAction } from './actions'
-import { activate } from './nav'
+import { activate, closePanel } from './nav'
 import { getUI, setUI } from './store'
 import { keyForObject } from './targets'
 
 // Pointer behaviour for 3D hit targets.
-// Mouse: hover shows the label (after a short idle, see .hover-label) and a pointer cursor; click opens.
-// Touch: the first tap shows the label, a second tap (or the label's Open button) opens the panel.
+// Mouse: hover shows the label; click opens. Touch: one tap opens (parity). Empty-room tap closes an open panel
+// (backdrop is pointer-events: none so two-finger pinch reaches the canvas on framed stations).
 
 let canvasEl: HTMLElement | null = null
 export function setCanvasElement(el: HTMLElement | null) {
@@ -31,6 +31,8 @@ export function tapKey(key: string | null, _touch = false) {
   const t = key ? s.targets.get(key) : undefined
   if (!t) {
     if (s.hoverTouch) setUI({ hovered: null, hoverTouch: false })
+    // Single tap on empty room closes the station (backdrop is pointer-events: none so pinches reach the canvas).
+    else if (s.open) closePanel()
     return
   }
   // Touch ↔ desktop parity: one tap / click opens (or flips an action). A drag that ends on a
