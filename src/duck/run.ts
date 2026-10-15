@@ -40,6 +40,12 @@ export function destination(flyTo?: string, open?: string): Open {
   return null
 }
 
+/** `fly_to("unvisited")` (the roam intent): the first station the visitor hasn't opened yet. */
+const ROAM_ORDER = ['terrarium', 'laptop', 'bookshelf', 'career', 'sticky', 'mug', 'monitor']
+export function pickUnvisited(visited: string[]): string {
+  return ROAM_ORDER.find((k) => { const d = destination(k); return !!d && !visited.includes(d.id) }) ?? ROAM_ORDER[0]
+}
+
 function perform(t: DuckTool, nav: { flyTo?: string; open?: string }) {
   switch (t.name) {
     case 'search_portfolio':
@@ -47,7 +53,7 @@ function perform(t: DuckTool, nav: { flyTo?: string; open?: string }) {
       if (t.sources?.length) setUI({ sources: { keys: t.sources, at: performance.now() } })
       break
     case 'fly_to':
-      nav.flyTo = t.args[0]
+      nav.flyTo = t.args[0] === 'unvisited' ? pickUnvisited(getUI().visited) : t.args[0]
       break
     case 'open':
       nav.open = t.args[0]
