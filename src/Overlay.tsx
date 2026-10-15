@@ -63,7 +63,14 @@ function useKeys() {
       }
       // Esc order: the station panel, then the chat (phone sheet to peek / desktop column collapses).
       if (e.key === 'Escape') {
-        if (s.open) closePanel()
+        if (s.open) {
+          closePanel()
+          // Phones: the card lives in the log, which only shows at half; raise it and focus "Take me there".
+          if (document.documentElement.classList.contains('chat-sheet') && s.duckLog.some((x) => x.card)) {
+            setUI({ sheet: 'half' })
+            requestAnimationFrame(() => requestAnimationFrame(() => [...document.querySelectorAll<HTMLElement>('.duck-go')].pop()?.focus({ preventScroll: false })))
+          }
+        }
         else if (document.documentElement.classList.contains('chat-sheet')) {
           if (s.sheet !== 'peek') setUI({ sheet: 'peek' })
         } else if (s.chatOpen && document.documentElement.classList.contains('chat-docked')) collapseChat()
