@@ -160,6 +160,28 @@ function Turn({ e }: { e: DuckEntry }) {
  * The log. Sticks to the bottom while the visitor is at the bottom; if they scrolled up, new
  * content shows a "New message ↓" pill instead of yanking the view.
  */
+/**
+ * Where "pinned" is. Normally the bottom. When the latest answer plus its card is taller than the
+ * scroller (half sheet on small phones), the answer's first line goes to the top and the card stays
+ * pinned at the bottom (sticky), so neither the answer's start nor the card is ever hidden and the
+ * sheet doesn't have to grow over the focused station.
+ */
+function pin(el: HTMLElement) {
+  const bubbles = el.querySelectorAll<HTMLElement>('.bubble.duck')
+  const last = bubbles[bubbles.length - 1]
+  const card = last?.parentElement?.querySelector<HTMLElement>('.duck-card')
+  const bottom = el.scrollHeight - el.clientHeight
+  if (last && card) {
+    const top = el.scrollTop + last.getBoundingClientRect().top - el.getBoundingClientRect().top - 8
+    const need = last.offsetHeight + card.offsetHeight + 24
+    if (need > el.clientHeight) {
+      el.scrollTop = Math.min(bottom, top)
+      return
+    }
+  }
+  el.scrollTop = bottom
+}
+
 function Log() {
   const log = useUI((s) => s.duckLog)
   const box = useRef<HTMLDivElement>(null)
@@ -169,7 +191,8 @@ function Log() {
   const toBottom = (smooth: boolean) => {
     const el = box.current
     if (!el) return
-    el.scrollTo({ top: el.scrollHeight, behavior: smooth && !reduced() ? 'smooth' : 'auto' })
+    if (smooth && !reduced()) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    else pin(el)
     setPill(false)
   }
   // Content grows while it types: keep pinned with a ResizeObserver on the inner log.
@@ -178,14 +201,14 @@ function Log() {
     const inner = el?.firstElementChild
     if (!el || !inner || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(() => {
-      if (atBottom.current) el.scrollTop = el.scrollHeight
+      if (atBottom.current) pin(el)
       else setPill(true)
     })
     ro.observe(inner)
     ro.observe(el)
     // The sheet animates its height; re-pin once it settles.
     const sheet = el.closest('.chat')
-    const settle = () => { if (atBottom.current) el.scrollTop = el.scrollHeight }
+    const settle = () => { if (atBottom.current) pin(el) }
     sheet?.addEventListener('transitionend', settle)
     return () => { ro.disconnect(); sheet?.removeEventListener('transitionend', settle) }
   }, [])
@@ -205,10 +228,11 @@ function Log() {
       onScroll={(ev) => {
         const el = ev.currentTarget
         const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24
-        if (bottom) {
+        if (bottom || performance.now() - userAt.current >= 800) {
+          if (!bottom) return
           atBottom.current = true
           setPill(false)
-        } else if (performance.now() - userAt.current < 800) atBottom.current = false
+        } else atBottom.current = false
       }}
     >
       <div className="duck-log" role="log" aria-live="polite" aria-label="Chat with the duck">

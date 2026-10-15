@@ -1457,3 +1457,6 @@ a {
   .duck-avatar.thinking,
   .dots i { animation: none; }
 }
+
+/* Latest card stays pinned at the scroller's bottom when answer + card overflow the half sheet. */
+.chat-scroll .duck-turn:last-child .duck-card { position: sticky; bottom: 4px; z-index: 1; background-color: #221d17; box-shadow: 0 -10px 14px 2px rgba(18, 15, 11, 0.85); }
