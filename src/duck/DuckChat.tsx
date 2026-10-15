@@ -30,9 +30,12 @@ function useSheetLayout() {
  * Text that types itself out at `cps` characters/s (instant with reduced motion). `lead` chars
  * show at once (the greeting's first sentence lands inside 1 s, then the rest types on).
  */
+/** When each text started typing: a remount (phone sheet peek → half swaps the layout) resumes instead of re-typing. */
+const typedAt = new Map<string, number>()
 function Typed({ text, cps = 110, lead = 0 }: { text: string; cps?: number; lead?: number }) {
-  const start = useRef(performance.now())
-  const [n, setN] = useState(() => (reduced() ? text.length : lead))
+  if (!typedAt.has(text)) typedAt.set(text, performance.now())
+  const start = useRef(typedAt.get(text)!)
+  const [n, setN] = useState(() => (reduced() ? text.length : Math.min(text.length, Math.max(lead, lead + Math.floor(((performance.now() - start.current) / 1000) * cps)))))
   useEffect(() => {
     if (n >= text.length) return
     const id = window.setInterval(() => {
