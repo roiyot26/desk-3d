@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { content } from './content'
-import { SECRET_COUNT, momentHeld, setMuted, setUI, useUI } from './store'
+import { SECRET_COUNT, getUI, momentHeld, setMuted, setUI, subscribe, useUI } from './store'
 import { audio } from './audio'
 import { setLights } from './actions'
 import { LIST_URL } from './links'
@@ -91,6 +91,40 @@ export function Hud() {
   const muted = useUI((s) => s.muted)
   const [open, setOpen] = useState(false)
   const [menu, setMenu] = useState(false)
+  const more = useRef<HTMLButtonElement>(null)
+  // The ⋯ menu closes on Esc (focus back to ⋯), an outside tap, or any chat / station action.
+  useEffect(() => {
+    if (!menu) return
+    const s0 = getUI()
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopImmediatePropagation()
+      setMenu(false)
+      more.current?.focus({ preventScroll: true })
+    }
+    const down = (e: PointerEvent) => {
+      if (!el.current?.contains(e.target as Node)) setMenu(false)
+    }
+    const off = subscribe(() => {
+      const s = getUI()
+      if (
+        s.duckLog !== s0.duckLog ||
+        s.open !== s0.open ||
+        s.sheet !== s0.sheet ||
+        s.chatOpen !== s0.chatOpen ||
+        s.visited !== s0.visited ||
+        s.duckThinking
+      )
+        setMenu(false)
+    })
+    window.addEventListener('keydown', key, true)
+    document.addEventListener('pointerdown', down, true)
+    return () => {
+      window.removeEventListener('keydown', key, true)
+      document.removeEventListener('pointerdown', down, true)
+      off()
+    }
+  }, [menu])
   const recent = useRecent(flash?.at, 2600)
   const toggleMute = () => {
     audio.unlock()
@@ -102,7 +136,7 @@ export function Hud() {
         {content.site.resume}
       </a>
       {/* Phones (≤430px): features, lights and sound fold into one 44px "⋯" menu. */}
-      <button type="button" className="hud-btn icon hud-more" aria-expanded={menu} aria-controls="hud-group" aria-label={content.site.more} onClick={() => setMenu(!menu)}>
+      <button ref={more} type="button" className="hud-btn icon hud-more" aria-expanded={menu} aria-controls="hud-group" aria-label={content.site.more} onClick={() => setMenu(!menu)}>
         <span aria-hidden="true">⋯</span>
         {recent && <i className="hud-dot" aria-hidden="true" />}
       </button>
