@@ -415,7 +415,7 @@
       },
       {
         "id": "stations",
-        "label": "Visited every station"
+        "label": "Looked at everything on the desk"
       }
     ],
     "doneTitle": "All six room features",
@@ -423,7 +423,7 @@
     "doneJoke": "",
     "found": "Feature found",
     "hidden": "???",
-    "_note": "The six room features (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; stations = visit every station (stop-1..6), shown by the six progress dots. No art features.",
+    "_note": "The six room features (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; stations = look at everything on the desk (stop-1..6 panels opened). No art features.",
     "short": "Feature"
   },
   "duck": {
