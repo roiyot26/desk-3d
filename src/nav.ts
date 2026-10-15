@@ -1,8 +1,8 @@
 import { BONUS_IDS, STOPS, STOP_IDS, content } from './content'
 import { findSecret, getUI, setUI, type Open } from './store'
 
-// Panel / tour navigation and deep links. Stops are the seven tour beats (stop-7 is Ask the Duck);
-// bonus and aside panels are extras outside the tour. Hashes: #stop-1..#stop-7, plus aliases from
+// Panel navigation and deep links (no tour: free roam, the duck leads). stop-1..6 are stations,
+// stop-7 is the duck (opens the chat column / sheet); bonus and aside panels are extras. Hashes: #stop-1..#stop-7, plus aliases from
 // content.json (#projects #3d #goal #skills #stack #garden #career #contact #duck) and
 // #project-<slug> / #skill-<id> for a specific card.
 
@@ -34,12 +34,32 @@ function writeHash(o: Open) {
   }
 }
 
+/** The duck is not a panel any more: its station (and #stop-7 / #duck) opens the chat. */
+export const DUCK_ID = 'stop-7'
+
+export function openChat() {
+  setUI((s) => ({
+    chatOpen: true,
+    chatUnread: false,
+    sheet: s.sheet === 'peek' ? 'half' : s.sheet,
+    open: null,
+    visited: s.visited.includes(DUCK_ID) ? s.visited : [...s.visited, DUCK_ID],
+  }))
+  if (getUI().visited.length >= STOP_IDS.length) findSecret('tour')
+}
+
 export function openPanel(o: NonNullable<Open>, opts: { writeHash?: boolean } = {}) {
+  if (o.id === DUCK_ID) {
+    openChat()
+    return
+  }
   setUI((s) => ({
     open: o,
     intro: false,
     hovered: null,
     hoverTouch: false,
+    // Phones: flying to a station drops the chat sheet to peek so the station stays in view.
+    sheet: 'peek',
     visited: STOP_IDS.includes(o.id) && !s.visited.includes(o.id) ? [...s.visited, o.id] : s.visited,
     bonusFound: BONUS_IDS.includes(o.id) && !s.bonusFound.includes(o.id) ? [...s.bonusFound, o.id] : s.bonusFound,
   }))
@@ -47,7 +67,7 @@ export function openPanel(o: NonNullable<Open>, opts: { writeHash?: boolean } = 
   if (getUI().visited.length >= STOP_IDS.length) findSecret('tour')
 }
 
-/** Close the panel and return to free roam. Shows the finale card once all seven stops are seen. */
+/** Close the panel and return to free roam. Shows the finale card once all seven stations are seen. */
 export function closePanel() {
   const s = getUI()
   setUI({
@@ -56,33 +76,6 @@ export function closePanel() {
     finale: s.finale === 'hidden' && s.visited.length >= STOP_IDS.length ? 'open' : s.finale,
   })
   writeHash(null)
-}
-
-export function startTour() {
-  openPanel({ id: 'stop-1' })
-}
-
-export function freeRoam() {
-  setUI({ intro: false })
-  closePanel()
-}
-
-function stopIndex(id: string | undefined) {
-  return id ? STOP_IDS.indexOf(id) : -1
-}
-
-export function step(dir: 1 | -1) {
-  const s = getUI()
-  const i = stopIndex(s.open?.id)
-  if (i < 0) {
-    // From a bonus / aside / free roam: jump to the first unseen stop (or stop 1).
-    const next = STOP_IDS.find((id) => !s.visited.includes(id)) ?? STOP_IDS[0]
-    openPanel({ id: dir === 1 ? next : STOP_IDS[STOP_IDS.length - 1] })
-    return
-  }
-  const j = i + dir
-  if (j >= STOP_IDS.length) closePanel()
-  else if (j >= 0) openPanel({ id: STOP_IDS[j] })
 }
 
 export function activate(id: string, extra: Partial<NonNullable<Open>> = {}) {

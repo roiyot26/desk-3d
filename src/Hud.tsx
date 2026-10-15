@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { content } from './content'
-import { activate } from './nav'
 import { SECRET_COUNT, momentHeld, setMuted, setUI, useUI } from './store'
 import { audio } from './audio'
 import { setLights } from './actions'
@@ -206,27 +205,5 @@ export function SecretsCard() {
       </ul>
       <p className="joke">{content.secrets.doneJoke}</p>
     </section>
-  )
-}
-
-/** After the duck flies you somewhere, its answer stays in a small card with a way back. */
-export function DuckToast() {
-  const reply = useUI((s) => s.duckReply)
-  const onDuck = useUI((s) => s.open?.id === 'stop-7')
-  const live = useRecent(reply?.at, 20000)
-  if (!reply || !live || onDuck) return null
-  return (
-    <aside className="duck-toast" aria-live="polite">
-      <p className="duck-toast-q">› {reply.question}</p>
-      <p>🦆 {reply.reply}</p>
-      <div className="duck-toast-actions">
-        <button type="button" className="btn small" onClick={() => activate('stop-7')}>
-          {content.duck.back}
-        </button>
-        <button type="button" className="btn ghost small" onClick={() => setUI({ duckReply: null })} aria-label={content.tour.close}>
-          ×
-        </button>
-      </div>
-    </aside>
   )
 }

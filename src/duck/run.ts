@@ -1,8 +1,7 @@
 import { setLights, setRain, startAgentic } from '../actions'
 import { audio } from '../audio'
 import type { DuckTool } from '../content'
-import { openPanel } from '../nav'
-import { findSecret, getUI, momentHeld, setMuted, setUI, type DuckEntry, type Open } from '../store'
+import { findSecret, getUI, momentHeld, setMuted, setUI, type DuckCard, type DuckEntry, type Open } from '../store'
 import { TARGET_DEFS, targetByKey } from '../targets'
 import { content } from '../content'
 import { duckEngine } from './engine'
@@ -107,13 +106,13 @@ export async function askDuck(question: string) {
     patchEntry(id, { shown: answer.steps.length + 1, reply: answer.reply })
     setUI({ duckThinking: false })
     const dest = destination(nav.flyTo, nav.open)
-    // The source cues (thin line + ring) fade on their own ~1.5s after they appear (DuckRig.tsx).
-    if (dest) {
-      await sleep(1800)
+    // The duck doesn't drag you along: it posts a station card ("Take me there") in the chat.
+    if (dest && dest.id !== 'stop-7') {
       await hold()
-      setUI({ duckReply: { question: answer.question, reply: answer.reply, at: performance.now() } })
-      openPanel(dest)
+      const card = cardFor(dest)
+      if (card) patchEntry(id, { card })
     }
+    if (!getUI().chatOpen) setUI({ chatUnread: true })
     // Drop the finished cues so nothing lingers in the scene (they have faded out by now).
     const cued = getUI().sources.at
     window.setTimeout(() => {
@@ -123,6 +122,16 @@ export async function askDuck(question: string) {
     busy = false
     if (getUI().duckThinking) setUI({ duckThinking: false })
   }
+}
+
+/** Card for a station / project / bonus panel the duck is pointing at. */
+export function cardFor(o: NonNullable<Open>): DuckCard | null {
+  const stop = content.stops.find((x) => x.id === o.id)
+  const note = stop ? undefined : content.bonus.find((b) => b.id === o.id) ?? content.asides.find((a) => a.id === o.id)
+  const proj = o.project ? content.projects.find((p) => p.slug === o.project) : undefined
+  const title = proj?.name ?? stop?.title ?? note?.title
+  if (!title) return null
+  return { open: o, title, label: (stop?.label ?? note?.title ?? title).split(' · ')[0] }
 }
 
 export function duckBusy() {

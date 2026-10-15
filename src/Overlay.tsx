@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { STOPS, STOP_IDS, content, contactLinks, noteById, text, type Stop } from './content'
-import { activate, closePanel, freeRoam, openPanel, parseHash, startTour, step } from './nav'
+import { STOPS, content, contactLinks, noteById, text, type Stop } from './content'
+import { closePanel, openPanel, parseHash } from './nav'
 import { getUI, setUI, useUI } from './store'
 import { Loader, enter } from './Loader'
-import { DuckDock, DuckLog, DuckPresets } from './duck/DuckChat'
-import { DuckToast, Hud, SecretsCard, Toast } from './Hud'
-import { LIST_URL } from './links'
+import { DuckChat } from './duck/DuckChat'
+import { Hud, SecretsCard, Toast } from './Hud'
 import { useTyping } from './keyboard'
 import { gsap, prefersReducedMotion, useGSAP } from './gsap'
 import { SHEET_QUERY, useMedia } from './useMedia'
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
-/** DOM layer over the canvas: loader, cold open, panels, tour progress, finale, hint. */
+/** DOM layer over the canvas: loader, station panels, the duck chat, finale, hint. No tour. */
 export function Overlay() {
   useDeepLinks()
   useKeys()
@@ -19,13 +18,11 @@ export function Overlay() {
   return (
     <>
       <Loader />
-      <ColdOpen />
       <Panel />
-      <Progress />
+      <DuckChat />
       <Finale />
       <SecretsCard />
       <Hint />
-      <DuckToast />
       <Toast />
       <Hud />
     </>
@@ -70,42 +67,11 @@ function useKeys() {
       if (e.key === 'Escape') {
         if (s.open) closePanel()
         else if (s.finale === 'open') setUI({ finale: 'dismissed' })
-        else if (s.intro) freeRoam()
-      } else if (e.key === 'ArrowRight' && (s.open || s.intro)) {
-        e.preventDefault()
-        if (s.intro) startTour()
-        else step(1)
-      } else if (e.key === 'ArrowLeft' && s.open) {
-        e.preventDefault()
-        step(-1)
       }
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
   }, [])
-}
-
-function ColdOpen() {
-  const show = useUI((s) => s.stage === 'ready' && s.entered && s.intro && !s.open)
-  if (!show) return null
-  return (
-    <section className="cold-open" aria-label="Introduction">
-      <h1>{content.site.name}</h1>
-      <p className="cold-role">{content.site.role}</p>
-      <p className="cold-about">{content.about.next}</p>
-      <div className="cold-actions">
-        <button type="button" className="btn primary" onClick={startTour} autoFocus>
-          {content.tour.start} <span aria-hidden="true">→</span>
-        </button>
-        <button type="button" className="btn" onClick={freeRoam}>
-          {content.tour.explore}
-        </button>
-      </div>
-      <a className="cold-list" href={LIST_URL}>
-        {content.site.listLink}
-      </a>
-    </section>
-  )
 }
 
 function Panel() {
@@ -157,7 +123,6 @@ function Panel() {
   const stop = STOPS.find((s) => s.id === open.id)
   const note = stop ? undefined : noteById(open.id)
   if (!stop && !note) return null
-  const i = stop ? STOP_IDS.indexOf(stop.id) : -1
   const isBonus = open.id.startsWith('bonus-')
   const isDuck = stop?.kind === 'duck' || note?.kind === 'duck'
   // Phones, once the duck has answered: the two intro paragraphs fold behind "What's this?" so
@@ -182,7 +147,7 @@ function Panel() {
         <button type="button" className="panel-close" onClick={closePanel} aria-label={content.tour.close}>
           ×
         </button>
-        <p className="panel-kicker">{stop ? stop.kicker : isBonus ? content.tour.foundIt : 'Aside'}</p>
+        <p className="panel-kicker">{stop ? stop.kicker.replace(/^Stop \d+ · /, '') : isBonus ? content.tour.foundIt : 'Aside'}</p>
         <h2 id="panel-title" tabIndex={-1} ref={ref}>
           {stop ? stop.title : note!.title}
         </h2>
@@ -200,8 +165,6 @@ function Panel() {
               </div>
             )}
             {jokeText && !foldIntro && <p className="joke">{jokeText}</p>}
-            {isDuck && <DuckLog tail={foldIntro && jokeText ? <p className="joke duck-scripted">{jokeText}</p> : undefined} />}
-            {isDuck && phone && <DuckPresets phone />}
           </div>
           {chev && (
             <button
@@ -214,22 +177,6 @@ function Panel() {
             </button>
           )}
         </div>
-        {isDuck && <DuckDock />}
-        <nav className="panel-nav" aria-label="Tour">
-          <button type="button" className="btn ghost" onClick={() => step(-1)} disabled={i === 0}>
-            ← {content.tour.back}
-          </button>
-          <span className="panel-count">{i >= 0 ? `${i + 1} ${content.tour.of} ${STOP_IDS.length}` : ''}</span>
-          <button type="button" className="btn primary" onClick={() => step(1)}>
-            {i === STOP_IDS.length - 1 ? content.tour.skip : content.tour.next} →
-          </button>
-        </nav>
-        {/* On the last stop "Free roam →" is already the primary button: no duplicate link. */}
-        {i !== STOP_IDS.length - 1 && (
-          <button type="button" className="panel-skip" onClick={closePanel}>
-            {content.tour.skip}
-          </button>
-        )}
       </aside>
     </>
   )
@@ -442,39 +389,6 @@ function Projects({ initial }: { initial?: string }) {
         </button>
       </div>
     </div>
-  )
-}
-
-function Progress() {
-  const ready = useUI((s) => s.stage === 'ready' && s.entered)
-  const intro = useUI((s) => s.intro)
-  const visited = useUI((s) => s.visited)
-  const open = useUI((s) => s.open)
-  const bonus = useUI((s) => s.bonusFound)
-  const full = useUI((s) => s.sheetFull)
-  if (!ready || intro) return null
-  const duck = STOPS.find((s) => s.id === open?.id)?.kind === 'duck'
-  return (
-    <nav className={`progress${open ? ' with-panel' : ''}${open && full ? ' sheet-full' : ''}${duck ? ' duck-sheet' : ''}`} aria-label="Tour stops">
-      {STOPS.map((s) => (
-        <button
-          key={s.id}
-          type="button"
-          className={`pdot${visited.includes(s.id) ? ' seen' : ''}${open?.id === s.id ? ' on' : ''}`}
-          onClick={() => activate(s.id)}
-          aria-label={`Stop ${s.n}: ${s.label}${visited.includes(s.id) ? ' (seen)' : ''}`}
-          title={s.label}
-        >
-          {s.n}
-        </button>
-      ))}
-      {/* The 7 dots are the tour. Bonus objects are extras: a ★ shows up only once one is found. */}
-      {bonus.length > 0 && (
-        <span className="pdot bonus seen" role="img" aria-label={`${content.tour.foundIt} (${bonus.length})`} title={content.tour.foundIt}>
-          ★
-        </span>
-      )}
-    </nav>
   )
 }
 

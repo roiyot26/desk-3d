@@ -75,6 +75,14 @@ export const content = raw as unknown as {
     /** How many chips show before "More questions". */
     visible: number
     intents: DuckIntent[]
+    name: string
+    greet: { line: string; chips: { label: string; ask: string | string[] }[] }
+    status: { around: string; at: string; thinking: string }
+    go: string
+    collapse: string
+    expandChat: string
+    sheetUp: string
+    sheetDown: string
   }
 }
 

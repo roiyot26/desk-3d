@@ -10,6 +10,74 @@ import { getUI, setUI } from './store'
 import { gsap, useGSAP } from './gsap'
 import { markerTargetFor, poseFor, poseFromStopCam, type Pose } from './targets'
 import { STOPS } from './content'
+import { CHAT_INSET, chatWidth } from './duck/DuckChat'
+
+/**
+ * Desktop: the docked duck chat covers the right of the canvas (station panels open beside it;
+ * poseFromStopCam aims the subject into the panel's free area).
+ * Shift the projection so the look-at point lands in the middle of the free area on the left
+ * (camera.setViewOffset), eased. Phones: the chat is a bottom sheet, no shift.
+ */
+let chatShift = 0
+const fitCache = { key: '', shift: 0 }
+/** Stations that must stay clear of the docked chat at the default view (the career board is behind you). */
+const FIT_KEYS = ['monitor', 'laptop', 'terrarium', 'mug', 'duck']
+const _probe = new THREE.PerspectiveCamera()
+const _v = new THREE.Vector3()
+/**
+ * How far to shift: at least half the column (Vision §2), more if a station at the home view
+ * would still sit under the column (the desk is right of centre on desktop). Never so far that
+ * the leftmost station leaves the frame.
+ */
+function fitShift(w: number, h: number, left: number, home: Pose, fov: number) {
+  const key = `${w}x${h}:${left}`
+  if (fitCache.key === key) return fitCache.shift
+  const half = (w - left) / 2
+  _probe.fov = fov
+  _probe.aspect = w / h
+  _probe.near = 0.03
+  _probe.far = 100
+  _probe.position.copy(home.position)
+  _probe.lookAt(home.target)
+  _probe.updateProjectionMatrix()
+  _probe.updateMatrixWorld()
+  let lo = Infinity
+  let hi = -Infinity
+  const targets = getUI().targets
+  for (const k of FIT_KEYS) {
+    const t = targets.get(k)
+    if (!t) continue
+    _v.copy(t.center).project(_probe)
+    if (_v.z > 1 || Math.abs(_v.x) > 1.2) continue
+    const x = ((_v.x + 1) / 2) * w
+    lo = Math.min(lo, x)
+    hi = Math.max(hi, x)
+  }
+  if (!targets.size) return half
+  let shift = half
+  // Keep clear of the idle drift too (±DRIFT_AZ sways the view sideways).
+  const drift = (DRIFT_AZ / (2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(fov) / 2) * (w / h)))) * w
+  if (hi > -Infinity) shift = Math.max(half, Math.min(hi - (left - 48 - drift), lo - 32))
+  fitCache.key = key
+  fitCache.shift = shift
+  return shift
+}
+function shiftForChat(cam: THREE.PerspectiveCamera, w: number, h: number, reduced: boolean, home: Pose, dt: number) {
+  const root = document.documentElement
+  let want = 0
+  if (root.classList.contains('chat-docked')) {
+    const chat = document.querySelector('.chat.docked')?.getBoundingClientRect()
+    if (chat && chat.left < w) want = fitShift(w, h, Math.round(chat.left), home, fovFor(w / h))
+  }
+  // Time-based ease (~0.5 s), so slow frames don't drag it out.
+  chatShift = reduced ? want : chatShift + (want - chatShift) * (1 - Math.exp(-Math.min(dt, 0.25) * 7))
+  if (Math.abs(chatShift - want) < 0.5) chatShift = want
+  const cur = cam.view?.enabled ? cam.view.offsetX : 0
+  if (Math.abs(cur - chatShift) < 0.25 && (!cam.view || (cam.view.fullWidth === w && cam.view.fullHeight === h))) return
+  if (chatShift < 0.25) cam.clearViewOffset()
+  else cam.setViewOffset(w, h, Math.round(chatShift * 2) / 2, 0, w, h)
+}
+export const chatShiftPx = () => chatShift
 
 /** The duck's bottom sheet opens at 65% on phones (index.css .panel.duck); frame above it. */
 const DUCK_SHEET = 0.65
@@ -357,7 +425,8 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     [camera, contextSafe],
   )
 
-  useFrame(() => {
+  useFrame((_, dt) => {
+    shiftForChat(camera as THREE.PerspectiveCamera, size.width, size.height, quality.reducedMotion, home, dt)
     const c = controls.current
     if (!c) return
     const st = state.current
@@ -392,7 +461,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         // targets.ts); otherwise frame the clicked object.
         const base = fovFor(size.width / size.height)
         const sheet = STOPS.find((x) => x.id === ui.open?.id)?.kind === 'duck' ? DUCK_SHEET : 0.5
-        const to = stopCam ? poseFromStopCam(stopCam, size, sheet) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info }), fov: base }
+        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, document.documentElement.classList.contains('chat-docked') ? chatWidth(size.width) + CHAT_INSET : 0, fitCache.key ? fitCache.shift : undefined) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info }), fov: base }
         st.focused = true
         fly(current, to, dur, false)
       } else if (st.saved) {

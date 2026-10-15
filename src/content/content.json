@@ -6,8 +6,8 @@
     "coldOpen": "Roi Yotvat, AI-driven full-stack developer, building 3D for the web.",
     "title": "Roi Yotvat · AI-driven full-stack developer, building 3D for the web",
     "description": "Roi Yotvat is an AI-driven full-stack developer, building 3D for the web. He builds web products end to end with React, Next, Node and TypeScript, ships with Claude Code and agentic workflows, and is bringing 3D into client websites. Walk through the room, or read the plain version.",
-    "hintDesktop": "Drag to look around 360° · scroll to zoom · click a glowing number",
-    "hintTouch": "Drag to look around 360° · pinch to zoom · tap a glowing dot",
+    "hintDesktop": "Drag to look around 360° · scroll to zoom",
+    "hintTouch": "Drag to look around 360° · pinch to zoom",
     "loading": "Setting up the room",
     "compiling": "Warming up the lights",
     "listLink": "Plain HTML version",
@@ -900,7 +900,38 @@
       "lights",
       "why-duck"
     ],
-    "visible": 3
+    "visible": 3,
+    "name": "Duck",
+    "greet": {
+      "line": "Hi, I'm the duck. Look around, or ask me anything.",
+      "chips": [
+        {
+          "label": "What's here?",
+          "ask": "What have you built?"
+        },
+        {
+          "label": "Show me your best project",
+          "ask": "Show me your best AI project"
+        },
+        {
+          "label": "Surprise me",
+          "ask": [
+            "Turn the lights off",
+            "Play some music"
+          ]
+        }
+      ]
+    },
+    "status": {
+      "around": "looking around the room",
+      "at": "looking at the {x}",
+      "thinking": "thinking…"
+    },
+    "go": "Take me there",
+    "collapse": "Hide the chat",
+    "expandChat": "Chat with the duck",
+    "sheetUp": "Show more of the chat",
+    "sheetDown": "Show less of the chat"
   },
   "labels": {
     "action-lights": "Light switch",
