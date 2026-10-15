@@ -4,7 +4,9 @@ import type { StopCam, Target } from './targets'
 // Tiny UI store shared by the canvas (camera, markers, lights, duck) and the DOM overlays.
 
 export type Open = { id: string; project?: string; skill?: string } | null
-export type DuckEntry = { id: number; question: string; steps: string[]; shown: number; reply: string | null; matched: boolean }
+export type DuckCard = { open: NonNullable<Open>; title: string; label: string }
+export type DuckEntry = { id: number; question: string; steps: string[]; shown: number; reply: string | null; matched: boolean; card?: DuckCard; greet?: boolean; /** Failed question (shows Retry). */ error?: string }
+export type SheetState = 'peek' | 'half' | 'full'
 export type LightGroup = 'desk' | 'floor' | 'ambient'
 
 export type UIState = {
@@ -26,7 +28,6 @@ export type UIState = {
   hoverTouch: boolean
   visited: string[]
   bonusFound: string[]
-  finale: 'hidden' | 'open' | 'dismissed'
   /** Auto-quality step: 0 full, 1 post off, 2 rain particles off (DPR is never stepped down). */
   degrade: number
   /** Project the monitor's ScreenSlot shows (follows the projects carousel). */
@@ -49,6 +50,14 @@ export type UIState = {
   duckReply: { question: string; reply: string; at: number } | null
   /** Chat transcript (kept while the page is open). `shown` = ticker steps revealed so far. */
   duckLog: DuckEntry[]
+  /** Desktop: the docked chat column is open (false = the 64px duck bubble). */
+  chatOpen: boolean
+  /** Phones: the chat bottom sheet height. */
+  sheet: SheetState
+  /** A duck line arrived while the chat was collapsed. */
+  chatUnread: boolean
+  /** The station the duck last pointed at with a card (status line). */
+  duckPointing: string | null
   // --- HUD
   toast: { text: string; short?: string; at: number } | null
   /** Last newly found secret (HUD flash). */
@@ -64,7 +73,7 @@ const MUTE_KEY = 'desk3d-muted'
 
 function loadSecrets(): string[] {
   try {
-    return JSON.parse(sessionStorage.getItem(SECRETS_KEY) ?? '[]')
+    return (JSON.parse(sessionStorage.getItem(SECRETS_KEY) ?? '[]') as string[]).filter((id) => id !== 'tour')
   } catch {
     return []
   }
@@ -74,7 +83,7 @@ let state: UIState = {
   stage: 'download',
   progress: 0,
   entered: false,
-  intro: true,
+  intro: false,
   open: null,
   sheetFull: false,
   dragged: false,
@@ -82,7 +91,6 @@ let state: UIState = {
   hoverTouch: false,
   visited: [],
   bonusFound: [],
-  finale: 'hidden',
   degrade: 0,
   slotProject: 'virtual-garden',
   targets: new Map(),
@@ -96,6 +104,10 @@ let state: UIState = {
   sources: { keys: [], at: 0 },
   duckReply: null,
   duckLog: [],
+  chatOpen: true,
+  sheet: 'peek',
+  chatUnread: false,
+  duckPointing: null,
   toast: null,
   secretFlash: null,
   secrets: loadSecrets(),

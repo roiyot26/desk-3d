@@ -1,8 +1,7 @@
 import { setLights, setRain, startAgentic } from '../actions'
 import { audio } from '../audio'
 import type { DuckTool } from '../content'
-import { openPanel } from '../nav'
-import { findSecret, getUI, momentHeld, setMuted, setUI, type DuckEntry, type Open } from '../store'
+import { findSecret, getUI, setMuted, setUI, type DuckCard, type DuckEntry, type Open } from '../store'
 import { TARGET_DEFS, targetByKey } from '../targets'
 import { content } from '../content'
 import { duckEngine } from './engine'
@@ -83,46 +82,69 @@ async function hold() {
   while (w.__desk3dHoldDuck) await sleep(200)
 }
 
+/** Ticker lines the visitor sees: navigation calls (fly_to / open) only happen on "Take me there". */
+const NAV_TOOLS = new Set(['fly_to', 'open'])
+
 export async function askDuck(question: string) {
   const q = question.trim()
   if (busy || !q) return
   busy = true
+  let id = -1
   try {
     findSecret('duck')
-    const answer = await duckEngine.ask(q)
-    const id = nextId++
+    id = nextId++
     setUI((s) => ({
-      duckLog: [...s.duckLog.slice(-5), { id, question: answer.question, steps: answer.steps.map((x) => x.text), shown: 0, reply: null, matched: !!answer.intent }],
+      duckLog: [...s.duckLog.filter((e) => e.greet), ...s.duckLog.filter((e) => !e.greet).slice(-5), { id, question: q, steps: [], shown: 0, reply: null, matched: true }],
       duckThinking: true,
+      duckPointing: null,
     }))
+    const w = window as unknown as { __desk3dFailDuck?: boolean }
+    if (w.__desk3dFailDuck) throw new Error('test: duck failure')
+    const answer = await duckEngine.ask(q)
+    const shown = answer.steps.filter((x) => !(x.tool && NAV_TOOLS.has(x.tool.name)))
+    patchEntry(id, { question: answer.question, steps: shown.map((x) => x.text), matched: !!answer.intent })
     quack()
     await sleep(500)
     const nav: { flyTo?: string; open?: string } = {}
-    for (let i = 0; i < answer.steps.length; i++) {
-      patchEntry(id, { shown: i + 1 })
-      const tool = answer.steps[i].tool
+    let k = 0
+    for (const step of answer.steps) {
+      const tool = step.tool
       if (tool) perform(tool, nav)
+      if (tool && NAV_TOOLS.has(tool.name)) continue
+      patchEntry(id, { shown: ++k })
       await sleep(tool?.sources?.length ? 1100 : 650)
     }
-    patchEntry(id, { shown: answer.steps.length + 1, reply: answer.reply })
+    patchEntry(id, { shown: shown.length + 1, reply: answer.reply })
     setUI({ duckThinking: false })
     const dest = destination(nav.flyTo, nav.open)
-    // The source cues (thin line + ring) fade on their own ~1.5s after they appear (DuckRig.tsx).
-    if (dest) {
-      await sleep(1800)
+    // The duck doesn't drag you along: it posts a station card ("Take me there") in the chat.
+    if (dest && dest.id !== 'stop-7') {
       await hold()
-      setUI({ duckReply: { question: answer.question, reply: answer.reply, at: performance.now() } })
-      openPanel(dest)
+      const card = cardFor(dest)
+      if (card) {
+        patchEntry(id, { card })
+        setUI({ duckPointing: card.label.toLowerCase() })
+      }
     }
-    // Drop the finished cues so nothing lingers in the scene (they have faded out by now).
-    const cued = getUI().sources.at
-    window.setTimeout(() => {
-      if (getUI().sources.at === cued && !momentHeld()) setUI({ sources: { keys: [], at: 0 } })
-    }, 1600)
+    if (!getUI().chatOpen) setUI({ chatUnread: true })
+  } catch (err) {
+    console.info('[desk-3d] duck answer failed', err)
+    if (id >= 0) patchEntry(id, { reply: content.duck.error, matched: false, error: q, shown: 0, steps: [] })
+    if (!getUI().chatOpen) setUI({ chatUnread: true })
   } finally {
     busy = false
     if (getUI().duckThinking) setUI({ duckThinking: false })
   }
+}
+
+/** Card for a station / project / bonus panel the duck is pointing at. */
+export function cardFor(o: NonNullable<Open>): DuckCard | null {
+  const stop = content.stops.find((x) => x.id === o.id)
+  const note = stop ? undefined : content.bonus.find((b) => b.id === o.id) ?? content.asides.find((a) => a.id === o.id)
+  const proj = o.project ? content.projects.find((p) => p.slug === o.project) : undefined
+  const title = proj?.name ?? stop?.title ?? note?.title
+  if (!title) return null
+  return { open: o, title, label: (stop?.label ?? note?.title ?? title).split(' · ')[0] }
 }
 
 export function duckBusy() {

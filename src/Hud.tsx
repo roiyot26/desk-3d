@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { content } from './content'
-import { activate } from './nav'
-import { SECRET_COUNT, momentHeld, setMuted, setUI, useUI } from './store'
+import { SECRET_COUNT, getUI, momentHeld, setMuted, setUI, subscribe, useUI } from './store'
 import { audio } from './audio'
 import { setLights } from './actions'
 import { LIST_URL } from './links'
@@ -91,16 +90,57 @@ export function Hud() {
   const flash = useUI((s) => s.secretFlash)
   const muted = useUI((s) => s.muted)
   const [open, setOpen] = useState(false)
+  const [menu, setMenu] = useState(false)
+  const more = useRef<HTMLButtonElement>(null)
+  // The ⋯ menu closes on Esc (focus back to ⋯), an outside tap, or any chat / station action.
+  useEffect(() => {
+    if (!menu) return
+    const s0 = getUI()
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopImmediatePropagation()
+      setMenu(false)
+      more.current?.focus({ preventScroll: true })
+    }
+    const down = (e: PointerEvent) => {
+      if (!el.current?.contains(e.target as Node)) setMenu(false)
+    }
+    const off = subscribe(() => {
+      const s = getUI()
+      if (
+        s.duckLog !== s0.duckLog ||
+        s.open !== s0.open ||
+        s.sheet !== s0.sheet ||
+        s.chatOpen !== s0.chatOpen ||
+        s.visited !== s0.visited ||
+        s.duckThinking
+      )
+        setMenu(false)
+    })
+    window.addEventListener('keydown', key, true)
+    document.addEventListener('pointerdown', down, true)
+    return () => {
+      window.removeEventListener('keydown', key, true)
+      document.removeEventListener('pointerdown', down, true)
+      off()
+    }
+  }, [menu])
   const recent = useRecent(flash?.at, 2600)
   const toggleMute = () => {
     audio.unlock()
     setMuted(!muted)
   }
   return (
-    <div className="hud" ref={el}>
+    <div className={`hud${menu ? ' menu-open' : ''}`} ref={el}>
       <a className="hud-btn resume" href={LIST_URL}>
         {content.site.resume}
       </a>
+      {/* Phones (≤430px): features, lights and sound fold into one 44px "⋯" menu. */}
+      <button ref={more} type="button" className="hud-btn icon hud-more" aria-expanded={menu} aria-controls="hud-group" aria-label={content.site.more} onClick={() => setMenu(!menu)}>
+        <span aria-hidden="true">⋯</span>
+        {recent && <i className="hud-dot" aria-hidden="true" />}
+      </button>
+      <div className="hud-group" id="hud-group">
       {entered && (
         <div className="hud-secrets">
           <button
@@ -116,7 +156,7 @@ export function Hud() {
             <ul className="hud-pop">
               {content.secrets.items.map((it) => (
                 <li key={it.id} className={found.includes(it.id) ? 'got' : ''}>
-                  {found.includes(it.id) ? `✓ ${it.label}` : `· ${content.secrets.hidden}`}
+                  {found.includes(it.id) ? `✓ ${it.label}` : `· ${it.label}`}
                 </li>
               ))}
             </ul>
@@ -134,6 +174,7 @@ export function Hud() {
       >
         <SoundIcon muted={muted} />
       </button>
+      </div>
     </div>
   )
 }
@@ -193,7 +234,7 @@ export function SecretsCard() {
   const show = useUI((s) => s.secretsCard === 'open' && !s.open)
   if (!show) return null
   return (
-    <section className="finale secrets-card" role="dialog" aria-labelledby="secrets-title">
+    <section className="secrets-card" role="dialog" aria-labelledby="secrets-title">
       <button type="button" className="panel-close" onClick={() => setUI({ secretsCard: 'dismissed' })} aria-label={content.tour.close}>
         ×
       </button>
@@ -204,29 +245,7 @@ export function SecretsCard() {
           <li key={i.id}>✓ {i.label}</li>
         ))}
       </ul>
-      <p className="joke">{content.secrets.doneJoke}</p>
+      {content.secrets.doneJoke && <p className="joke">{content.secrets.doneJoke}</p>}
     </section>
-  )
-}
-
-/** After the duck flies you somewhere, its answer stays in a small card with a way back. */
-export function DuckToast() {
-  const reply = useUI((s) => s.duckReply)
-  const onDuck = useUI((s) => s.open?.id === 'stop-7')
-  const live = useRecent(reply?.at, 20000)
-  if (!reply || !live || onDuck) return null
-  return (
-    <aside className="duck-toast" aria-live="polite">
-      <p className="duck-toast-q">› {reply.question}</p>
-      <p>🦆 {reply.reply}</p>
-      <div className="duck-toast-actions">
-        <button type="button" className="btn small" onClick={() => activate('stop-7')}>
-          {content.duck.back}
-        </button>
-        <button type="button" className="btn ghost small" onClick={() => setUI({ duckReply: null })} aria-label={content.tour.close}>
-          ×
-        </button>
-      </div>
-    </aside>
   )
 }

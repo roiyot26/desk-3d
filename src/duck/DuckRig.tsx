@@ -15,12 +15,15 @@ import { targetByKey, type Target } from '../targets'
  * Cyan is reserved for these in-scene cues and the neon sign; all UI chrome is amber/grey. Plus the quack: the "Quack" shape key if the duck mesh has
  * one, otherwise a little squash-and-stretch bob. (The eyes' glow is a LightMixer group.)
  */
-const CYAN = new THREE.Color('#38e8ff')
 const GROW_MS = 250
-const HOLD_MS = 800 // fully visible
-const FADE_MS = 400 // then fade to 0 and hide: gone 1.45s after it appears
+const HOLD_MS = 1200 // fully visible (Vision duck-hint spec §3)
+const FADE_MS = 600 // then fade to 0 and hide
 const STAGGER_MS = 150 // per extra source
-const LINE_OPACITY = 0.4
+const LINE_OPACITY = 0.35
+/** The beam is the duck's accent (spec §3: #f0b273 at 0.35, additive, 1.5 cm wide). */
+const ACCENT = new THREE.Color('#f0b273')
+/** Cue clocks advance by at most this per frame, so a slow GPU (or software GL) still shows the whole hold. */
+const MAX_STEP_MS = 1000 / 30
 
 /**
  * ?debug only: live state of every pointer cue (beam + ring), read by window.__desk3d.beams()
@@ -62,8 +65,22 @@ function beamOrigin(duck: Target): THREE.Vector3 {
 }
 
 /** grow 0..1 (eased) and alpha 0..1 for a cue that starts `delay` ms after `at`. */
-function life(at: number, delay: number) {
-  const age = performance.now() - at - delay
+/** Frame-paced age of a cue: real time, but never more than MAX_STEP_MS per frame. */
+function useCueAge(at: number, delay: number) {
+  const st = useRef({ age: -1, last: 0 })
+  return () => {
+    const now = performance.now()
+    const s = st.current
+    if (s.age < 0) {
+      if (now - at - delay < 0) return -1
+      s.age = 0
+    } else s.age += Math.min(now - s.last, MAX_STEP_MS)
+    s.last = now
+    return s.age
+  }
+}
+
+function life(age: number) {
   if (age < 0) return { grow: 0, alpha: 0 }
   const grow = Math.min(1, age / GROW_MS)
   // ?debug screenshot hook (software GL renders a frame every few seconds): hold the cue.
@@ -74,7 +91,7 @@ function life(at: number, delay: number) {
 
 const SEGMENTS = 48
 const RADIAL = 6
-const TUBE_RADIUS = 0.0016 // metres: a ~2-3px line at the duck stop's framing
+const TUBE_RADIUS = 0.0075 // metres: 1.5 cm wide
 
 function Beam({ from, t, delay, at }: { from: THREE.Vector3; t: Target; delay: number; at: number }) {
   const ref = useRef<THREE.Mesh>(null)
@@ -85,15 +102,16 @@ function Beam({ from, t, delay, at }: { from: THREE.Vector3; t: Target; delay: n
     const curve = new THREE.QuadraticBezierCurve3(from.clone(), mid, to.clone())
     const g = new THREE.TubeGeometry(curve, SEGMENTS, TUBE_RADIUS, RADIAL, false)
     g.setDrawRange(0, 0)
-    const m = new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0, depthWrite: false, toneMapped: false })
+    const m = new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending })
     return { geometry: g, material: m, points: curve.getPoints(24) }
   }, [from, t])
   const dbg = useCue('beam', points, ref, material)
   useEffect(() => () => (geometry.dispose(), material.dispose()), [geometry, material])
+  const clock = useCueAge(at, delay)
   useFrame(() => {
     const mesh = ref.current
     if (!mesh) return
-    const { grow, alpha } = life(at, delay)
+    const { grow, alpha } = life(clock())
     // Tube indices run segment by segment along the curve: drawing the first n segments grows it.
     const n = Math.round(SEGMENTS * grow)
     geometry.setDrawRange(0, n * RADIAL * 6)
@@ -111,15 +129,17 @@ function Ring({ t, delay, at }: { t: Target; delay: number; at: number }) {
     const s = t.box.getSize(new THREE.Vector3())
     const r = THREE.MathUtils.clamp(Math.max(s.x, s.y, s.z) * 0.3, 0.035, 0.11)
     const g = new THREE.RingGeometry(r * 0.93, r, 64)
-    const m = new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })
+    const m = new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })
     return { geometry: g, material: m, center: t.box.getCenter(new THREE.Vector3()) }
   }, [t])
   const ringPts = useMemo(() => [center], [center])
   const dbg = useCue('ring', ringPts, ref, material)
   useEffect(() => () => (geometry.dispose(), material.dispose()), [geometry, material])
+  const clock = useCueAge(at, delay)
   useFrame(() => {
-    const { alpha } = life(at, delay)
-    const age = Math.max(0, performance.now() - at - delay)
+    const a = clock()
+    const { alpha } = life(a)
+    const age = Math.max(0, a)
     material.opacity = 0.5 * alpha * (0.7 + 0.3 * Math.cos(age / 120))
     if (ref.current) {
       ref.current.visible = alpha > 0

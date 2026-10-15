@@ -42,6 +42,13 @@ export function Loader() {
   useEffect(() => {
     if (ready) enterRef.current?.focus({ preventScroll: true })
   }, [ready])
+  // After Enter the loader is gone for good: inert + hidden, so focus can never land in it.
+  useEffect(() => {
+    const el = root.current as (HTMLDivElement & { inert: boolean }) | null
+    if (!el || !entered) return
+    el.inert = true
+    el.setAttribute('aria-hidden', 'true')
+  }, [entered])
   return (
     <div ref={root} className={`loader${entered ? ' done' : ''}${ready ? ' ready' : ''}`} aria-live="polite" aria-busy={!ready}>
       <div className="loader-card">

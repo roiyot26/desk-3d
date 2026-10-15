@@ -32,7 +32,8 @@ export function tapKey(key: string | null, touch: boolean) {
     if (s.hoverTouch) setUI({ hovered: null, hoverTouch: false })
     return
   }
-  if (touch && !(s.hovered === key && s.hoverTouch)) {
+  // The duck is the chat: one tap opens it (sheet to half), no label step.
+  if (touch && t.id !== 'stop-7' && !(s.hovered === key && s.hoverTouch)) {
     setUI({ hovered: key, hoverTouch: true })
     return
   }

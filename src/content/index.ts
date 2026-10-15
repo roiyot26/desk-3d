@@ -50,7 +50,6 @@ export const content = raw as unknown as {
   stops: Stop[]
   bonus: Note[]
   asides: Note[]
-  finale: { title: string; body: string; joke: string }
   loader: { title: string; lines: { at: number; text: string; live?: boolean }[]; ready: string }
   audio: Record<string, string>
   /** HUD room-lights button (same circuit as CLICK_Switch_Lights). */
@@ -75,6 +74,20 @@ export const content = raw as unknown as {
     /** How many chips show before "More questions". */
     visible: number
     intents: DuckIntent[]
+    name: string
+    greet: { line: string; touch: string; chips: { label: string; ask: string | string[] }[] }
+    status: { around: string; at: string; thinking: string; pointing: string; thinkingSr: string }
+    go: string
+    collapse: string
+    expandChat: string
+    sheetUp: string
+    sheetDown: string
+    empty: string
+    error: string
+    retry: string
+    backToChat: string
+    newBelow: string
+    stations: string
   }
 }
 
