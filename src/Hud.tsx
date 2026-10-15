@@ -192,7 +192,7 @@ export function SecretsCard() {
   const show = useUI((s) => s.secretsCard === 'open' && !s.open)
   if (!show) return null
   return (
-    <section className="finale secrets-card" role="dialog" aria-labelledby="secrets-title">
+    <section className="secrets-card" role="dialog" aria-labelledby="secrets-title">
       <button type="button" className="panel-close" onClick={() => setUI({ secretsCard: 'dismissed' })} aria-label={content.tour.close}>
         ×
       </button>

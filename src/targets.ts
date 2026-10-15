@@ -235,7 +235,7 @@ export type Pose = { position: THREE.Vector3; target: THREE.Vector3; fov?: numbe
  * the panel leaves free (left of the side panel on desktop, above the bottom sheet on phones), so
  * we widen the FOV by that ratio and turn the look-at point so the subject sits in that free area.
  */
-export function poseFromStopCam(c: StopCam, size: { width: number; height: number }, sheet = 0.5, chat = 0, shift = chat / 2): Pose {
+export function poseFromStopCam(c: StopCam, size: { width: number; height: number }, sheet = 0.5, chat = 0, shift = chat / 2, free?: { l: number; r: number }): Pose {
   const W = size.width
   const H = size.height
   const A = W / H
@@ -251,12 +251,12 @@ export function poseFromStopCam(c: StopCam, size: { width: number; height: numbe
     // (setViewOffset), so the subject is aimed at the panel's free area here and the lens is
     // fitted to what is really left visible.
     const visW = Math.max(W - panel, W * 0.45)
-    const fitW = Math.max(W - panel - chat, W * 0.3)
+    const fitW = free ? Math.max(free.r - free.l, W * 0.25) : Math.max(W - panel - chat, W * 0.3)
     let tanH = Math.tan(c.hfov / 2) * (W / fitW)
     const vfov = THREE.MathUtils.clamp(deg(2 * Math.atan(tanH / A)), 24, 70)
     tanH = Math.tan(THREE.MathUtils.degToRad(vfov) / 2) * A
     // NDC x of the free area's centre, before the rig's projection shift moves it left by `shift`.
-    const xc = chat > 0 ? ((W - panel - chat) / 2 + shift) / (W / 2) - 1 : visW / W - 1
+    const xc = free ? ((free.l + free.r) / 2 + shift) / (W / 2) - 1 : chat > 0 ? ((W - panel - chat) / 2 + shift) / (W / 2) - 1 : visW / W - 1
     target.addScaledVector(right, -xc * d * tanH)
     return { position: c.position.clone(), target, fov: vfov }
   }

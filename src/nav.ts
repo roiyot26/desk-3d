@@ -1,5 +1,5 @@
 import { BONUS_IDS, STOPS, STOP_IDS, content } from './content'
-import { findSecret, getUI, setUI, type Open } from './store'
+import { setUI, type Open } from './store'
 
 // Panel navigation and deep links (no tour: free roam, the duck leads). stop-1..6 are stations,
 // stop-7 is the duck (opens the chat column / sheet); bonus and aside panels are extras. Hashes: #stop-1..#stop-7, plus aliases from
@@ -45,7 +45,6 @@ export function openChat() {
     open: null,
     visited: s.visited.includes(DUCK_ID) ? s.visited : [...s.visited, DUCK_ID],
   }))
-  if (getUI().visited.length >= STOP_IDS.length) findSecret('tour')
 }
 
 export function openPanel(o: NonNullable<Open>, opts: { writeHash?: boolean } = {}) {
@@ -64,17 +63,11 @@ export function openPanel(o: NonNullable<Open>, opts: { writeHash?: boolean } = 
     bonusFound: BONUS_IDS.includes(o.id) && !s.bonusFound.includes(o.id) ? [...s.bonusFound, o.id] : s.bonusFound,
   }))
   if (opts.writeHash !== false) writeHash(o)
-  if (getUI().visited.length >= STOP_IDS.length) findSecret('tour')
 }
 
-/** Close the panel and return to free roam. Shows the finale card once all seven stations are seen. */
+/** Close the panel and return to free roam. */
 export function closePanel() {
-  const s = getUI()
-  setUI({
-    open: null,
-    intro: false,
-    finale: s.finale === 'hidden' && s.visited.length >= STOP_IDS.length ? 'open' : s.finale,
-  })
+  setUI({ open: null, intro: false })
   writeHash(null)
 }
 

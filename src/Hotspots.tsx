@@ -264,13 +264,25 @@ function DebugHooks() {
       tap: (key: string) => tapKey(key, false),
       ui: () => {
         const u = getUI()
-        return { open: u.open, visited: u.visited, finale: u.finale, thinking: u.duckThinking, sources: u.sources.keys, secrets: u.secrets, lights: u.lights }
+        return { open: u.open, visited: u.visited, sheet: u.sheet, chatOpen: u.chatOpen, chatUnread: u.chatUnread, thinking: u.duckThinking, sources: u.sources.keys, secrets: u.secrets, lights: u.lights }
       },
       /** World box of a hit target (centre + size, glTF metres). */
       box: (key: string) => {
         const t = targets.get(key)
         if (!t) return null
         return { c: t.box.getCenter(new THREE.Vector3()).toArray(), s: t.box.getSize(new THREE.Vector3()).toArray() }
+      },
+      /** Screen rect of a hit target's world box (px), for size-on-screen checks. */
+      rect: (key: string) => {
+        const t = targets.get(key)
+        if (!t) return null
+        let l = Infinity, r = -Infinity, tp = Infinity, b = -Infinity
+        for (let i = 0; i < 8; i++) {
+          const v = new THREE.Vector3(i & 1 ? t.box.max.x : t.box.min.x, i & 2 ? t.box.max.y : t.box.min.y, i & 4 ? t.box.max.z : t.box.min.z).project(camera)
+          const x = ((v.x + 1) / 2) * size.width, y = ((1 - v.y) / 2) * size.height
+          l = Math.min(l, x); r = Math.max(r, x); tp = Math.min(tp, y); b = Math.max(b, y)
+        }
+        return { l: Math.round(l), r: Math.round(r), t: Math.round(tp), b: Math.round(b), hPct: +((100 * (b - tp)) / size.height).toFixed(2) }
       },
       keys: () => [...targets.values()].map((t) => `${t.key}:${t.id}:${t.source}`),
       /** Duck rig state for the e2e check: Quack morph influence, MAT_DuckEyes emissive, beam origin. */

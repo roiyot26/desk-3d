@@ -20,13 +20,7 @@
     "phoneNote": "This is the plain version. The 3D room runs on phones too: tap Enter the 3D room."
   },
   "tour": {
-    "start": "Start the tour",
-    "explore": "Look around on my own",
-    "next": "Next",
-    "back": "Back",
-    "skip": "Free roam",
     "close": "Close",
-    "of": "of",
     "foundIt": "Found a bonus",
     "more": "Scroll for more",
     "expand": "Expand panel",
@@ -330,11 +324,6 @@
       "joke": "The sticky note is the roadmap. Strong adhesive, flexible deadlines."
     }
   ],
-  "finale": {
-    "title": "You've seen the room",
-    "body": "That's all seven stops. If anything here is useful to you, say hi.",
-    "joke": "The duck takes follow-up questions. Just saying."
-  },
   "loader": {
     "lines": [
       {
@@ -422,18 +411,14 @@
       {
         "id": "neon",
         "label": "Poked the neon sign"
-      },
-      {
-        "id": "tour",
-        "label": "Finished the tour"
       }
     ],
-    "doneTitle": "All six secrets",
+    "doneTitle": "All five secrets",
     "doneBody": "You found everything. That's exactly the kind of thoroughness I look for in a code reviewer.",
     "doneJoke": "There is no seventh secret. Probably.",
     "found": "Secret found",
     "hidden": "???",
-    "_note": "The six secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign; tour = visit all seven tour stops. No art secrets.",
+    "_note": "The five secrets (ids are kept in sessionStorage \"desk3d-secrets\"): duck = ask the duck anything; claude = type \"claude\" outside a text field; switch = flip the wall switch or a lamp; latch = click the window latch to stop the rain; neon = click the </> neon sign. No art secrets.",
     "short": "Secret"
   },
   "duck": {
@@ -444,7 +429,7 @@
     "thinking": "thinking",
     "back": "Back to the duck",
     "fallback": {
-      "reply": "I'm a duck. I only know Roi's portfolio, and that wasn't in it. Try one of these.",
+      "reply": "That's not in Roi's portfolio, so I can't answer it. Try one of these.",
       "steps": [
         "search_portfolio(\"{q}\") → 0 sources"
       ]
@@ -462,7 +447,7 @@
           "best",
           "retrieval"
         ],
-        "reply": "retrieval-tracer. Sentence embeddings run in your browser, and you can watch cosine similarity build up dimension by dimension. It's the base layer of Roi's hybrid-search RAG work. Opening it on the monitor.",
+        "reply": "retrieval-tracer. Sentence embeddings run in your browser, and you can watch cosine similarity build up dimension by dimension. It's the base layer of Roi's hybrid-search RAG work. Want to see it on the monitor?",
         "tools": [
           {
             "name": "search_portfolio",
@@ -506,7 +491,7 @@
           "tools",
           "languages"
         ],
-        "reply": "React, Next, Node, TypeScript, MongoDB and AWS, plus WordPress/PHP when a site already runs on it. Claude Code is leaning out of the shelf on purpose.",
+        "reply": "React, Next, Node, TypeScript, MongoDB and AWS, plus WordPress/PHP when a site already runs on it. Want to see it on the bookshelf?",
         "tools": [
           {
             "name": "search_portfolio",
@@ -546,7 +531,7 @@
           "3d site",
           "r3f"
         ],
-        "reply": "Yes. That's where Roi is heading: 3D artwork inside client websites, without wrecking load time. You're standing in the demo.",
+        "reply": "Yes. That's where Roi is heading: 3D artwork inside client websites, without wrecking load time. Want to see it on the laptop?",
         "tools": [
           {
             "name": "search_portfolio",
@@ -588,7 +573,7 @@
           "github",
           "talk"
         ],
-        "reply": "Message Roi on LinkedIn. His code is on GitHub. I'll put both on the mug.",
+        "reply": "Message Roi on LinkedIn. His code is on GitHub. Want to see both on the mug?",
         "tools": [
           {
             "name": "show_contact",
@@ -641,7 +626,7 @@
           "show me",
           "repos"
         ],
-        "reply": "Four public projects: Virtual Garden, retrieval-tracer, chord-cycle-open and this room. The monitor has the carousel.",
+        "reply": "Four public projects: Virtual Garden, retrieval-tracer, chord-cycle-open and this room. Want to see them on the monitor?",
         "tools": [
           {
             "name": "search_portfolio",
@@ -680,7 +665,7 @@
           "terrarium",
           "productivity"
         ],
-        "reply": "Virtual Garden, a Chrome extension. Your focus grows it, and doomscrolling wilts it.",
+        "reply": "Virtual Garden, a Chrome extension. Your focus grows it, and doomscrolling wilts it. Want to see it in the terrarium?",
         "tools": [
           {
             "name": "search_portfolio",
@@ -720,7 +705,7 @@
           "teaching",
           "years"
         ],
-        "reply": "Full-stack first, then AI in the workflow, now 3D. It's all pinned to the board.",
+        "reply": "Full-stack first, then AI in the workflow, now 3D. Want to see it on the board?",
         "tools": [
           {
             "name": "search_portfolio",
@@ -878,7 +863,7 @@
           "religion",
           "politics"
         ],
-        "reply": "I'm a duck. Ask Roi. He's on LinkedIn.",
+        "reply": "That one's for Roi himself. He's on LinkedIn.",
         "tools": [
           {
             "name": "show_contact",
@@ -920,18 +905,26 @@
             "Play some music"
           ]
         }
-      ]
+      ],
+      "touch": "Tap anything on the desk to look closer."
     },
     "status": {
       "around": "looking around the room",
       "at": "looking at the {x}",
-      "thinking": "thinking…"
+      "thinking": "thinking…",
+      "pointing": "pointing at the {x}",
+      "thinkingSr": "Duck is thinking…"
     },
     "go": "Take me there",
     "collapse": "Hide the chat",
     "expandChat": "Chat with the duck",
     "sheetUp": "Show more of the chat",
-    "sheetDown": "Show less of the chat"
+    "sheetDown": "Show less of the chat",
+    "empty": "Ask me about Roi's work, or pick a question below.",
+    "error": "I lost my train of thought. Try that again?",
+    "retry": "Retry",
+    "newBelow": "New message",
+    "stations": "Stations"
   },
   "labels": {
     "action-lights": "Light switch",

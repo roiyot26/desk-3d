@@ -3,14 +3,14 @@ import { STOPS, content, contactLinks, noteById, text, type Stop } from './conte
 import { closePanel, openPanel, parseHash } from './nav'
 import { getUI, setUI, useUI } from './store'
 import { Loader, enter } from './Loader'
-import { DuckChat } from './duck/DuckChat'
+import { DuckChat, collapseChat } from './duck/DuckChat'
 import { Hud, SecretsCard, Toast } from './Hud'
 import { useTyping } from './keyboard'
 import { gsap, prefersReducedMotion, useGSAP } from './gsap'
 import { SHEET_QUERY, useMedia } from './useMedia'
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
-/** DOM layer over the canvas: loader, station panels, the duck chat, finale, hint. No tour. */
+/** DOM layer over the canvas: loader, station panels, the duck chat, hint. No tour. */
 export function Overlay() {
   useDeepLinks()
   useKeys()
@@ -18,13 +18,12 @@ export function Overlay() {
   return (
     <>
       <Loader />
+      <Hud />
       <Panel />
       <DuckChat />
-      <Finale />
       <SecretsCard />
       <Hint />
       <Toast />
-      <Hud />
     </>
   )
 }
@@ -62,11 +61,12 @@ function useKeys() {
         }
         return
       }
-      const el = e.target as HTMLElement | null
-      if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return
+      // Esc order: the station panel, then the chat (phone sheet to peek / desktop column collapses).
       if (e.key === 'Escape') {
         if (s.open) closePanel()
-        else if (s.finale === 'open') setUI({ finale: 'dismissed' })
+        else if (document.documentElement.classList.contains('chat-sheet')) {
+          if (s.sheet !== 'peek') setUI({ sheet: 'peek' })
+        } else if (s.chatOpen && document.documentElement.classList.contains('chat-docked')) collapseChat()
       }
     }
     window.addEventListener('keydown', on)
@@ -392,22 +392,6 @@ function Projects({ initial }: { initial?: string }) {
   )
 }
 
-function Finale() {
-  const show = useUI((s) => s.finale === 'open' && !s.open)
-  if (!show) return null
-  return (
-    <section className="finale" role="dialog" aria-labelledby="finale-title">
-      <button type="button" className="panel-close" onClick={() => setUI({ finale: 'dismissed' })} aria-label={content.tour.close}>
-        ×
-      </button>
-      <h2 id="finale-title">{content.finale.title}</h2>
-      <p>{content.finale.body}</p>
-      <Links links={contactLinks()} />
-      <p className="joke">{content.finale.joke}</p>
-    </section>
-  )
-}
-
 const LOOKED_KEY = 'desk3d-looked-360'
 function seenLookHint() {
   try {
@@ -422,8 +406,18 @@ function Hint() {
   const open = useUI((s) => s.open)
   // The caption is a first-impression line: it fades out after the first drag. The 360° drag
   // hint is first-visit only: once someone has dragged, it is remembered (localStorage).
-  const dragged = useUI((s) => s.dragged)
+  const dragged0 = useUI((s) => s.dragged)
   const [seen] = useState(seenLookHint)
+  // The caption is an arrival line on desktop only (phones: the duck's peek line says it). It
+  // fades on the first drag, the first chat message, or after 6 s.
+  const asked = useUI((s) => s.duckLog.some((e) => !e.greet))
+  const [timedOut, setTimedOut] = useState(false)
+  useEffect(() => {
+    if (!ready) return
+    const id = window.setTimeout(() => setTimedOut(true), 6000)
+    return () => window.clearTimeout(id)
+  }, [ready])
+  const dragged = dragged0 || asked || timedOut
   // Phones: publish the caption's height so the stop dots sit above it, never on top of it.
   const box = useRef<HTMLDivElement>(null)
   const shown = ready && !dragged && !open
@@ -442,13 +436,13 @@ function Hint() {
     }
   }, [shown])
   useEffect(() => {
-    if (!dragged) return
+    if (!dragged0) return
     try {
       localStorage.setItem(LOOKED_KEY, '1')
     } catch {
       /* private mode: fine */
     }
-  }, [dragged])
+  }, [dragged0])
   if (!ready) return null
   return (
     <div ref={box} className={`hint${open ? ' hidden-mobile with-panel' : ''}${dragged ? ' gone' : ''}`} aria-hidden={dragged || undefined}>
