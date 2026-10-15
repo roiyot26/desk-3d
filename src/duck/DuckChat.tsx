@@ -227,8 +227,13 @@ function Chips() {
   const log = useUI((s) => s.duckLog)
   const norm = (t: string) => t.trim().toLowerCase()
   const asked = new Set(log.map((e) => norm(e.question)))
-  const greet = content.duck.greet.chips.map((c) => ({ key: c.label, label: c.label, ask: c.ask }))
-  const presets = chipIntents().map((c) => ({ key: c.id, label: c.chip, ask: c.chip as string | string[] }))
+  // Always ≤3, lowercase, duck's voice (Vision restyle + Shuri PR5 fix).
+  const greet = content.duck.greet.chips.map((c) => ({ key: c.label, label: c.label.toLowerCase(), ask: c.ask }))
+  const presets = chipIntents().map((c) => ({
+    key: c.id,
+    label: c.chip.toLowerCase(),
+    ask: c.chip as string | string[],
+  }))
   const seen = new Set<string>()
   const list = [...greet, ...presets].filter((c) => {
     const a = Array.isArray(c.ask) ? '' : norm(c.ask)
@@ -498,24 +503,17 @@ export function DuckChat() {
           </>
         )}
         <header className="chat-head" onClick={phone && sheet === 'peek' ? () => setUI({ sheet: 'half' }) : undefined}>
-          <Avatar size={phone ? 40 : 44} />
+          {!phone ? (
+            <button type="button" className="duck-avatar-btn" onClick={collapseChat} aria-label={content.duck.collapse} title={content.duck.collapse}>
+              <Avatar size={44} />
+            </button>
+          ) : (
+            <Avatar size={40} />
+          )}
           <div className="chat-id">
             <p className="chat-name">{content.duck.name}</p>
             {phone && sheet === 'peek' && <PeekLine />}
           </div>
-          {!phone && (
-            <button
-              type="button"
-              className="chat-collapse"
-              onClick={collapseChat}
-              aria-label={content.duck.collapse}
-              title={content.duck.collapse}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          )}
         </header>
       </section>
       <StationKeys />

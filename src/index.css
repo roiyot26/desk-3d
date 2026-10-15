@@ -17,6 +17,23 @@
   text-rendering: optimizeLegibility;
 }
 
+/* Force Literata italic 400 to download before the looking-line appears (no Georgia flash). */
+.font-preload-duck {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  font-family: Literata, Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 17px;
+}
+
 html,
 body,
 #root {
@@ -1146,6 +1163,17 @@ a {
   animation: duck-blink 6s steps(1, end) infinite;
 }
 .duck-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.duck-avatar-btn {
+  flex: none;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  line-height: 0;
+}
+.duck-avatar-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @keyframes duck-blink {
   0%, 92%, 100% { filter: none; }
   94%, 96% { filter: brightness(0.55); }
@@ -1160,20 +1188,6 @@ a {
   line-height: 1.25;
   color: var(--ink);
 }
-.chat-collapse {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-.chat-collapse:hover { color: var(--ink); border-color: rgba(236, 230, 221, 0.14); }
 .chat-scroll {
   position: relative;
   flex: 1 1 auto;
@@ -1365,6 +1379,8 @@ a {
   gap: 0;
   min-width: 0;
   height: 52px;
+  min-height: 52px;
+  max-height: 52px;
   box-sizing: border-box;
   padding: 0 6px 0 14px;
   border-radius: 12px;
@@ -1374,8 +1390,10 @@ a {
 .chat-form:focus-within { border-color: rgba(240, 178, 115, 0.6); }
 .chat-form input {
   flex: 1;
+  align-self: stretch;
   min-width: 0;
-  height: 48px;
+  height: auto;
+  min-height: 0;
   box-sizing: border-box;
   padding: 0;
   border: 0;
@@ -1462,20 +1480,21 @@ a {
   pointer-events: none;
 }
 
-/* Phones: bottom sheet. Peek 88px (+ safe area + Chrome tab chrome pad). */
+/* Phones: bottom sheet. Peek total height = 88px incl. safe-area / Chrome pad (Shuri PR5). */
 .chat.sheet {
   left: 0;
   right: 0;
   bottom: var(--kb, 0px);
   border-radius: 14px 14px 0 0;
   border-bottom: 0;
-  /* Extra 12px under safe-area: Chrome Android tab bar often isn't reported as inset alone. */
-  padding: 0 0 calc(12px + env(safe-area-inset-bottom, 0px));
+  /* Half/full: keep content clear of the home indicator. Peek folds inset into the 88px budget. */
+  padding: 0 0 env(safe-area-inset-bottom, 0px);
   transition: height 0.28s ease-out, max-height 0.28s ease-out;
 }
 .chat.sheet.peek {
-  height: calc(88px + 12px + env(safe-area-inset-bottom, 0px));
-  padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  height: 88px;
+  box-sizing: border-box;
+  padding: 8px 16px max(2px, env(safe-area-inset-bottom, 0px));
 }
 .chat.sheet.half { height: auto; min-height: 40vh; min-height: 40dvh; max-height: 55vh; max-height: 55dvh; }
 .chat.sheet.full { height: 92vh; height: 92dvh; }
