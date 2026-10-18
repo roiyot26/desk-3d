@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { useLoader, useThree } from '@react-three/fiber'
+import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 import { analyzeScene, type PointHint, type RoomInfo } from './analyze'
@@ -14,6 +14,7 @@ import type { Quality } from './quality'
 import { setUI } from './store'
 import { resolveStopCams, resolveTargets } from './targets'
 import { sharpenSceneText } from './sharp'
+import { startCat, type CatRig } from './cat'
 
 // Blender's static rain cards (RAIN_*) are replaced by the animated rain; they come back only when
 // the particle rain is off (auto-quality step 2). Flip to always keep them.
@@ -110,28 +111,6 @@ function bakedGlassToAlpha(scene: THREE.Object3D) {
   if (done.size) console.info(`[desk-3d] glass: transmission -> alpha on ${[...done].map((x) => x.name).join(', ')}`)
 }
 
-/**
- * Baked package: the wall/ceiling paint ships as a near-flat 1024² ETC1S texture whose block
- * compression shows up as blue-violet blotches on the big walls (Wanda's previews use the raw
- * PNG, so they don't have them). Its decoded mean is #3A3233 (glb_evidence.txt), so use that as a
- * plain factor; the lightmap carries all the variation anyway.
- */
-const FLAT_PAINT: Record<string, string> = { MAT_Paint_Charcoal: '#3A3233' }
-function flattenWallPaint(scene: THREE.Object3D) {
-  scene.traverse((o) => {
-    const m = o as THREE.Mesh
-    if (!m.isMesh) return
-    for (const mt of ([] as THREE.Material[]).concat(m.material)) {
-      const hex = FLAT_PAINT[mt.name.replace(/_clone$/, '')]
-      const s = mt as THREE.MeshStandardMaterial
-      if (!hex || !s.map) continue
-      s.map = null
-      s.color.set(hex)
-      s.needsUpdate = true
-    }
-  })
-}
-
 function registerBakedEmissives(scene: THREE.Object3D) {
   clearMaterials()
   scene.traverse((o) => {
@@ -196,9 +175,9 @@ function registerEmissives(scene: THREE.Object3D, info: RoomInfo) {
 export function RoomModel({ onInfo, quality, bake }: { onInfo: (info: RoomInfo) => void; quality: Quality; bake: BakeManifest | null }) {
   const gl = useThree((s) => s.gl)
   const url = BAKE_MODEL_URL
-  expectFile('glb', bake ? 6e6 : 8e6)
+  expectFile('glb', bake ? 6.4e6 : 8e6)
   // Draco + KTX2 decoders are always attached; the unbaked GLB simply doesn't use them.
-  const { scene } = useLoader(GLTFLoader, url, gltfDecoders(gl), onProgress)
+  const { scene, animations } = useLoader(GLTFLoader, url, gltfDecoders(gl), onProgress)
   const info = useMemo(() => analyzeScene(scene), [scene])
 
   useLayoutEffect(() => {
@@ -235,13 +214,24 @@ export function RoomModel({ onInfo, quality, bake }: { onInfo: (info: RoomInfo) 
     sharpenSceneText(scene, gl)
     if (bake) {
       bakedGlassToAlpha(scene)
-      flattenWallPaint(scene)
       registerBakedEmissives(scene)
     }
     else registerEmissives(scene, info)
     setUI({ targets: resolveTargets(scene), stopCams: resolveStopCams(scene) })
     onInfo(info)
   }, [scene, info, onInfo, quality, bake, gl])
+
+  // Sleeping cat on the sill: breathe loop + occasional tail flick (off for reduced motion).
+  const cat = useRef<CatRig | null>(null)
+  useEffect(() => {
+    const rig = startCat(scene, animations, { reducedMotion: quality.reducedMotion })
+    cat.current = rig
+    return () => {
+      rig.stop()
+      cat.current = null
+    }
+  }, [scene, animations, quality.reducedMotion])
+  useFrame((_, dt) => cat.current?.update(dt))
 
   return <primitive object={scene} {...sceneHandlers} />
 }
