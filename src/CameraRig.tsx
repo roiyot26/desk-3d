@@ -287,7 +287,7 @@ function introOf(home: Pose & { zoom?: number }, duck: Target | undefined, aspec
  * sheet after the intro too. Desktop is untouched.
  */
 export const PHONE_DUCK_NDC = 0.5
-export const PHONE_DUCK_NDC_ROOM = 0.3
+export const PHONE_DUCK_NDC_ROOM = 0.35
 function phoneLift<P extends Pose & { zoom?: number; roomZoom?: number }>(pose: P, duck: Target | undefined, aspect: number): P {
   if (!duck) return pose
   const c = duck.box.getCenter(new THREE.Vector3())

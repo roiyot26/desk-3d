@@ -174,6 +174,21 @@ a {
 .hero-btn.secondary:hover { border-color: rgba(236, 230, 221, 0.5); background: rgba(236, 230, 221, 0.04); }
 .hero-load { margin-top: 20px; pointer-events: none; opacity: 0.75; transition: opacity 400ms ease; }
 .hero-load.gone { opacity: 0; }
+.loader.entered .hero-load { opacity: 0; visibility: hidden; transition: none; }
+/* After Enter, while the room is still loading: a quiet note over the poster (top left), plus Quick version
+   until the room code has arrived (the HUD isn't there yet). Gone the moment the room is ready. */
+.hero-wait {
+  position: fixed; z-index: 21; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left));
+  display: flex; align-items: center; gap: 8px; pointer-events: none;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+.hero-wait-line { margin: 0; padding: 6px 10px; border-radius: 8px; background: rgba(11, 11, 14, 0.72); font-size: 12.5px; line-height: 1.4; color: var(--muted); white-space: nowrap; }
+.hero-wait-link {
+  pointer-events: auto; display: inline-flex; align-items: center; box-sizing: border-box; min-height: 44px; padding: 0 12px;
+  border-radius: 10px; border: 1px solid rgba(236, 230, 221, 0.18); background: rgba(20, 16, 15, 0.72);
+  color: rgba(236, 230, 221, 0.92); font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap;
+}
+.hero-wait-link:hover { border-color: rgba(240, 178, 115, 0.6); color: var(--ink); }
 .hero-line { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hero-bar { position: relative; margin-top: 6px; width: 160px; max-width: 100%; height: 2px; border-radius: 1px; background: rgba(236, 230, 221, 0.12); overflow: hidden; }
 .hero-bar span { position: absolute; inset: 0 auto 0 0; background: var(--accent); transition: width 0.3s ease; }
@@ -1246,7 +1261,8 @@ a {
   /* 44px tall box (hit area) around the 12.5px line; negative margins keep the visual spacing. */
   min-height: 44px;
   padding: 0 8px;
-  margin: -13px 0 -17px -8px;
+  /* -12px = the turn's 12px column gap: the 44px box touches its neighbours, never overlaps them (Hawkeye F2). */
+  margin: -12px 0 -12px -8px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
@@ -1581,11 +1597,13 @@ a {
 .chat-scroll.faded { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px); mask-image: linear-gradient(to bottom, transparent 0, #000 28px); }
 .chat-scroll .duck-log { padding-bottom: 8px; }
 
-/* HUD: one row; under 430px What's here, Quick version, lights and mute fold into a ⋯ menu. */
+/* HUD: one row; under 430px (max-width 429.98px, so 430 itself shows the row) What's here, Quick version, lights and mute fold into a ⋯ menu. */
 .hud-group { display: contents; }
 .hud-more { display: none; }
-@media (max-width: 430px) {
+@media (max-width: 429.98px) {
   .hud-more { display: inline-flex; font-size: 18px; }
+  /* AC-5: the ⋯ button is a full 44×44 target (its ::after adds more around it). */
+  .hud-btn.icon.hud-more { width: 44px; height: 44px; min-height: 44px; }
   .hud.in .hud-group { display: none; }
   .hud.menu-open .hud-group { display: flex; flex-direction: column; align-items: stretch; gap: 8px; position: absolute; top: calc(100% + 8px); right: 0; min-width: 200px; padding: 10px; border-radius: 14px; background: rgba(28, 23, 22, 0.96); border: 1px solid rgba(236, 230, 221, 0.1); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45); z-index: 60; }
   .hud.menu-open .hud-group .hud-btn { height: 44px; width: auto; justify-content: flex-start; padding: 0 14px; font-size: 15px; }

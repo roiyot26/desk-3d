@@ -69,7 +69,7 @@ function LightsToggle() {
 
 /**
  * Top-right corner (Vision recruiter look §1/§4). Before Enter: only Quick version. After: What's
- * here, Quick version, room lights, mute. Phones under 430px fold them into a ⋯ menu (What's here first).
+ * here, Quick version, room lights, mute. Phones under 430px (max-width 429.98px) fold them into a ⋯ menu (What's here first).
  */
 export function Hud() {
   const el = useRef<HTMLDivElement>(null)

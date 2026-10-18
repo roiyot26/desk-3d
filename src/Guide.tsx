@@ -23,6 +23,11 @@ function Tick({ on, label }: { on: boolean; label: string }) {
   )
 }
 
+/** Esc returns focus to whichever opener is on screen: What's here on desktop, ⋯ on phones (Hawkeye WARN-5). */
+export function hudReturnTarget(): HTMLElement | undefined {
+  return [...document.querySelectorAll<HTMLElement>('.hud-whats, .hud-more')].find((el) => el.getClientRects().length > 0)
+}
+
 export function openGuide(on = !getUI().guide) {
   setUI({ guide: on })
 }
@@ -46,7 +51,7 @@ export function Guide() {
       if (e.key !== 'Escape') return
       e.stopImmediatePropagation()
       openGuide(false)
-      document.querySelector<HTMLElement>('.hud-whats, .hud-more')?.focus({ preventScroll: true })
+      hudReturnTarget()?.focus({ preventScroll: true })
     }
     const down = (e: PointerEvent) => {
       const t = e.target as HTMLElement
