@@ -26,57 +26,43 @@ function useSheetLayout() {
   return m
 }
 
-/**
- * Text that types itself out at `cps` characters/s (instant with reduced motion). `lead` chars
- * show at once (the greeting's first sentence lands inside 1 s, then the rest types on).
- */
-/** When each text started typing: a remount (phone sheet peek → half swaps the layout) resumes instead of re-typing. */
-const typedAt = new Map<string, number>()
-function Typed({ text, cps = 110, lead = 0 }: { text: string; cps?: number; lead?: number }) {
-  if (!typedAt.has(text)) typedAt.set(text, performance.now())
-  const start = useRef(typedAt.get(text)!)
-  const [n, setN] = useState(() => (reduced() ? text.length : Math.min(text.length, Math.max(lead, lead + Math.floor(((performance.now() - start.current) / 1000) * cps)))))
-  useEffect(() => {
-    if (n >= text.length) return
-    const id = window.setInterval(() => {
-      const k = Math.min(text.length, lead + Math.floor(((performance.now() - start.current) / 1000) * cps))
-      setN((p) => Math.max(p, k))
-      if (k >= text.length) window.clearInterval(id)
-    }, 30)
-    return () => window.clearInterval(id)
-  }, [text, cps]) // eslint-disable-line react-hooks/exhaustive-deps
+/** Answer text: 180 ms fade per paragraph (Vision restyle). Instant with reduced motion. */
+function FadeIn({ text }: { text: string }) {
+  const parts = text.split(/\n+/).filter(Boolean)
+  if (reduced()) return <>{text}</>
   return (
     <>
-      {text.slice(0, n)}
-      {n < text.length && <span className="caret" aria-hidden="true" />}
+      {parts.map((para, i) => (
+        <span key={i} className="duck-fade" style={{ animationDelay: `${i * 180}ms`, display: parts.length > 1 ? 'block' : 'inline' }}>
+          {para}
+        </span>
+      ))}
     </>
   )
 }
 
-/** The duck's face: a still render of the scene's own duck (no emoji, no AI art). Live render target in a later PR. */
-function Avatar({ size }: { size: number }) {
-  const thinking = useUI((s) => s.duckThinking)
-  return (
-    <span className={`duck-avatar${thinking ? ' thinking' : ''}`} style={{ width: size, height: size }} aria-hidden="true">
-      <img src={`${import.meta.env.BASE_URL}duck-avatar.webp`} alt="" width={size} height={size} draggable={false} />
-    </span>
-  )
-}
 
-/** "looking at the bookshelf" (camera on a station) / "pointing at the monitor" (card posted) / the room. */
-function useStatus() {
-  const open = useUI((s) => s.open)
-  const thinking = useUI((s) => s.duckThinking)
-  const pointing = useUI((s) => s.duckPointing)
-  if (thinking) return content.duck.status.thinking
+/** Italic status while the duck is "looking" — disappears when the answer lands (Vision). */
+function lookingLine() {
+  const open = getUI().open
   if (open) {
-    const stop = STOPS.find((s) => s.id === open.id)
+    const stop = STOPS.find((x) => x.id === open.id)
     const note = stop ? undefined : content.bonus.find((b) => b.id === open.id) ?? content.asides.find((a) => a.id === open.id)
     const name = (stop?.label ?? note?.title ?? '').split(' · ')[0].toLowerCase()
     if (name) return content.duck.status.at.replace('{x}', name)
   }
+  const pointing = getUI().duckPointing
   if (pointing) return content.duck.status.pointing.replace('{x}', pointing)
-  return content.duck.status.around
+  return content.duck.status.thinking
+}
+
+/** Still of the scene duck; a 2-frame blink every ~6 s is the only motion in the panel (Vision). */
+function Avatar({ size }: { size: number }) {
+  return (
+    <span className="duck-avatar" style={{ width: size, height: size }} aria-hidden="true">
+      <img src={`${import.meta.env.BASE_URL}duck-avatar.webp`} alt="" width={size} height={size} draggable={false} />
+    </span>
+  )
 }
 
 /** Station icons (inline SVG, inherit the accent): no letter tiles, no AI art. */
@@ -115,38 +101,26 @@ function StationCard({ e }: { e: DuckEntry }) {
 
 function Turn({ e }: { e: DuckEntry }) {
   const touch = isTouch()
-  const greet = e.greet ? (touch ? `${content.duck.greet.line} ${content.duck.greet.touch}` : content.duck.greet.line) : null
+  const greet = e.greet
+    ? (touch && content.duck.greet.touch ? `${content.duck.greet.line} ${content.duck.greet.touch}`.trim() : content.duck.greet.line)
+    : null
   return (
     <div className="duck-turn">
-      {!e.greet && <p className="bubble user">{e.question}</p>}
-      {e.steps.length > 0 && (
-        <ol className="duck-ticker" aria-hidden="true">
-          {e.steps.slice(0, e.shown).map((st, i) => {
-            const [call, ...res] = st.split(' → ')
-            return (
-              <li key={i} className={i < e.shown - 1 || e.reply ? 'done' : 'run'}>
-                <span className="call" title={call}>
-                  {call}
-                </span>
-                {res.length > 0 && <span className="res">→ {res.join(' → ')}</span>}
-              </li>
-            )
-          })}
-        </ol>
+      {!e.greet && (
+        <p className="visitor-line">
+          <span className="you">you · </span>
+          {e.question}
+        </p>
       )}
       {!e.reply && (
-        <p className="bubble duck typing">
-          <span className="dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
+        <p className="duck-looking" aria-live="polite">
+          <span aria-hidden="true">{lookingLine()}</span>
           <span className="sr-only">{content.duck.status.thinkingSr}</span>
         </p>
       )}
       {e.reply && (
-        <p className={`bubble duck${e.matched ? '' : ' miss'}${e.error ? ' error' : ''}`}>
-          {greet ? <Typed text={greet} cps={28} lead={greet.indexOf('.') + 1} /> : <Typed text={e.reply} />}
+        <p className={`duck-answer${e.matched ? '' : ' miss'}${e.error ? ' error' : ''}`}>
+          <FadeIn text={greet ?? e.reply} />
         </p>
       )}
       {e.error && (
@@ -253,15 +227,20 @@ function Chips() {
   const log = useUI((s) => s.duckLog)
   const norm = (t: string) => t.trim().toLowerCase()
   const asked = new Set(log.map((e) => norm(e.question)))
-  const greet = content.duck.greet.chips.map((c) => ({ key: c.label, label: c.label, ask: c.ask }))
-  const presets = chipIntents().map((c) => ({ key: c.id, label: c.chip, ask: c.chip as string | string[] }))
+  // Always ≤3, lowercase, duck's voice (Vision restyle + Shuri PR5 fix).
+  const greet = content.duck.greet.chips.map((c) => ({ key: c.label, label: c.label.toLowerCase(), ask: c.ask }))
+  const presets = chipIntents().map((c) => ({
+    key: c.id,
+    label: c.chip.toLowerCase(),
+    ask: c.chip as string | string[],
+  }))
   const seen = new Set<string>()
   const list = [...greet, ...presets].filter((c) => {
     const a = Array.isArray(c.ask) ? '' : norm(c.ask)
     if (asked.has(norm(c.label)) || (a && asked.has(a)) || (a && seen.has(a))) return false
     if (a) seen.add(a)
     return true
-  }).slice(0, log.some((e) => !e.greet) ? undefined : 3)
+  }).slice(0, 3)
   const row = useRef<HTMLDivElement>(null)
   const [end, setEnd] = useState(false)
   const check = () => {
@@ -310,10 +289,8 @@ function Input({ onFocus }: { onFocus?: () => void }) {
         disabled={thinking}
         enterKeyHint="send"
       />
-      <button type="submit" className="chat-send" disabled={thinking || !q.trim()} aria-label={content.duck.send}>
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+      <button type="submit" className="chat-send" disabled={thinking || !q.trim()}>
+        {content.duck.send}
       </button>
     </form>
   )
@@ -407,7 +384,13 @@ function PeekLine() {
   const log = useUI((s) => s.duckLog)
   const thinking = useUI((s) => s.duckThinking)
   const last = [...log].reverse().find((e) => e.reply)
-  const text = thinking ? content.duck.status.thinkingSr : last ? (last.greet && isTouch() ? `${content.duck.greet.line} ${content.duck.greet.touch}` : last.reply!) : content.duck.empty
+  const text = thinking
+    ? content.duck.status.thinkingSr
+    : last
+      ? last.greet && isTouch() && content.duck.greet.touch
+        ? `${content.duck.greet.line} ${content.duck.greet.touch}`.trim()
+        : last.reply!
+      : content.duck.greet.line
   return (
     // Phones at peek: the log region is on the page too, so the first answer is announced.
     <p className="peek-last" role="log" aria-live="polite" aria-label="Chat with the duck" onClick={() => setUI({ sheet: 'half' })}>
@@ -454,7 +437,6 @@ export function DuckChat() {
   const unread = useUI((s) => s.chatUnread)
   const sheet = useUI((s) => s.sheet)
   const phone = useSheetLayout()
-  const status = useStatus()
   const box = useRef<HTMLElement>(null)
   useKeyboardInset(ready && phone)
   // Publish the space the chat takes so panels, the caption and the camera keep clear of it.
@@ -511,7 +493,7 @@ export function DuckChat() {
         data-sheet={phone ? sheet : undefined}
       >
         {phone && <Handle sheet={sheet} />}
-        {raised ? (
+        {raised && (
           <>
             <div className="chat-dock">
               <Input />
@@ -519,34 +501,19 @@ export function DuckChat() {
             </div>
             <Log />
           </>
-        ) : (
-          <Input onFocus={() => setUI({ sheet: 'half' })} />
         )}
         <header className="chat-head" onClick={phone && sheet === 'peek' ? () => setUI({ sheet: 'half' }) : undefined}>
-          <Avatar size={phone ? 44 : 56} />
+          {!phone ? (
+            <button type="button" className="duck-avatar-btn" onClick={collapseChat} aria-label={content.duck.collapse} title={content.duck.collapse}>
+              <Avatar size={44} />
+            </button>
+          ) : (
+            <Avatar size={40} />
+          )}
           <div className="chat-id">
             <p className="chat-name">{content.duck.name}</p>
-            {phone && sheet === 'peek' ? (
-              <PeekLine />
-            ) : (
-              <p className="chat-status" aria-live="polite">
-                {status}
-              </p>
-            )}
+            {phone && sheet === 'peek' && <PeekLine />}
           </div>
-          {!phone && (
-            <button
-              type="button"
-              className="chat-collapse"
-              onClick={collapseChat}
-              aria-label={content.duck.collapse}
-              title={content.duck.collapse}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          )}
         </header>
       </section>
       <StationKeys />

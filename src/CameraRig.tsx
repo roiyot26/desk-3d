@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { debugPose } from './debugPose'
 import * as THREE from 'three'
+import { TOUCH } from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
@@ -11,6 +12,7 @@ import { gsap, useGSAP } from './gsap'
 import { markerTargetFor, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
 import { STOPS } from './content'
 import { CHAT_INSET, CHAT_SHEET_QUERY, chatWidth } from './duck/DuckChat'
+import { audio } from './audio'
 
 /**
  * Desktop: the docked duck chat covers the right of the canvas (station panels open beside it;
@@ -317,14 +319,14 @@ const PITCH_UP = THREE.MathUtils.degToRad(50) // max look up
 export const ZOOM_MIN = 0.55 // fov × 0.55 = zoomed in
 export const ZOOM_MAX = 1.15 // fov × 1.15 = a bit wider than the lens
 /** Drag sweep: a full-width drag turns ~180° on desktop, ~130° on a phone (then keep going). */
-const SWEEP_LANDSCAPE = Math.PI
-const SWEEP_PORTRAIT = THREE.MathUtils.degToRad(130)
+const SWEEP_LANDSCAPE = THREE.MathUtils.degToRad(95)
+const SWEEP_PORTRAIT = THREE.MathUtils.degToRad(70)
 
 const IDLE_AFTER = 3.5 // seconds without input before the drift starts
 const DRIFT_AZ = THREE.MathUtils.degToRad(6)
 const DRIFT_POLAR = THREE.MathUtils.degToRad(0.8)
 const DRIFT_PERIOD = 38 // seconds per sway
-const EASE_TIME = 1.15 // seconds per camera move between stops
+const EASE_TIME = 1.65 // seconds per camera move between stops (voice: controllable, not whippy)
 const FLY_EASE = 'power3.inOut' // same curve as the old hand-rolled cubic easeInOut
 
 /**
@@ -437,6 +439,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     const st = state.current
     const start = () => {
       release.current()
+      audio.unlock()
       st.interacting = true
       st.driftStart = -1
       if (!getUI().dragged) setUI({ dragged: true })
@@ -467,12 +470,13 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     const el = gl.domElement
     const st = state.current
     const clampZ = (z: number) => THREE.MathUtils.clamp(z, ZOOM_MIN, ZOOM_MAX)
-    const free = () => !getUI().open && !st.flying && !st.focused
+    // Free-roam OR framed station: FOV zoom (pinch / wheel). Never during a fly.
+    const free = () => !st.flying
     const onWheel = (e: WheelEvent) => {
       if (!free()) return
       e.preventDefault()
       release.current()
-      st.zoom = clampZ(st.zoom * Math.exp(e.deltaY * 0.0012))
+      st.zoom = clampZ(st.zoom * Math.exp(e.deltaY * 0.0007))
       st.lastInput = performance.now() / 1000
     }
     let d0 = 0
@@ -487,8 +491,10 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length !== 2 || !d0 || !free()) return
       e.preventDefault()
+      release.current()
       st.zoom = clampZ(z0 * (d0 / Math.max(1, dist(e.touches))))
       st.lastInput = performance.now() / 1000
+      st.driftStart = -1
     }
     const onTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2) d0 = 0
@@ -607,10 +613,13 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         const sheet = STOPS.find((x) => x.id === ui.open?.id)?.kind === 'duck' ? DUCK_SHEET : 0.5
         const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dockedLayout(size.width)) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info }), fov: base }
         st.focused = true
+        // Sync FOV zoom to the framed lens so pinch/wheel scale the photo from here, not from free-roam.
+        if (to.fov !== undefined) st.zoom = THREE.MathUtils.clamp(to.fov / base, ZOOM_MIN, ZOOM_MAX)
         fly(current, to, dur, false)
       } else if (st.saved) {
         const back = st.saved
         st.saved = null
+        if (back.fov !== undefined) st.zoom = THREE.MathUtils.clamp(back.fov / fovFor(size.width / size.height), ZOOM_MIN, ZOOM_MAX)
         fly(current, back, dur, true)
       }
     }
@@ -618,6 +627,12 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     if (st.flying) return
     if (st.focused) {
       cam.lookAt(c.target)
+      // Pinch / wheel still zooms a framed station (photos, monitor, laptop).
+      const wantF = fovFor(size.width / size.height) * st.zoom
+      if (Math.abs(cam.fov - wantF) > 0.01) {
+        cam.fov = THREE.MathUtils.lerp(cam.fov, wantF, 0.18)
+        cam.updateProjectionMatrix()
+      }
       return
     }
 
@@ -657,8 +672,9 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
       enablePan={false}
       enableZoom={false}
       enableDamping
-      dampingFactor={0.1}
+      dampingFactor={0.14}
       rotateSpeed={rotateSpeed}
+      touches={{ ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
       minDistance={LOOK_EPS}
       maxDistance={LOOK_EPS}
       // Polar angle of the eye around the pivot: 90° = level; the eye sits behind the pivot, so

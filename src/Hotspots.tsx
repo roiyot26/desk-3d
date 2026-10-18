@@ -45,20 +45,15 @@ function Proxy({ t }: { t: Target }) {
 /** Hover label for every hit target (desktop hover; phones: first tap shows it, "Open" opens). */
 function HoverLabel() {
   const hovered = useUI((s) => s.hovered)
-  const touch = useUI((s) => s.hoverTouch)
   const open = useUI((s) => s.open)
   const targets = useUI((s) => s.targets)
   const t = hovered ? targets.get(hovered) : undefined
+  // Mouse hover only: a tap already opens the station (touch ↔ desktop parity).
   if (!t || open) return null
   return (
     <Html position={[t.anchor.x, t.anchor.y + (t.def.marker ? 0.09 : 0), t.anchor.z]} center zIndexRange={[35, 30]} calculatePosition={snapToPixel}>
-      <div key={t.key} className={`hover-label${touch ? ' touch' : ''}`} role="status">
+      <div key={t.key} className="hover-label" role="status">
         <span>{labelFor(t.id)}</span>
-        {touch && (
-          <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={() => tapKey(t.key, false)}>
-            Open
-          </button>
-        )}
       </div>
     </Html>
   )

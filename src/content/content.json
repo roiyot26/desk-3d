@@ -6,8 +6,8 @@
     "coldOpen": "Roi Yotvat, AI-driven full-stack developer, building 3D for the web.",
     "title": "Roi Yotvat · AI-driven full-stack developer, building 3D for the web",
     "description": "Roi Yotvat is an AI-driven full-stack developer, building 3D for the web. He builds web products end to end with React, Next, Node and TypeScript, ships with Claude Code and agentic workflows, and is bringing 3D into client websites. Walk through the room, or read the plain version.",
-    "hintDesktop": "Drag to look around 360° · scroll to zoom",
-    "hintTouch": "Drag to look around 360° · pinch to zoom",
+    "hintDesktop": "Drag to look · scroll to zoom",
+    "hintTouch": "Drag to look · pinch to zoom",
     "loading": "Setting up the room",
     "compiling": "Warming up the lights",
     "listLink": "Plain HTML version",
@@ -427,8 +427,8 @@
     "short": "Feature"
   },
   "duck": {
-    "placeholder": "Ask about Roi's work…",
-    "send": "Ask",
+    "placeholder": "Say something to the duck",
+    "send": "send",
     "more": "More questions",
     "less": "Fewer questions",
     "thinking": "thinking",
@@ -442,7 +442,7 @@
     "intents": [
       {
         "id": "best-ai",
-        "chip": "Show me your best AI project",
+        "chip": "show me your best project",
         "keywords": [
           "ai",
           "llm",
@@ -480,7 +480,7 @@
       },
       {
         "id": "stack",
-        "chip": "What's your stack?",
+        "chip": "what's your stack?",
         "keywords": [
           "stack",
           "tech",
@@ -524,7 +524,7 @@
       },
       {
         "id": "3d",
-        "chip": "Can you do 3D for my site?",
+        "chip": "can you do 3d for my site?",
         "keywords": [
           "3d",
           "three",
@@ -564,7 +564,7 @@
       },
       {
         "id": "hire",
-        "chip": "How do I hire you?",
+        "chip": "how do i hire you?",
         "keywords": [
           "hire",
           "contact",
@@ -603,7 +603,7 @@
       },
       {
         "id": "why-duck",
-        "chip": "Why a duck?",
+        "chip": "why a duck?",
         "keywords": [
           "duck",
           "why",
@@ -621,7 +621,7 @@
       },
       {
         "id": "projects",
-        "chip": "What have you built?",
+        "chip": "what have you built?",
         "keywords": [
           "projects",
           "built",
@@ -660,7 +660,7 @@
       },
       {
         "id": "garden",
-        "chip": "What's the plant about?",
+        "chip": "what's the plant about?",
         "keywords": [
           "garden",
           "virtual garden",
@@ -697,7 +697,7 @@
       },
       {
         "id": "career",
-        "chip": "What's your background?",
+        "chip": "what's your background?",
         "keywords": [
           "background",
           "career",
@@ -737,7 +737,7 @@
       },
       {
         "id": "claude",
-        "chip": "Do you use Claude Code?",
+        "chip": "do you use claude code?",
         "keywords": [
           "claude",
           "agent",
@@ -769,7 +769,7 @@
       },
       {
         "id": "lights",
-        "chip": "Turn the lights off",
+        "chip": "turn the lights off",
         "keywords": [
           "lights",
           "light",
@@ -792,7 +792,7 @@
       },
       {
         "id": "rain",
-        "chip": "Make it stop raining",
+        "chip": "make it stop raining",
         "keywords": [
           "rain",
           "weather",
@@ -814,7 +814,7 @@
       },
       {
         "id": "bug",
-        "chip": "Can you fix my bug?",
+        "chip": "can you fix my bug?",
         "keywords": [
           "bug",
           "fix",
@@ -834,7 +834,7 @@
       },
       {
         "id": "music",
-        "chip": "Play some music",
+        "chip": "play some music",
         "keywords": [
           "music",
           "sound",
@@ -896,27 +896,27 @@
       "line": "Hi, I'm the duck. Look around, or ask me anything.",
       "chips": [
         {
-          "label": "What's here?",
-          "ask": "What have you built?"
-        },
-        {
-          "label": "Show me your best project",
+          "label": "what's on the monitor?",
           "ask": "Show me your best AI project"
         },
         {
-          "label": "Surprise me",
+          "label": "show me something you made",
+          "ask": "What have you built?"
+        },
+        {
+          "label": "surprise me",
           "ask": [
             "Turn the lights off",
             "Play some music"
           ]
         }
       ],
-      "touch": "Tap anything on the desk to look closer."
+      "touch": ""
     },
     "status": {
       "around": "looking around the room",
       "at": "looking at the {x}",
-      "thinking": "thinking…",
+      "thinking": "looking around…",
       "pointing": "pointing at the {x}",
       "thinkingSr": "Duck is thinking…"
     },
@@ -925,7 +925,7 @@
     "expandChat": "Chat with the duck",
     "sheetUp": "Show more of the chat",
     "sheetDown": "Show less of the chat",
-    "empty": "Ask me about Roi's work, or pick a question below.",
+    "empty": "",
     "error": "I lost my train of thought. Try that again?",
     "retry": "Retry",
     "newBelow": "New message",
