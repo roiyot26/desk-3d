@@ -182,7 +182,12 @@ a {
   display: flex; align-items: center; gap: 8px; pointer-events: none;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
-.hero-wait-line { margin: 0; padding: 6px 10px; border-radius: 8px; background: rgba(11, 11, 14, 0.72); font-size: 12.5px; line-height: 1.4; color: var(--muted); white-space: nowrap; }
+.hero-wait-line { position: relative; overflow: hidden; margin: 0; padding: 6px 10px; border-radius: 8px; background: rgba(11, 11, 14, 0.72); font-size: 12.5px; line-height: 1.4; color: var(--muted); white-space: nowrap; }
+/* Shuri #53: at 0 / unknown progress, a slow indeterminate shimmer on a 2px hairline under the note. */
+.hero-wait-shimmer { position: absolute; left: 10px; right: 10px; bottom: 2px; height: 2px; border-radius: 1px; overflow: hidden; background: rgba(236, 230, 221, 0.1); }
+.hero-wait-shimmer::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(240, 178, 115, 0.7), transparent); animation: hero-wait-shimmer 2.4s ease-in-out infinite; }
+@keyframes hero-wait-shimmer { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .hero-wait-shimmer::after { animation: none; display: none; } }
 .hero-wait-link {
   pointer-events: auto; display: inline-flex; align-items: center; box-sizing: border-box; min-height: 44px; padding: 0 12px;
   border-radius: 10px; border: 1px solid rgba(236, 230, 221, 0.18); background: rgba(20, 16, 15, 0.72);
@@ -1707,4 +1712,5 @@ a {
 
 /* stop-1 opened from the Projects label: the card takes focus (Shuri #50) */
 .carousel .card:focus { outline: none; }
-.carousel .card:focus-visible { outline: 2px solid #f0b273; outline-offset: 4px; border-radius: 10px; }
+/* Inset ring: .panel-body's overflow clipped an outset outline (Shuri #52). */
+.carousel .card:focus-visible { outline: none; box-shadow: inset 0 0 0 2px #f0b273; }
