@@ -8,6 +8,7 @@ import { DuckChat, collapseChat } from './duck/DuckChat'
 import { Hud, Toast } from './Hud'
 import { useTyping } from './keyboard'
 import { prefersReducedMotion } from './gsap'
+import { flushSync } from 'react-dom'
 import { SHEET_QUERY, useMedia } from './useMedia'
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
@@ -66,8 +67,13 @@ function useKeys() {
       if (e.key === 'Escape') {
         // Desktop, the whole chat restored over a station (v2.3 #67): Esc returns to the panel.
         if (s.open && s.chatFull) {
-          setUI({ chatFull: false })
-          requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('panel-title')?.focus({ preventScroll: true })))
+          // Commit now so the card is visible again, then focus its title (rAF fallback for slow frames).
+          flushSync(() => setUI({ chatFull: false }))
+          const title = () => document.getElementById('panel-title')?.focus({ preventScroll: true })
+          title()
+          requestAnimationFrame(() => {
+            if (document.activeElement?.id !== 'panel-title') title()
+          })
           return
         }
         if (s.open) {
