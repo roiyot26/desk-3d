@@ -1,5 +1,5 @@
 import { BONUS_IDS, STOPS, STOP_IDS, content } from './content'
-import { findSecret, getUI, setUI, type Open } from './store'
+import { setUI, type Open } from './store'
 
 // Panel navigation and deep links (no tour: free roam, the duck leads). stop-1..6 are stations,
 // stop-7 is the duck (opens the chat column / sheet); bonus and aside panels are extras. Hashes: #stop-1..#stop-7, plus aliases from
@@ -63,11 +63,7 @@ export function openPanel(o: NonNullable<Open>, opts: { writeHash?: boolean } = 
     bonusFound: BONUS_IDS.includes(o.id) && !s.bonusFound.includes(o.id) ? [...s.bonusFound, o.id] : s.bonusFound,
   }))
   if (opts.writeHash !== false) writeHash(o)
-  if (STATION_IDS.every((id) => getUI().visited.includes(id))) findSecret('stations')
 }
-
-/** Feature #6: every station (stop-1..6; the duck, stop-7, is the guide, not a station). */
-const STATION_IDS = ['stop-1', 'stop-2', 'stop-3', 'stop-4', 'stop-5', 'stop-6']
 
 /** Close the panel and return to free roam. */
 export function closePanel() {

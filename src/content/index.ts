@@ -56,9 +56,8 @@ export const content = raw as unknown as {
   lightsToggle: { on: string; off: string }
   labels: Record<string, string>
   toasts: Record<string, string>
-  /** One-line versions for the merged phone toast ("★ Secret 2/6 · agentic mode on"). */
+  /** One-line versions of the status toasts. */
   toastShort: Record<string, string>
-  secrets: { label: string; short: string; found: string; hidden: string; items: { id: string; label: string }[]; doneTitle: string; doneBody: string; doneJoke: string }
   duck: {
     placeholder: string
     send: string
@@ -69,7 +68,7 @@ export const content = raw as unknown as {
     whatsThis: string
     hideIntro: string
     fallback: { reply: string; steps: string[] }
-    /** The 6 preset questions offered as chips, in order (intent ids). Other intents stay free-text only. */
+    /** The preset questions behind "More questions", in order (intent ids). Other intents stay free-text only. */
     chips: string[]
     /** How many chips show before "More questions". */
     visible: number

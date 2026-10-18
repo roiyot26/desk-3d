@@ -259,7 +259,7 @@ function DebugHooks() {
       tap: (key: string) => tapKey(key, false),
       ui: () => {
         const u = getUI()
-        return { open: u.open, visited: u.visited, sheet: u.sheet, chatOpen: u.chatOpen, chatUnread: u.chatUnread, thinking: u.duckThinking, sources: u.sources.keys, secrets: u.secrets, lights: u.lights }
+        return { open: u.open, visited: u.visited, sheet: u.sheet, chatOpen: u.chatOpen, chatUnread: u.chatUnread, thinking: u.duckThinking, sources: u.sources.keys, lights: u.lights }
       },
       /** Show / hide a target's meshes (pixel-diff size checks: render with and without). */
       vis: (key: string, on: boolean) => {

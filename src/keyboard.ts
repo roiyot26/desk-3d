@@ -106,7 +106,7 @@ export function useTyping() {
     let buf = ''
     const on = (e: KeyboardEvent) => {
       const s = getUI()
-      if (!s.entered) return
+      if (!s.entered || s.stage !== 'ready') return
       // Shortcuts (Ctrl/Cmd/Alt + key) are the browser's; a bare modifier still presses its key.
       if ((e.ctrlKey || e.metaKey || e.altKey) && !MODIFIERS.has(e.key)) return
       const el = e.target as HTMLElement | null

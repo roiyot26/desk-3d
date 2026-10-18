@@ -1,15 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { STOPS, content } from '../content'
 import { openChat, openPanel } from '../nav'
 import { getUI, setUI, subscribe, useUI, type DuckEntry, type SheetState } from '../store'
 import { markerTargetFor } from '../targets'
 import { askDuck } from './run'
+import { CHAT_SHEET_QUERY } from '../useMedia'
 
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
 /** Same breakpoint as the chat sheet in index.css: phones are <900px wide or portrait. */
-export const CHAT_SHEET_QUERY = '(max-width: 899px), (orientation: portrait)'
+export { CHAT_SHEET_QUERY } from '../useMedia'
 /** Docked column width on desktop: clamp(380px, 32vw, 520px). Also used by the camera offset. */
 export const chatWidth = (w: number) => Math.min(520, Math.max(380, 0.32 * w))
 export const CHAT_INSET = 24
@@ -27,14 +28,32 @@ function useSheetLayout() {
 }
 
 /** Answer text: 180 ms fade per paragraph (Vision restyle). Instant with reduced motion. */
+/** Plain text with any https:// URL turned into a link (the duck's LinkedIn answers). */
+function Linked({ text }: { text: string }) {
+  const bits = text.split(/(https:\/\/[^\s)]+)/)
+  return (
+    <>
+      {bits.map((b, i) =>
+        i % 2 ? (
+          <a key={i} href={b} target="_blank" rel="noopener noreferrer">
+            {b.replace(/^https:\/\/(www\.)?/, '').replace(/\/$/, '')}
+          </a>
+        ) : (
+          b
+        ),
+      )}
+    </>
+  )
+}
+
 function FadeIn({ text }: { text: string }) {
   const parts = text.split(/\n+/).filter(Boolean)
-  if (reduced()) return <>{text}</>
+  if (reduced()) return <Linked text={text} />
   return (
     <>
       {parts.map((para, i) => (
         <span key={i} className="duck-fade" style={{ animationDelay: `${i * 180}ms`, display: parts.length > 1 ? 'block' : 'inline' }}>
-          {para}
+          <Linked text={para} />
         </span>
       ))}
     </>
@@ -86,8 +105,11 @@ function StationIcon({ kind }: { kind: string }) {
 }
 
 function StationCard({ e }: { e: DuckEntry }) {
+  // Visitors can chat before the room has loaded; "Take me there" waits for the room (Fury #6).
+  const ready = useUI((s) => s.stage === 'ready')
   const c = e.card!
   const stop = STOPS.find((s) => s.id === c.open.id)
+  if (!ready) return null
   return (
     <div className="duck-card">
       <StationIcon kind={stop?.kind ?? 'note'} />
@@ -209,7 +231,10 @@ function Log() {
       <div className="duck-log" role="log" aria-live="polite" aria-label="Chat with the duck">
         {log.length === 0 && <p className="chat-empty">{content.duck.empty}</p>}
         {log.map((e) => (
-          <Turn key={e.id} e={e} />
+          <Fragment key={e.id}>
+            <Turn e={e} />
+            {e.greet && <Chips />}
+          </Fragment>
         ))}
       </div>
       {pill && (
@@ -221,49 +246,54 @@ function Log() {
   )
 }
 
-/** Suggestion chips: the greeting's three, then the preset questions not yet asked. One scrolling row with a fade edge. */
+/**
+ * Opening chips (Shuri PR #6 fix 1): the greeting's three, stacked full width under the greeting,
+ * then "More questions" as a text link. More opens the other presets as extra stacked rows, with
+ * "Fewer questions" right under them; on phones the sheet goes to full while More is open. Used
+ * chips stay but go quiet. All sentence case (Fury #3).
+ */
 function Chips() {
   const thinking = useUI((s) => s.duckThinking)
   const log = useUI((s) => s.duckLog)
+  const phone = useSheetLayout()
+  const [more, setMore] = useState(false)
   const norm = (t: string) => t.trim().toLowerCase()
   const asked = new Set(log.map((e) => norm(e.question)))
-  // Always ≤3, lowercase, duck's voice (Vision restyle + Shuri PR5 fix).
-  const greet = content.duck.greet.chips.map((c) => ({ key: c.label, label: c.label.toLowerCase(), ask: c.ask }))
-  const presets = chipIntents().map((c) => ({
-    key: c.id,
-    label: c.chip.toLowerCase(),
-    ask: c.chip as string | string[],
-  }))
-  const seen = new Set<string>()
-  const list = [...greet, ...presets].filter((c) => {
-    const a = Array.isArray(c.ask) ? '' : norm(c.ask)
-    if (asked.has(norm(c.label)) || (a && asked.has(a)) || (a && seen.has(a))) return false
-    if (a) seen.add(a)
-    return true
-  }).slice(0, 3)
-  const row = useRef<HTMLDivElement>(null)
-  const [end, setEnd] = useState(false)
-  const check = () => {
-    const el = row.current
-    if (el) setEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
+  const greet = content.duck.greet.chips.map((c) => ({ key: c.label, label: c.label, ask: c.ask as string | string[] }))
+  const seen = new Set(greet.map((c) => norm(c.label)))
+  const presets = chipIntents()
+    .filter((c) => !seen.has(norm(c.chip)))
+    .map((c) => ({ key: c.id, label: c.chip, ask: c.chip as string | string[] }))
+  const list = more ? [...greet, ...presets] : greet
+  const toggle = () => {
+    const next = !more
+    setMore(next)
+    if (next && phone && !getUI().open) setUI({ sheet: 'full' })
   }
-  useEffect(check, [list.length])
   return (
-    <div className={`chat-chips-wrap${end ? ' at-end' : ''}`}>
-      <div className="chat-chips" role="list" aria-label="Suggested questions" ref={row} onScroll={check}>
-        {list.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            role="listitem"
-            className="chip"
-            disabled={thinking}
-            onClick={() => void askDuck(Array.isArray(c.ask) ? c.ask[Math.floor(Math.random() * c.ask.length)] : c.ask)}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
+    <div className="duck-chips-stack">
+      <ul className="chip-stack" aria-label="Suggested questions">
+        {list.map((c) => {
+          const used = asked.has(norm(c.label)) || (!Array.isArray(c.ask) && asked.has(norm(c.ask)))
+          return (
+            <li key={c.key}>
+              <button
+                type="button"
+                className={`chip-line${used ? ' used' : ''}`}
+                disabled={thinking}
+                onClick={() => void askDuck(Array.isArray(c.ask) ? c.ask[Math.floor(Math.random() * c.ask.length)] : c.ask)}
+              >
+                {c.label}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+      {presets.length > 0 && (
+        <button type="button" className="chip-more-link" aria-expanded={more} onClick={toggle}>
+          {more ? content.duck.less : content.duck.more}
+        </button>
+      )}
     </div>
   )
 }
@@ -298,7 +328,8 @@ function Input({ onFocus }: { onFocus?: () => void }) {
 
 /** The duck's first line, posted the moment the visitor enters the room (first sentence at once). */
 function useGreeting() {
-  const entered = useUI((s) => s.entered && s.stage === 'ready')
+  // Visitors can enter before the room loads: the duck greets them right away (Fury #6).
+  const entered = useUI((s) => s.entered)
   useEffect(() => {
     if (!entered) return
     setUI((s) =>
@@ -432,7 +463,7 @@ function StationKeys() {
  */
 export function DuckChat() {
   useGreeting()
-  const ready = useUI((s) => s.stage === 'ready' && s.entered)
+  const ready = useUI((s) => s.entered)
   const chatOpen = useUI((s) => s.chatOpen)
   const unread = useUI((s) => s.chatUnread)
   const sheet = useUI((s) => s.sheet)
@@ -497,7 +528,6 @@ export function DuckChat() {
           <>
             <div className="chat-dock">
               <Input />
-              <Chips />
             </div>
             <Log />
           </>

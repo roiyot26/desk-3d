@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { content } from './content'
-import { SECRET_COUNT, getUI, momentHeld, setMuted, setUI, subscribe, useUI } from './store'
+import { getUI, momentHeld, setMuted, subscribe, useUI } from './store'
 import { audio } from './audio'
 import { setLights } from './actions'
 import { LIST_URL } from './links'
@@ -55,7 +55,7 @@ function LightsToggle() {
       className={`hud-btn icon lights${on ? ' on' : ''}`}
       onClick={() => {
         audio.unlock()
-        setLights('ambient', 'toggle', { secret: false })
+        setLights('ambient', 'toggle')
       }}
       aria-pressed={on}
       aria-label={label}
@@ -66,7 +66,7 @@ function LightsToggle() {
   )
 }
 
-/** Top-right corner, always visible: recruiter lane, secrets counter, room lights, mute. */
+/** Top-right corner, always visible: Quick version (1 page), room lights, mute. */
 export function Hud() {
   const el = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -85,11 +85,8 @@ export function Hud() {
       hudBox = null
     }
   }, [])
-  const entered = useUI((s) => s.entered)
-  const found = useUI((s) => s.secrets)
-  const flash = useUI((s) => s.secretFlash)
+  const entered = useUI((s) => s.entered && s.stage === 'ready')
   const muted = useUI((s) => s.muted)
-  const [open, setOpen] = useState(false)
   const [menu, setMenu] = useState(false)
   const more = useRef<HTMLButtonElement>(null)
   // The ⋯ menu closes on Esc (focus back to ⋯), an outside tap, or any chat / station action.
@@ -125,7 +122,6 @@ export function Hud() {
       off()
     }
   }, [menu])
-  const recent = useRecent(flash?.at, 2600)
   const toggleMute = () => {
     audio.unlock()
     setMuted(!muted)
@@ -135,34 +131,11 @@ export function Hud() {
       <a className="hud-btn resume" href={LIST_URL}>
         {content.site.resume}
       </a>
-      {/* Phones (≤430px): features, lights and sound fold into one 44px "⋯" menu. */}
+      {/* Phones (≤430px): lights and sound fold into one 44px "⋯" menu. */}
       <button ref={more} type="button" className="hud-btn icon hud-more" aria-expanded={menu} aria-controls="hud-group" aria-label={content.site.more} onClick={() => setMenu(!menu)}>
         <span aria-hidden="true">⋯</span>
-        {recent && <i className="hud-dot" aria-hidden="true" />}
       </button>
       <div className="hud-group" id="hud-group">
-      {entered && (
-        <div className="hud-secrets">
-          <button
-            type="button"
-            className={`hud-btn${recent ? ' flash' : ''}`}
-            aria-expanded={open}
-            onClick={() => setOpen(!open)}
-            title={content.secrets.label}
-          >
-            {content.secrets.label} {found.length}/{SECRET_COUNT}
-          </button>
-          {open && (
-            <ul className="hud-pop">
-              {content.secrets.items.map((it) => (
-                <li key={it.id} className={found.includes(it.id) ? 'got' : ''}>
-                  {found.includes(it.id) ? `✓ ${it.label}` : `· ${it.label}`}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
       {entered && <LightsToggle />}
       <button
         type="button"
@@ -193,59 +166,16 @@ function useRecent(at: number | undefined, ms: number) {
   return live
 }
 
-/** Status toast (lights, rain, agentic) + the "secret found" line. Both auto-dismiss after 3s. */
+/** Status toast (lights, rain, agentic). Auto-dismisses after 3s. No counters. */
 const TOAST_MS = 3000
 export function Toast() {
   const toast = useUI((s) => s.toast)
-  const flash = useUI((s) => s.secretFlash)
-  const count = useUI((s) => s.secrets.length)
   const phone = useMedia(SHEET_QUERY)
-  const showToast = useRecent(toast?.at, TOAST_MS)
-  const showFlash = useRecent(flash?.at, TOAST_MS)
-  if (!showToast && !showFlash) return null
-  const item = flash ? content.secrets.items.find((i) => i.id === flash.id) : undefined
-  const key = (toast?.at ?? 0) + (flash?.at ?? 0)
-  if (phone) {
-    // Phones: never two stacked bubbles. One line: "★ Secret 2/6 · agentic mode on".
-    const line =
-      showFlash && item
-        ? `★ ${content.secrets.short} ${count}/${SECRET_COUNT} · ${showToast && toast ? toast.short ?? toast.text : item.label}`
-        : toast?.text
-    if (!line) return null
-    return (
-      <div className="toast one" role="status" key={key}>
-        <p className={showFlash && item ? 'toast-secret' : undefined}>{line}</p>
-      </div>
-    )
-  }
+  const show = useRecent(toast?.at, TOAST_MS)
+  if (!show || !toast) return null
   return (
-    <div className="toast" role="status" key={key}>
-      {showToast && toast && <p>{toast.text}</p>}
-      {showFlash && item && (
-        <p className="toast-secret">
-          ★ {content.secrets.found} · {count}/{SECRET_COUNT} · {item.label}
-        </p>
-      )}
+    <div className={phone ? 'toast one' : 'toast'} role="status" key={toast.at}>
+      <p>{toast.text}</p>
     </div>
-  )
-}
-
-export function SecretsCard() {
-  const show = useUI((s) => s.secretsCard === 'open' && !s.open)
-  if (!show) return null
-  return (
-    <section className="secrets-card" role="dialog" aria-labelledby="secrets-title">
-      <button type="button" className="panel-close" onClick={() => setUI({ secretsCard: 'dismissed' })} aria-label={content.tour.close}>
-        ×
-      </button>
-      <h2 id="secrets-title">★ {content.secrets.doneTitle}</h2>
-      <p>{content.secrets.doneBody}</p>
-      <ul className="secrets-list">
-        {content.secrets.items.map((i) => (
-          <li key={i.id}>✓ {i.label}</li>
-        ))}
-      </ul>
-      {content.secrets.doneJoke && <p className="joke">{content.secrets.doneJoke}</p>}
-    </section>
   )
 }
