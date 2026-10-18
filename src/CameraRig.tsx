@@ -104,11 +104,11 @@ function dockedLayout(w: number): [number, number | undefined, { l: number; r: n
  * max-height above the chat peek). Read from CSS so the camera never hard-codes the sheet height.
  */
 function capSheetTop(h: number): number {
-  const root = document.documentElement
-  const peek = parseFloat(getComputedStyle(root).getPropertyValue('--chat-h')) || 0
   const el = document.querySelector<HTMLElement>('.panel')
-  const cap = el ? parseFloat(getComputedStyle(el).maxHeight) : NaN
-  return Math.round(h - peek - (Number.isFinite(cap) ? cap : h * 0.5))
+  const cs = el ? getComputedStyle(el) : null
+  const bottom = cs ? parseFloat(cs.bottom) || 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chat-h')) || 0
+  const cap = cs ? parseFloat(cs.maxHeight) : NaN
+  return Math.round(h - bottom - (Number.isFinite(cap) ? cap : h * 0.5))
 }
 
 /** The station subject the #61 rules check: the marker object; the books station checks every book. */

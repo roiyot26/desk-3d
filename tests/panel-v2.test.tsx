@@ -40,7 +40,7 @@ describe('panel v2.1–v2.3: paper card tokens and type (Vision A2)', () => {
     expect(rule('html.chat-note .panel.paper')).toMatch(/max-height: calc\(100dvh - 48px - var\(--note-h\) - 12px\)/)
   })
   it('#66 phone sheet: height auto, max-height 400px, scroll body flex 0 1 auto', () => {
-    const phone = paper.slice(paper.indexOf('@media (max-width: 700px), (max-aspect-ratio: 4/5)'))
+    const phone = paper.slice(paper.indexOf('/* Phones: the half sheet'))
     const sheet = phone.slice(phone.indexOf('html .panel.paper {'), phone.indexOf('}', phone.indexOf('html .panel.paper {')))
     expect(sheet).toMatch(/height: auto/)
     expect(sheet).toMatch(/max-height: 400px/)
@@ -53,6 +53,12 @@ describe('panel v2.1–v2.3: paper card tokens and type (Vision A2)', () => {
     expect(rule('.panel.paper a.lk')).toMatch(/min-height: 44px/)
     expect(rule('.panel.paper .btn-ink')).toMatch(/min-height: 48px/)
     expect(rule('.panel.paper .panel-fade')).toMatch(/height: 12px/)
+  })
+  it('0 CLS on open: the slide-in is a composited CSS transform, not a JS tween; off for reduced motion', () => {
+    expect(paper).toMatch(/@keyframes panel-in-y \{ from \{ transform: translateY\(24px\); \} \}/)
+    expect(paper).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ html \.panel\.paper \{ animation: none; \} \}/)
+    const o = src('Overlay.tsx')
+    expect(o.slice(o.indexOf('function Panel()'), o.indexOf('let fontsGate'))).not.toMatch(/gsap/)
   })
   it('Shuri #64: deep-linked rows keep 28 px above them', () => {
     expect(paper).toMatch(/\.panel\.paper \.proj,\s*\.panel\.paper \.skills li \{[^}]*scroll-margin-top: 28px/)

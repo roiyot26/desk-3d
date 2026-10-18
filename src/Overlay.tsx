@@ -7,7 +7,7 @@ import { Loader, enter } from './Loader'
 import { DuckChat, collapseChat } from './duck/DuckChat'
 import { Hud, Toast } from './Hud'
 import { useTyping } from './keyboard'
-import { gsap, prefersReducedMotion, useGSAP } from './gsap'
+import { prefersReducedMotion } from './gsap'
 import { SHEET_QUERY, useMedia } from './useMedia'
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
@@ -103,18 +103,9 @@ function Panel() {
   const more = useScrollMore(body, open?.id)
   const phone = useMedia(SHEET_QUERY)
   const fonts = usePanelFonts()
-  // Slide the panel in (side card on desktop, bottom sheet on phones). Motion only, never opacity,
-  // so the copy stays readable even if a slow GPU stalls the tween. Reduced motion: no tween.
-  useGSAP(
-    () => {
-      const el = panel.current
-      if (!el || prefersReducedMotion()) return
-      const sheet = window.matchMedia?.(SHEET_QUERY).matches
-      gsap.from(el, sheet ? { y: 24, duration: 0.35, ease: 'power2.out' } : { x: 16, duration: 0.35, ease: 'power2.out' })
-    },
-    { dependencies: [open?.id, fonts], scope: panel, revertOnUpdate: true },
-  )
-  useSheetHeight(panel, fonts ? open?.id : undefined, phone)
+  // Slide-in: a CSS transform animation (index.css panel-in-*), composited, so it never counts as
+  // layout shift (the old GSAP tween scored ≈0.45 CLS per open). Motion only, never opacity.
+  useSheetHeight(panel, fonts ? open?.id : undefined, phone, full)
   const lastFocus = useRef<Element | null>(null)
   useEffect(() => {
     if (open) {
@@ -200,13 +191,14 @@ export const sheetDrag = { active: false }
  * handle is dragged or the sheet is at full height (the camera keeps the half-sheet framing).
  */
 export function sheetTopOf(el: HTMLElement, innerHeight: number): number {
-  const peek = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chat-h')) || 0
-  return Math.round(innerHeight - peek - el.offsetHeight)
+  // Layout values, not the rect: the slide-in transform never skews the measure.
+  const bottom = parseFloat(getComputedStyle(el).bottom) || 0
+  return Math.round(innerHeight - bottom - el.offsetHeight)
 }
 export function shouldPublish(prev: { id: string; top: number } | null, id: string, top: number): boolean {
   return !prev || prev.id !== id || Math.abs(prev.top - top) >= 2
 }
-function useSheetHeight(panel: RefObject<HTMLElement>, id: string | undefined, phone: boolean) {
+function useSheetHeight(panel: RefObject<HTMLElement>, id: string | undefined, phone: boolean, full: boolean) {
   useEffect(() => {
     const el = panel.current
     if (!el || !id || !phone || typeof ResizeObserver === 'undefined') return
@@ -225,6 +217,8 @@ function useSheetHeight(panel: RefObject<HTMLElement>, id: string | undefined, p
     const ro = new ResizeObserver(queue)
     ro.observe(el)
     window.addEventListener('resize', queue)
+    // A drag that ends without a resize (the content grew mid-drag) still re-measures once.
+    window.addEventListener('pointerup', queue)
     ;(document.fonts?.ready ?? Promise.resolve()).then(() => {
       ready = true
       queue()
@@ -233,9 +227,11 @@ function useSheetHeight(panel: RefObject<HTMLElement>, id: string | undefined, p
       dead = true
       ro.disconnect()
       window.removeEventListener('resize', queue)
+      window.removeEventListener('pointerup', queue)
       if (raf) cancelAnimationFrame(raf)
     }
-  }, [panel, id, phone])
+    // `full`: back at half after the full sheet, measure again (the camera re-frames only then).
+  }, [panel, id, phone, full])
 }
 
 /** True while the scroll box has more content below the fold (drives the 12 px fade). */

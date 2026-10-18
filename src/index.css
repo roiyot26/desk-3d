@@ -1610,6 +1610,9 @@ a {
   --brass: #6E4F26;
   --p-hover: #D6C8AF;
   --note-h: 150px;
+  /* The chat peek's height (DuckChat PEEK_PX). The station sheet sits on it directly instead of
+     riding --chat-h while the chat sheet animates half → peek (that rode in as layout shift). */
+  --peek-h: 88px;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 html .panel.paper {
@@ -1630,6 +1633,11 @@ html .panel.paper {
   font-family: var(--font-duck);
   z-index: 43;
 }
+html .panel.paper { animation: panel-in-x 0.35s cubic-bezier(0.33, 1, 0.68, 1); }
+@keyframes panel-in-x { from { transform: translateX(16px); } }
+@keyframes panel-in-y { from { transform: translateY(24px); } }
+@media (max-width: 700px), (max-aspect-ratio: 4/5) { html .panel.paper { animation-name: panel-in-y; } }
+@media (prefers-reduced-motion: reduce) { html .panel.paper { animation: none; } }
 /* #59: the card always leaves ≥12 px above the chat note. */
 html.chat-note .panel.paper { max-height: calc(100dvh - 48px - var(--note-h) - 12px); }
 /* #67: "Show the whole chat" restores the column over the card; Esc brings the card back. */
@@ -1745,7 +1753,7 @@ html .panel.paper .panel-back:hover { background: var(--p-hover); }
     top: auto;
     left: 0;
     right: 0;
-    bottom: calc(var(--chat-h, 88px) + var(--kb, 0px));
+    bottom: calc(var(--peek-h) + var(--kb, 0px));
     width: auto;
     height: auto;
     max-height: 400px;
@@ -1753,7 +1761,7 @@ html .panel.paper .panel-back:hover { background: var(--p-hover); }
     border-radius: 4px 4px 0 0;
     box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.4);
   }
-  html .panel.paper.full { height: calc(100dvh - 56px - var(--chat-h, 88px)); max-height: none; }
+  html .panel.paper.full { height: calc(100dvh - 56px - var(--peek-h)); max-height: none; }
   .panel.paper .panel-top { height: 44px; }
   html .panel.paper .sheet-handle {
     display: block;
