@@ -58,12 +58,20 @@ export function Loader({ fallback = false }: { fallback?: boolean }) {
   }, [entered])
   const done = entered && ready && lineGone
   const status = ready ? content.hero.ready : `${line.text}${pct !== null ? ` ${pct}%` : '…'}`
+  // Shuri #53: a frozen "0%" reads as stuck, so at 0 or unknown progress the note drops the number and a slow
+  // hairline shimmers instead. Screen readers hear the line itself, once per change, never each percent.
+  const counting = pct !== null && pct > 0
+  const waitText = counting ? `${line.text} ${pct}%` : `${line.text}…`
   return (
     <>
     {entered && !ready && (
       <div className="hero-wait">
-        <p className="hero-wait-line" role="status">
-          {status}
+        <span className="sr-only" role="status">
+          {`${line.text}…`}
+        </span>
+        <p className={`hero-wait-line${counting ? '' : ' waiting'}`} aria-hidden="true">
+          {waitText}
+          {!counting && <span className="hero-wait-shimmer" />}
         </p>
         {fallback && (
           <a className="hero-wait-link" href={LIST_URL}>

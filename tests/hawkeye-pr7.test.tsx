@@ -60,7 +60,7 @@ describe('Hawkeye #7 WARN-1: after Enter on a slow load', () => {
   it('fallback (room code still loading): quiet note plus Quick version', () => {
     setUI({ entered: true, stage: 'download', progress: 0 })
     const html = renderToStaticMarkup(<Loader fallback />)
-    expect(html).toMatch(/<div class="hero-wait"><p class="hero-wait-line" role="status">[^<]+<\/p><a class="hero-wait-link" href="[^"]*view=list[^"]*">Quick version \(1 page\)<\/a><\/div>/)
+    expect(html).toMatch(/<div class="hero-wait"><span class="sr-only" role="status">[^<]+<\/span><p class="hero-wait-line[^"]*" aria-hidden="true">.+?<\/p><a class="hero-wait-link" href="[^"]*view=list[^"]*">Quick version \(1 page\)<\/a><\/div>/)
   })
   it('room code loaded, room still loading: the note only (the HUD has Quick version)', () => {
     setUI({ entered: true, stage: 'compile' })

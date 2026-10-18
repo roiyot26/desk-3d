@@ -164,3 +164,21 @@ describe('Hawkeye F1: answers name the résumé link by its current label', () =
     expect(content.site.resume).toBe('Quick version (1 page)')
   })
 })
+
+describe('Hawkeye F2 (WARN): bare résumé words route to the résumé answer', () => {
+  const eng = new ScriptedIntentEngine()
+  for (const q of ['cv', 'CV', 'resume', 'résumé', 'recruiter'])
+    it(`"${q}" → resume`, async () => {
+      const a = await eng.ask(q)
+      expect(a.intent).toBe('resume')
+      expect(a.reply).toContain(content.site.resume)
+    })
+  for (const q of ['career', 'his career', "what's his background"])
+    it(`"${q}" → career`, async () => {
+      expect((await eng.ask(q)).intent).toBe('career')
+    })
+  it('career no longer claims the résumé words', () => {
+    const career = content.duck.intents.find((i) => i.id === 'career')!
+    for (const k of ['cv', 'resume', 'résumé']) expect(career.keywords).not.toContain(k)
+  })
+})

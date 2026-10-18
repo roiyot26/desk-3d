@@ -9,10 +9,13 @@ import type { RoomInfo } from './analyze'
 import type { Quality } from './quality'
 import { getUI, setUI, subscribe, useUI } from './store'
 import { gsap, useGSAP } from './gsap'
-import { markerTargetFor, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
+import { freeCentreNdc, markerTargetFor, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
 import { STOPS, content } from './content'
 import { CHAT_INSET, CHAT_SHEET_QUERY, chatWidth } from './duck/DuckChat'
 import { audio } from './audio'
+
+/** Read-only for other modules (room labels hide while a GSAP fly runs). */
+export const rigFlags = { flying: false }
 
 /**
  * Desktop: the docked duck chat covers the right of the canvas (station panels open beside it;
@@ -526,8 +529,11 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     let d0 = 0
     let z0 = 1
     const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+    // Pinch is read from the whole document so a finger that started on a room label still counts
+    // (Hawkeye #8 F3); only fingers on the canvas or the label layer take part, never one on the UI.
+    const onRoom = (t: Touch) => t.target === el || (t.target instanceof Element && !!t.target.closest('.room-labels'))
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
+      if (e.touches.length === 2 && [...e.touches].every(onRoom)) {
         d0 = dist(e.touches)
         z0 = st.zoom
       }
@@ -544,16 +550,17 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
       if (e.touches.length < 2) d0 = 0
     }
     el.addEventListener('wheel', onWheel, { passive: false })
-    el.addEventListener('touchstart', onTouchStart, { passive: true })
-    el.addEventListener('touchmove', onTouchMove, { passive: false })
-    el.addEventListener('touchend', onTouchEnd)
-    el.addEventListener('touchcancel', onTouchEnd)
+    const doc = el.ownerDocument
+    doc.addEventListener('touchstart', onTouchStart, { passive: true })
+    doc.addEventListener('touchmove', onTouchMove, { passive: false })
+    doc.addEventListener('touchend', onTouchEnd)
+    doc.addEventListener('touchcancel', onTouchEnd)
     return () => {
       el.removeEventListener('wheel', onWheel)
-      el.removeEventListener('touchstart', onTouchStart)
-      el.removeEventListener('touchmove', onTouchMove)
-      el.removeEventListener('touchend', onTouchEnd)
-      el.removeEventListener('touchcancel', onTouchEnd)
+      doc.removeEventListener('touchstart', onTouchStart)
+      doc.removeEventListener('touchmove', onTouchMove)
+      doc.removeEventListener('touchend', onTouchEnd)
+      doc.removeEventListener('touchcancel', onTouchEnd)
     }
   }, [gl])
 
@@ -571,6 +578,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         tween.current?.kill()
         c.enabled = false
         st.flying = true
+        rigFlags.flying = true
         st.flyTo = to
         st.flyRelease = release
         const p0 = from.position.clone()
@@ -601,6 +609,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         const done = () => {
           tween.current = null
           st.flying = false
+          rigFlags.flying = false
           st.flyTo = null
           if (release) {
             st.focused = false
@@ -659,7 +668,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         // targets.ts); otherwise frame the clicked object.
         const base = fovFor(size.width / size.height)
         const sheet = STOPS.find((x) => x.id === ui.open?.id)?.kind === 'duck' ? DUCK_SHEET : 0.5
-        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dockedLayout(size.width)) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : undefined }), fov: base }
+        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dockedLayout(size.width)) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : undefined, xc: book ? freeCentreNdc(size.width, ...dockedLayout(size.width)) : undefined }), fov: base }
         st.focused = true
         // Sync FOV zoom to the framed lens so pinch/wheel scale the photo from here, not from free-roam.
         if (to.fov !== undefined) st.zoom = THREE.MathUtils.clamp(to.fov / base, ZOOM_MIN, ZOOM_MAX)

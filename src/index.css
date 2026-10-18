@@ -182,7 +182,12 @@ a {
   display: flex; align-items: center; gap: 8px; pointer-events: none;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
-.hero-wait-line { margin: 0; padding: 6px 10px; border-radius: 8px; background: rgba(11, 11, 14, 0.72); font-size: 12.5px; line-height: 1.4; color: var(--muted); white-space: nowrap; }
+.hero-wait-line { position: relative; overflow: hidden; margin: 0; padding: 6px 10px; border-radius: 8px; background: rgba(11, 11, 14, 0.72); font-size: 12.5px; line-height: 1.4; color: var(--muted); white-space: nowrap; }
+/* Shuri #53: at 0 / unknown progress, a slow indeterminate shimmer on a 2px hairline under the note. */
+.hero-wait-shimmer { position: absolute; left: 10px; right: 10px; bottom: 2px; height: 2px; border-radius: 1px; overflow: hidden; background: rgba(236, 230, 221, 0.1); }
+.hero-wait-shimmer::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(240, 178, 115, 0.7), transparent); animation: hero-wait-shimmer 2.4s ease-in-out infinite; }
+@keyframes hero-wait-shimmer { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .hero-wait-shimmer::after { animation: none; display: none; } }
 .hero-wait-link {
   pointer-events: auto; display: inline-flex; align-items: center; box-sizing: border-box; min-height: 44px; padding: 0 12px;
   border-radius: 10px; border: 1px solid rgba(236, 230, 221, 0.18); background: rgba(20, 16, 15, 0.72);
@@ -1679,3 +1684,40 @@ a {
 .guide-bonus span:first-child { flex: 1; }
 .guide-code { font-family: var(--font-duck); font-style: italic; color: var(--ink); }
 
+
+/* ---------- room labels (Vision recruiter look §3): eight always-visible chips ---------- */
+/* under the poster (z 5): chips arrive with the room, never over the dip-to-dark; under every UI layer */
+.room-labels { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+.room-label {
+  position: absolute; left: 0; top: 0; display: block; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit;
+  cursor: pointer; pointer-events: none; opacity: 0; visibility: hidden;
+  transition: opacity 200ms ease, visibility 0s linear 200ms;
+}
+.room-label.on { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 200ms ease, visibility 0s linear 0s; }
+/* travel stays clean: everything fades while the camera moves (back 250 ms after it settles, driven in Labels.tsx) */
+/* multi-touch never belongs to a label (Hawkeye #8 F3): fingers pass through to the canvas until all are up */
+.room-labels.gesture .room-label { pointer-events: none; }
+.room-label { touch-action: none; }
+.room-labels.moving .room-label { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 200ms ease, visibility 0s linear 200ms; }
+/* 44×44 touch target; the padding is transparent */
+.room-label::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+.room-label-chip {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box; height: 28px; padding: 5px 10px;
+  border-radius: 8px; background: rgba(28, 23, 22, 0.88); border: 1px solid rgba(255, 180, 107, 0.18); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  color: var(--ink); font: 600 13px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; white-space: nowrap;
+  transition: border-color 120ms ease;
+}
+.room-label:hover .room-label-chip, .room-label.hot .room-label-chip { border-color: rgba(240, 178, 115, 0.6); }
+.room-label-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.room-label-leader { position: absolute; left: var(--lead-x, 50%); top: 100%; width: 1px; height: var(--leader, 10px); background: rgba(176, 141, 87, 0.5); pointer-events: none; }
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  .room-label-chip { height: 26px; font-size: 12.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .room-label, .room-label.on, .room-labels.moving .room-label, .room-label-chip { transition: none !important; }
+}
+
+/* stop-1 opened from the Projects label: the card takes focus (Shuri #50) */
+.carousel .card:focus { outline: none; }
+/* Inset ring: .panel-body's overflow clipped an outset outline (Shuri #52). */
+.carousel .card:focus-visible { outline: none; box-shadow: inset 0 0 0 2px #f0b273; }

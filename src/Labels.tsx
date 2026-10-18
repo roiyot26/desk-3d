@@ -1,0 +1,293 @@
+import { useEffect, useMemo, useRef } from 'react'
+import * as THREE from 'three'
+import { useFrame, useThree } from '@react-three/fiber'
+import { content } from './content'
+import { rigFlags } from './CameraRig'
+import { tapKey } from './interact'
+import { panelFocus } from './panelFocus'
+import { roomScene } from './Room'
+import { layoutLabels, SCREEN_MIN_PRIORITY, type LabelFrame, type LabelIn, type LabelOut, type Rect } from './labelLayout'
+import { getUI, useUI } from './store'
+import { markerTargetFor, type Target } from './targets'
+import { SHEET_QUERY } from './useMedia'
+
+/**
+ * Eight always-visible labels in the room (Vision recruiter look §3).
+ * <RoomLabels /> is plain DOM (outside the canvas); <LabelDriver /> runs inside the canvas, projects
+ * the anchors every frame, runs the collision layout and writes positions straight to the chips.
+ * Priority = the guide row order: Ask the duck > Projects > 3D for the web > Stack > Contact >
+ * Career > Virtual Garden > Now building.
+ */
+export const LABELS = content.guide.rows.map((r, priority) => ({ id: r.id, label: r.label, priority }))
+
+/** Camera speed above which labels fade out (m/s), and the equivalent turn rate (rad/s) for look-drags. */
+export const MOVE_MS = 0.6
+export const TURN_RS = 0.6
+/** Labels come back this long after the camera settles. */
+export const SETTLE_MS = 250
+
+const els = new Map<string, HTMLButtonElement>()
+let root: HTMLDivElement | null = null
+/** Ids whose chip is on screen (the hover label skips them: the chip already names the object). */
+export const shownLabels = new Set<string>()
+/** ?debug read-out for the shot metrics. */
+export const labelDebug: { last: LabelOut[]; moving: boolean; frame: LabelFrame | null } = { last: [], moving: false, frame: null }
+
+/**
+ * Multi-touch never belongs to a label (Hawkeye #8 F3): from the moment a second finger lands until every
+ * finger is up, the layer is pointer-events: none (`.room-labels.gesture`) so new touches land on the canvas,
+ * and the camera's pinch reads touches from the whole document, including a finger that started on a chip.
+ * A label's click right after a gesture is swallowed; a single tap still opens.
+ */
+export const labelGesture = { active: false, endedAt: -Infinity }
+export const GESTURE_CLICK_GUARD_MS = 350
+export function labelClickAllowed(now = performance.now()) {
+  return !labelGesture.active && now - labelGesture.endedAt > GESTURE_CLICK_GUARD_MS
+}
+export function trackLabelGesture(doc: Document, onChange: (active: boolean) => void) {
+  const touch = new Set<number>()
+  const set = (on: boolean) => {
+    if (on === labelGesture.active) return
+    labelGesture.active = on
+    if (!on) labelGesture.endedAt = performance.now()
+    onChange(on)
+  }
+  const down = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch') return
+    touch.add(e.pointerId)
+    if (touch.size > 1) set(true)
+  }
+  const up = (e: PointerEvent) => {
+    touch.delete(e.pointerId)
+    if (!touch.size) set(false)
+  }
+  const tStart = (e: TouchEvent) => {
+    if (e.touches.length > 1) set(true)
+  }
+  const tEnd = (e: TouchEvent) => {
+    if (!e.touches.length) {
+      touch.clear()
+      set(false)
+    }
+  }
+  const o = { capture: true, passive: true } as const
+  doc.addEventListener('pointerdown', down, o)
+  doc.addEventListener('pointerup', up, o)
+  doc.addEventListener('pointercancel', up, o)
+  doc.addEventListener('touchstart', tStart, o)
+  doc.addEventListener('touchend', tEnd, o)
+  doc.addEventListener('touchcancel', tEnd, o)
+  return () => {
+    doc.removeEventListener('pointerdown', down, o)
+    doc.removeEventListener('pointerup', up, o)
+    doc.removeEventListener('pointercancel', up, o)
+    doc.removeEventListener('touchstart', tStart, o)
+    doc.removeEventListener('touchend', tEnd, o)
+    doc.removeEventListener('touchcancel', tEnd, o)
+  }
+}
+
+export function RoomLabels() {
+  const ready = useUI((s) => s.stage === 'ready' && s.entered)
+  const targets = useUI((s) => s.targets)
+  const keys = useMemo(() => new Map(LABELS.map((l) => [l.id, markerTargetFor(targets, l.id)?.key])), [targets])
+  useEffect(() => trackLabelGesture(document, (on) => root?.classList.toggle('gesture', on)), [])
+  if (!ready) return null
+  return (
+    <div
+      className="room-labels moving"
+      ref={(el) => {
+        root = el
+      }}
+      // Pointer/touch shortcuts only (Shuri #49): What's here and the station buttons are the keyboard and
+      // screen-reader path to the same objects, so the chips stay out of the tab order and the a11y tree.
+      aria-hidden="true"
+    >
+      {LABELS.filter((l) => keys.get(l.id)).map((l) => (
+        <button
+          key={l.id}
+          type="button"
+          className={`room-label${l.priority === 0 ? ' lead' : ''}`}
+          data-id={l.id}
+          ref={(el) => {
+            if (el) els.set(l.id, el)
+            else els.delete(l.id)
+          }}
+          tabIndex={-1}
+          // A mouse press would focus the button inside an aria-hidden group; the click still fires.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            if (!labelClickAllowed()) return
+            // Projects label: land on the project card, not the panel's bio (Shuri #50).
+            if (l.id === 'stop-1') panelFocus.card = true
+            tapKey(keys.get(l.id) ?? null)
+          }}
+        >
+          <span className="room-label-chip">
+            {l.priority === 0 && <span className="room-label-dot" aria-hidden="true" />}
+            <span className="room-label-text">{l.label}</span>
+          </span>
+          <span className="room-label-leader" aria-hidden="true" />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Rects of UI the chips must stay clear of. A full-width sheet in the lower part of the screen raises the frame's bottom instead. */
+function uiFrame(w: number, h: number, phone: boolean): LabelFrame {
+  const obstacles: Rect[] = []
+  let bottom = h
+  for (const el of document.querySelectorAll<HTMLElement>('.chat, .panel, .hud, .guide')) {
+    const r = el.getBoundingClientRect()
+    if (r.width < 1 || r.height < 1 || getComputedStyle(el).visibility === 'hidden') continue
+    // Full-width sheets in the lower part of the screen (the chat sheet, a station sheet stacked above the chat peek) end the frame.
+    if (r.width >= w * 0.9 && r.top > h * 0.3) bottom = Math.min(bottom, r.top)
+    else obstacles.push({ l: r.left, t: r.top, r: r.right, b: r.bottom })
+  }
+  return { w, h, top: 0, bottom, obstacles, phone }
+}
+
+/** Chips hang just above the object (the 3D hover label's anchor sits 7 cm up; a chip on a 10 px leader reads better at 1.5 cm). */
+export const LABEL_LIFT_M = 0.015
+
+/** One anchor per label: the stop's marker target, except Stack, which spans the whole shelf of books. */
+export function labelAnchors(targets: Map<string, Target>) {
+  return LABELS.flatMap((l) => {
+    const t = markerTargetFor(targets, l.id)
+    if (!t) return []
+    const box = t.box.clone()
+    if (l.id === 'stop-3') for (const o of targets.values()) if (o.id === l.id) box.union(o.box)
+    const c = box.getCenter(new THREE.Vector3())
+    // Ask the duck keeps its chip and leader above the duck's whole box (Hawkeye #8 WARN-1).
+    return [{ ...l, anchor: new THREE.Vector3(c.x, box.max.y + LABEL_LIFT_M, c.z), own: l.priority === 0 ? box : undefined }]
+  })
+}
+
+/** True once #poster is out and its opacity has reached 0 (or there is no poster). */
+export function posterLifted(): boolean {
+  const p = document.getElementById('poster')
+  if (!p || !p.isConnected) return true
+  const cs = getComputedStyle(p)
+  return cs.display === 'none' || (p.classList.contains('out') && +cs.opacity === 0)
+}
+
+const v = new THREE.Vector3()
+let screenBoxes: THREE.Box3[] | null = null
+const corner = new THREE.Vector3()
+/** A world box as a screen rect (px); null when any corner is behind the camera. */
+export function projectBox(b: THREE.Box3, camera: THREE.Camera, w: number, h: number): Rect | null {
+  let l = Infinity, t = Infinity, r = -Infinity, bt = -Infinity
+  for (let k = 0; k < 8; k++) {
+    corner.set(k & 1 ? b.max.x : b.min.x, k & 2 ? b.max.y : b.min.y, k & 4 ? b.max.z : b.min.z).project(camera)
+    if (corner.z > 1 || corner.z < -1) return null
+    const x = (corner.x + 1) * 0.5 * w
+    const y = (1 - corner.y) * 0.5 * h
+    l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); bt = Math.max(bt, y)
+  }
+  return { l, t, r, b: bt }
+}
+/** The two featured screens (ScreenSlot_Monitor, ScreenSlot_Laptop) as screen-space rects in front of the camera. */
+function screenRects(camera: THREE.Camera, w: number, h: number) {
+  if (!screenBoxes) {
+    if (!roomScene) return []
+    screenBoxes = ['ScreenSlot_Monitor', 'ScreenSlot_Laptop'].flatMap((n) => {
+      const o = roomScene!.getObjectByName(n)
+      return o ? [new THREE.Box3().setFromObject(o)] : []
+    })
+  }
+  const out: { rect: Rect; minPriority: number }[] = []
+  for (const b of screenBoxes) {
+    const rect = projectBox(b, camera, w, h)
+    if (rect) out.push({ rect, minPriority: SCREEN_MIN_PRIORITY })
+  }
+  return out
+}
+const lastPos = new THREE.Vector3()
+const lastQ = new THREE.Quaternion()
+
+export function LabelDriver() {
+  const { camera, size } = useThree()
+  const targets = useUI((s) => s.targets)
+  const anchors = useMemo(() => labelAnchors(targets), [targets])
+  const st = useRef({ sizes: new Map<string, [number, number]>(), settleAt: 0, moving: true, primed: false, frame: null as LabelFrame | null, frameAt: 0, posterGone: false })
+  useEffect(() => {
+    const s = st.current
+    const remeasure = () => s.sizes.clear()
+    window.addEventListener('resize', remeasure)
+    return () => window.removeEventListener('resize', remeasure)
+  }, [])
+  useFrame((_, dt) => {
+    const s = st.current
+    if (!root || !els.size) return
+    // Camera motion: translation speed, turn rate, or a GSAP fly.
+    const now = performance.now()
+    const speed = s.primed && dt > 0 ? camera.position.distanceTo(lastPos) / dt : 0
+    const turn = s.primed && dt > 0 ? lastQ.angleTo(camera.quaternion) / dt : 0
+    lastPos.copy(camera.position)
+    lastQ.copy(camera.quaternion)
+    s.primed = true
+    // No chips until the poster's dark layer has fully lifted off the room (index.html dip-to-dark).
+    if (!s.posterGone) s.posterGone = posterLifted()
+    const fast = !s.posterGone || rigFlags.flying || speed > MOVE_MS || turn > TURN_RS
+    if (fast) s.settleAt = now + SETTLE_MS
+    const moving = fast || now < s.settleAt
+    if (moving !== s.moving) {
+      s.moving = moving
+      root.classList.toggle('moving', moving)
+    }
+    labelDebug.moving = moving
+    if (moving) return
+    // Measure chips once per size (cached; re-measured on resize).
+    for (const [id, el] of els)
+      if (!s.sizes.has(id)) {
+        const chip = el.firstElementChild as HTMLElement
+        s.sizes.set(id, [chip.offsetWidth, chip.offsetHeight])
+      }
+    // UI rects (sheets, panels, HUD) change rarely; re-read them at most every 100 ms.
+    if (!s.frame || now - s.frameAt > 100) {
+      s.frame = uiFrame(size.width, size.height, window.matchMedia(SHEET_QUERY).matches)
+      s.frameAt = now
+    }
+    const ui = getUI()
+    const openId = ui.open?.id
+    const hotId = ui.hovered ? ui.targets.get(ui.hovered)?.id : undefined
+    const items: LabelIn[] = []
+    for (const a of anchors) {
+      if (!els.has(a.id)) continue
+      v.copy(a.anchor).project(camera)
+      const [w, h] = s.sizes.get(a.id) ?? [0, 0]
+      items.push({
+        id: a.id,
+        priority: a.priority,
+        x: (v.x + 1) * 0.5 * size.width,
+        y: (1 - v.y) * 0.5 * size.height,
+        behind: v.z > 1 || v.z < -1,
+        dist: camera.position.distanceTo(a.anchor),
+        w,
+        h,
+        hidden: openId === a.id,
+        own: a.own ? projectBox(a.own, camera, size.width, size.height) ?? undefined : undefined,
+        softScreens: a.priority === 0,
+      })
+    }
+    const frame = { ...s.frame, screens: screenRects(camera, size.width, size.height) }
+    const out = layoutLabels(items, frame)
+    labelDebug.last = out
+    labelDebug.frame = frame
+    shownLabels.clear()
+    for (const o of out) {
+      const el = els.get(o.id)
+      if (!el) continue
+      if (o.shown) shownLabels.add(o.id)
+      el.classList.toggle('on', o.shown)
+      el.classList.toggle('hot', o.id === hotId)
+      // The button is the 44 px hit area centred on the chip; the leader hangs from the chip to the anchor.
+      el.style.transform = `translate(${o.rect.l}px, ${o.rect.t}px)`
+      el.style.setProperty('--leader', `${o.leader}px`)
+      el.style.setProperty('--lead-x', `${Math.round(o.x - o.rect.l)}px`)
+      // The leader ends at o.y (the duck: its box top), LEADER + nudge below the chip.
+    }
+  })
+  return null
+}
