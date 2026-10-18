@@ -81,7 +81,7 @@ export default function App() {
   }
   return (
     <Boundary onError={goList}>
-      <Suspense fallback={<Loader />}>
+      <Suspense fallback={<Loader fallback />}>
         <Experience onFatal={goList} initialTier={detectTier(probe)} />
       </Suspense>
     </Boundary>

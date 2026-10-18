@@ -1,13 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { audio } from './audio'
 import { content } from './content'
+import { LIST_URL } from './links'
 import { getUI, setUI, useUI } from './store'
-import { gsap, prefersReducedMotion, useGSAP } from './gsap'
-import { CHAT_SHEET_QUERY, useMedia } from './useMedia'
+import { prefersReducedMotion } from './gsap'
+import { CHAT_SHEET_QUERY } from './useMedia'
 
 /**
- * Enter: unlocks audio (it is a user gesture) and reveals the room. Phones open the duck sheet at
- * half so the greeting and the three chips show at once (brief §1).
+ * Enter: unlocks audio (it is a user gesture) and opens the duck with the greeting already set,
+ * whether or not the room has loaded (Fury #6). Phones open the sheet at half so the chips show.
  */
 export function enter() {
   if (getUI().entered) return
@@ -17,89 +18,91 @@ export function enter() {
 }
 
 /**
- * Themed loader: a coding-agent style log over the poster. Lines appear as the real progress
- * passes their threshold (download = first 85%, shader warm-up the rest). Enter works before the
- * room is ready (Fury #6): the duck greets and answers in text right away, while the log keeps
- * showing progress behind the chat (non-blocking) and fades once the room is ready. The plain page
- * is the HUD's "Quick version (1 page)" link.
+ * First screen over poster.jpg (Vision recruiter look §1): headline, sub-line, two buttons that
+ * work at 0% load, then one small loader line with a hairline. The loader never takes a click.
+ * On Enter the block fades (220 ms) and the scrim (500 ms); the loader line stays until the room
+ * is ready, reads "room ready" and fades after 1 s.
+ * After Enter (Hawkeye WARN-1, Shuri's lingering line): the block's line hides and a quiet note sits top
+ * left over the poster while the room loads. While the room code itself is still downloading (this is
+ * the Suspense fallback, so no chat or HUD yet) the note carries Quick version as the way out. The note
+ * is gone the moment the room is ready.
  */
-export function Loader() {
+export function Loader({ fallback = false }: { fallback?: boolean }) {
   const stage = useUI((s) => s.stage)
   const progress = useUI((s) => s.progress)
   const entered = useUI((s) => s.entered)
   const ready = stage === 'ready'
-  // Entered before the room finished loading: progress stays visible but stops catching input.
-  const early = entered && !ready
-  // Touch: no keyboard hint, no window-chrome dots.
-  const touch = useMedia('(hover: none), (pointer: coarse)')
   const p = stage === 'download' ? progress * 0.85 : stage === 'compile' ? 0.93 : 1
   const lines = content.loader.lines
-  const shown = lines.filter((l) => l.at <= p)
+  const line = [...lines].reverse().find((l) => l.at <= p) ?? lines[0]
+  const next = lines[lines.indexOf(line) + 1]
+  const pct = next && line.live ? Math.round(Math.min(1, (p - line.at) / (next.at - line.at)) * 100) : null
   const enterRef = useRef<HTMLButtonElement>(null)
   const root = useRef<HTMLDivElement>(null)
-  // Fade the poster + log into the canvas once the visitor enters (GSAP on the DOM, hard cut with
-  // reduced motion). autoAlpha also sets visibility:hidden at the end so it stops catching focus.
-  useGSAP(
-    () => {
-      if (!entered || !ready || !root.current) return
-      gsap.to(root.current, { autoAlpha: 0, duration: prefersReducedMotion() ? 0 : 0.8, delay: prefersReducedMotion() ? 0 : 0.1, ease: 'power2.out' })
-    },
-    { dependencies: [entered, ready], scope: root },
-  )
+  // "room ready" holds for 1 s, then the line fades (it only matters while someone waits).
+  const [lineGone, setLineGone] = useState(false)
+  useEffect(() => {
+    if (!ready) return
+    const id = window.setTimeout(() => setLineGone(true), prefersReducedMotion() ? 0 : 1000)
+    return () => window.clearTimeout(id)
+  }, [ready])
   useEffect(() => {
     enterRef.current?.focus({ preventScroll: true })
-  }, [ready])
-  // After Enter the loader is gone for good: inert + hidden, so focus can never land in it.
+  }, [])
+  // After Enter the block is gone for good: inert, so focus can never land in it.
   useEffect(() => {
     const el = root.current as (HTMLDivElement & { inert: boolean }) | null
     if (!el || !entered) return
     el.inert = true
     el.setAttribute('aria-hidden', 'true')
   }, [entered])
+  const done = entered && ready && lineGone
+  const status = ready ? content.hero.ready : `${line.text}${pct !== null ? ` ${pct}%` : '…'}`
   return (
-    <div ref={root} className={`loader${entered && ready ? ' done' : ''}${early ? ' early' : ''}${ready ? ' ready' : ''}`} aria-live="polite" aria-busy={!ready}>
-      <div className="loader-card">
-        <p className="loader-title">
-          {!touch && (
-            <span className="loader-dots" aria-hidden="true">
-              <i />
-              <i />
-              <i />
+    <>
+    {entered && !ready && (
+      <div className="hero-wait">
+        <p className="hero-wait-line" role="status">
+          {status}
+        </p>
+        {fallback && (
+          <a className="hero-wait-link" href={LIST_URL}>
+            {content.site.resume}
+          </a>
+        )}
+      </div>
+    )}
+    <div
+      ref={root}
+      className={`loader hero${entered ? ' entered' : ''}${ready ? ' ready' : ''}${done ? ' done' : ''}`}
+      aria-busy={!ready}
+    >
+      <div className="hero-scrim" aria-hidden="true" />
+      <div className="hero-block">
+        <h1 className="hero-title">{content.hero.headline}</h1>
+        <p className="hero-sub">{content.hero.sub}</p>
+        <div className="hero-actions">
+          <span className="hero-enter">
+            <button ref={enterRef} type="button" className="hero-btn primary" onClick={enter} aria-describedby="hero-enter-hint">
+              {content.hero.enter}
+            </button>
+            {/* Mute is hidden before Enter, so say it here (Shuri #7 fix 4). */}
+            <span id="hero-enter-hint" className="hero-hint">
+              {content.hero.enterHint}
             </span>
-          )}
-          {content.loader.title}
-        </p>
-        <p className="loader-name">
-          {content.site.name} <span>· {content.site.role}</span>
-        </p>
-        <ol className="loader-log">
-          {shown.map((l, i) => {
-            const next = lines[lines.indexOf(l) + 1]
-            const done = ready || (next ? next.at <= p : false)
-            const pct = next && l.live ? Math.round(Math.min(1, (p - l.at) / (next.at - l.at)) * 100) : null
-            return (
-              <li key={i} className={done ? 'ok' : 'run'}>
-                <span className="mark" aria-hidden="true">
-                  {done ? '✓' : '▸'}
-                </span>{' '}
-                {l.text}
-                {!done && (pct !== null ? ` ${pct}%` : '…')}
-              </li>
-            )
-          })}
-          {ready && <li className="ready">{content.loader.ready}</li>}
-        </ol>
-        <div className="loader-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)}>
-          <span style={{ width: `${Math.round(p * 100)}%` }} />
+          </span>
+          <a className="hero-btn secondary" href={LIST_URL}>
+            {content.site.resume}
+          </a>
         </div>
-        <div className="loader-actions">
-          <button ref={enterRef} type="button" className="btn primary" onClick={enter}>
-            {content.site.enter}
-            {!touch && <kbd>⏎</kbd>}
-          </button>
+        <div className={`hero-load${ready && lineGone ? ' gone' : ''}`} aria-live="polite">
+          <p className="hero-line">{status}</p>
+          <div className="hero-bar" role="progressbar" aria-label={content.site.loading} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)}>
+            <span style={{ width: `${Math.round(p * 100)}%` }} />
+          </div>
         </div>
-        <p className="loader-hint">{ready ? (touch ? content.site.enterHintTouch : content.site.enterHint) : content.site.loading + '…'}</p>
       </div>
     </div>
+    </>
   )
 }

@@ -5,6 +5,7 @@ import { audio } from './audio'
 import { setLights } from './actions'
 import { LIST_URL } from './links'
 import { SHEET_QUERY, useMedia } from './useMedia'
+import { Guide, openGuide } from './Guide'
 
 /**
  * Live viewport rect of the HUD (top bar on phones, top-right cluster on desktop). Tour markers
@@ -66,7 +67,10 @@ function LightsToggle() {
   )
 }
 
-/** Top-right corner, always visible: Quick version (1 page), room lights, mute. */
+/**
+ * Top-right corner (Vision recruiter look §1/§4). Before Enter: only Quick version. After: What's
+ * here, Quick version, room lights, mute. Phones under 430px (max-width 429.98px) fold them into a ⋯ menu (What's here first).
+ */
 export function Hud() {
   const el = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -85,7 +89,9 @@ export function Hud() {
       hudBox = null
     }
   }, [])
-  const entered = useUI((s) => s.entered && s.stage === 'ready')
+  const entered = useUI((s) => s.entered)
+  const ready = useUI((s) => s.entered && s.stage === 'ready')
+  const guide = useUI((s) => s.guide)
   const muted = useUI((s) => s.muted)
   const [menu, setMenu] = useState(false)
   const more = useRef<HTMLButtonElement>(null)
@@ -126,28 +132,49 @@ export function Hud() {
     audio.unlock()
     setMuted(!muted)
   }
+  const resume = (
+    <a className="hud-btn text resume" href={LIST_URL}>
+      {content.site.resume}
+    </a>
+  )
   return (
-    <div className={`hud${menu ? ' menu-open' : ''}`} ref={el}>
-      <a className="hud-btn resume" href={LIST_URL}>
-        {content.site.resume}
-      </a>
-      {/* Phones (≤430px): lights and sound fold into one 44px "⋯" menu. */}
-      <button ref={more} type="button" className="hud-btn icon hud-more" aria-expanded={menu} aria-controls="hud-group" aria-label={content.site.more} onClick={() => setMenu(!menu)}>
-        <span aria-hidden="true">⋯</span>
-      </button>
-      <div className="hud-group" id="hud-group">
-      {entered && <LightsToggle />}
-      <button
-        type="button"
-        className="hud-btn icon"
-        onClick={toggleMute}
-        aria-pressed={muted}
-        aria-label={muted ? content.audio.unmute : content.audio.mute}
-        title={muted ? content.audio.unmute : content.audio.mute}
-      >
-        <SoundIcon muted={muted} />
-      </button>
-      </div>
+    <div className={`hud${menu ? ' menu-open' : ''}${entered ? ' in' : ''}`} ref={el}>
+      {/* Before Enter the first screen has its own Quick version button: no duplicate up here. */}
+      {!entered ? null : (
+        <>
+          <button ref={more} type="button" className="hud-btn icon hud-more" aria-expanded={menu} aria-controls="hud-group" aria-label={content.site.more} onClick={() => setMenu(!menu)}>
+            <span aria-hidden="true">⋯</span>
+          </button>
+          <div className="hud-group" id="hud-group">
+            {ready && (
+              <button
+                type="button"
+                className="hud-btn text hud-whats"
+                aria-expanded={guide}
+                onClick={() => {
+                  setMenu(false)
+                  openGuide()
+                }}
+              >
+                {content.guide.button}
+              </button>
+            )}
+            {resume}
+            {ready && <LightsToggle />}
+            <button
+              type="button"
+              className="hud-btn icon"
+              onClick={toggleMute}
+              aria-pressed={muted}
+              aria-label={muted ? content.audio.unmute : content.audio.mute}
+              title={muted ? content.audio.unmute : content.audio.mute}
+            >
+              <SoundIcon muted={muted} />
+            </button>
+          </div>
+          <Guide />
+        </>
+      )}
     </div>
   )
 }

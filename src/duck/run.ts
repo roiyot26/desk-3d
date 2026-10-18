@@ -1,10 +1,11 @@
+import { HUD_FOLD_QUERY } from '../useMedia'
 import { setLights, setRain, startAgentic } from '../actions'
 import { audio } from '../audio'
 import type { DuckTool } from '../content'
 import { getUI, setMuted, setUI, type DuckCard, type DuckEntry, type Open } from '../store'
 import { TARGET_DEFS, targetByKey } from '../targets'
 import { content } from '../content'
-import { duckEngine } from './engine'
+import { duckEngine, type DuckStep } from './engine'
 
 /**
  * Runs a duck answer: reveals the tool-call ticker step by step, performs each whitelisted tool
@@ -92,8 +93,38 @@ async function hold() {
   while (w.__desk3dHoldDuck) await sleep(200)
 }
 
-/** Ticker lines the visitor sees: navigation calls (fly_to / open) only happen on "Take me there". */
+/** Test hook: with `?debug`, `window.__desk3dHoldTicker = n` freezes the ticker on step n (stills). */
+async function holdTicker(k: number) {
+  const w = window as unknown as { __desk3dHoldTicker?: number }
+  while (w.__desk3dHoldTicker === k) await sleep(100)
+}
+
+/** Navigation calls: shown in the ticker, but the camera only moves on "Take me there". */
 const NAV_TOOLS = new Set(['fly_to', 'open'])
+
+/** Panel ids read as their deep-link words in the ticker ("open projects", not "open stop-1"). */
+const OPEN_WORD: Record<string, string> = { 'stop-1': 'projects', 'stop-2': '3d', 'stop-3': 'stack', 'stop-4': 'garden', 'stop-5': 'career', 'stop-6': 'contact', 'stop-7': 'duck' }
+
+/**
+ * One quiet ticker step (Vision recruiter look §2): "search_portfolio", "fly_to monitor",
+ * "open projects". Sans, not the old mono `name("arg") → n sources` line.
+ */
+/**
+ * Where Quick version lives depends on the screen: top right on desktop, inside ⋯ when the HUD folds
+ * (Fury on Hawkeye WARN-4). Replies are written for desktop; this swaps the phrase on folded screens.
+ */
+export function placeReply(reply: string, folded: boolean): string {
+  return folded ? reply.split(content.site.quickWhere).join(content.site.quickWherePhone) : reply
+}
+
+export function tickerLabel(step: DuckStep): string {
+  const t = step.tool
+  if (!t) return step.text.split('(')[0]
+  if (t.name === 'search_portfolio') return t.name
+  if (t.name === 'open') return `open ${OPEN_WORD[t.args[0]] ?? t.args[0].replace(/^aside-/, '')}`
+  if (t.name === 'fly_to' && t.args[0] === 'unvisited') return 'fly_to next'
+  return [t.name, ...t.args].join(' ')
+}
 
 export async function askDuck(question: string) {
   const q = question.trim()
@@ -110,20 +141,20 @@ export async function askDuck(question: string) {
     const w = window as unknown as { __desk3dFailDuck?: boolean }
     if (w.__desk3dFailDuck) throw new Error('test: duck failure')
     const answer = await duckEngine.ask(q)
-    const shown = answer.steps.filter((x) => !(x.tool && NAV_TOOLS.has(x.tool.name)))
-    patchEntry(id, { question: answer.question, steps: shown.map((x) => x.text), matched: !!answer.intent })
+    const steps = answer.steps.map(tickerLabel)
+    patchEntry(id, { question: answer.question, steps, matched: !!answer.intent })
     quack()
-    await sleep(500)
+    await sleep(400)
     const nav: { flyTo?: string; open?: string } = {}
     let k = 0
     for (const step of answer.steps) {
       const tool = step.tool
       if (tool) perform(tool, nav)
-      if (tool && NAV_TOOLS.has(tool.name)) continue
       patchEntry(id, { shown: ++k })
-      await sleep(tool?.sources?.length ? 1100 : 650)
+      await holdTicker(k)
+      await sleep(tool?.sources?.length ? 1000 : tool && NAV_TOOLS.has(tool.name) ? 450 : 600)
     }
-    patchEntry(id, { shown: shown.length + 1, reply: answer.reply })
+    patchEntry(id, { shown: steps.length + 1, reply: placeReply(answer.reply, window.matchMedia?.(HUD_FOLD_QUERY).matches ?? false) })
     setUI({ duckThinking: false })
     const dest = destination(nav.flyTo, nav.open)
     // The duck doesn't drag you along: it posts a station card ("Take me there") in the chat.
@@ -151,7 +182,9 @@ export function cardFor(o: NonNullable<Open>): DuckCard | null {
   const stop = content.stops.find((x) => x.id === o.id)
   const note = stop ? undefined : content.bonus.find((b) => b.id === o.id) ?? content.asides.find((a) => a.id === o.id)
   const proj = o.project ? content.projects.find((p) => p.slug === o.project) : undefined
-  const title = proj?.name ?? stop?.title ?? note?.title
+  // Cards name the object the way its label and What's here row do ("Projects"), not the panel headline.
+  const label = content.guide.rows.find((r) => r.id === o.id)?.label
+  const title = proj?.name ?? label ?? stop?.title ?? note?.title
   if (!title) return null
   return { open: o, title, label: (stop?.label ?? note?.title ?? title).split(' · ')[0] }
 }
