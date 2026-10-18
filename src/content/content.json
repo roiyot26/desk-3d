@@ -14,6 +14,8 @@
     "enterRoom": "Enter the 3D room",
     "webglFallback": "Your browser couldn't run the 3D room, so here is the same content as a plain page.",
     "resume": "Quick version (1 page)",
+    "quickWhere": "Quick version (1 page) in the top-right corner",
+    "quickWherePhone": "Quick version in the ⋯ menu",
     "enter": "Enter",
     "enterHint": "Turns on sound · press Enter",
     "enterHintTouch": "Turns on sound",

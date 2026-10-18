@@ -1,3 +1,4 @@
+import { HUD_FOLD_QUERY } from '../useMedia'
 import { setLights, setRain, startAgentic } from '../actions'
 import { audio } from '../audio'
 import type { DuckTool } from '../content'
@@ -108,6 +109,14 @@ const OPEN_WORD: Record<string, string> = { 'stop-1': 'projects', 'stop-2': '3d'
  * One quiet ticker step (Vision recruiter look §2): "search_portfolio", "fly_to monitor",
  * "open projects". Sans, not the old mono `name("arg") → n sources` line.
  */
+/**
+ * Where Quick version lives depends on the screen: top right on desktop, inside ⋯ when the HUD folds
+ * (Fury on Hawkeye WARN-4). Replies are written for desktop; this swaps the phrase on folded screens.
+ */
+export function placeReply(reply: string, folded: boolean): string {
+  return folded ? reply.split(content.site.quickWhere).join(content.site.quickWherePhone) : reply
+}
+
 export function tickerLabel(step: DuckStep): string {
   const t = step.tool
   if (!t) return step.text.split('(')[0]
@@ -145,7 +154,7 @@ export async function askDuck(question: string) {
       await holdTicker(k)
       await sleep(tool?.sources?.length ? 1000 : tool && NAV_TOOLS.has(tool.name) ? 450 : 600)
     }
-    patchEntry(id, { shown: steps.length + 1, reply: answer.reply })
+    patchEntry(id, { shown: steps.length + 1, reply: placeReply(answer.reply, window.matchMedia?.(HUD_FOLD_QUERY).matches ?? false) })
     setUI({ duckThinking: false })
     const dest = destination(nav.flyTo, nav.open)
     // The duck doesn't drag you along: it posts a station card ("Take me there") in the chat.

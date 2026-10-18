@@ -22,8 +22,12 @@ export function enter() {
  * work at 0% load, then one small loader line with a hairline. The loader never takes a click.
  * On Enter the block fades (220 ms) and the scrim (500 ms); the loader line stays until the room
  * is ready, reads "room ready" and fades after 1 s.
+ * After Enter (Hawkeye WARN-1, Shuri's lingering line): the block's line hides and a quiet note sits top
+ * left over the poster while the room loads. While the room code itself is still downloading (this is
+ * the Suspense fallback, so no chat or HUD yet) the note carries Quick version as the way out. The note
+ * is gone the moment the room is ready.
  */
-export function Loader() {
+export function Loader({ fallback = false }: { fallback?: boolean }) {
   const stage = useUI((s) => s.stage)
   const progress = useUI((s) => s.progress)
   const entered = useUI((s) => s.entered)
@@ -53,7 +57,21 @@ export function Loader() {
     el.setAttribute('aria-hidden', 'true')
   }, [entered])
   const done = entered && ready && lineGone
+  const status = ready ? content.hero.ready : `${line.text}${pct !== null ? ` ${pct}%` : '…'}`
   return (
+    <>
+    {entered && !ready && (
+      <div className="hero-wait">
+        <p className="hero-wait-line" role="status">
+          {status}
+        </p>
+        {fallback && (
+          <a className="hero-wait-link" href={LIST_URL}>
+            {content.site.resume}
+          </a>
+        )}
+      </div>
+    )}
     <div
       ref={root}
       className={`loader hero${entered ? ' entered' : ''}${ready ? ' ready' : ''}${done ? ' done' : ''}`}
@@ -78,12 +96,13 @@ export function Loader() {
           </a>
         </div>
         <div className={`hero-load${ready && lineGone ? ' gone' : ''}`} aria-live="polite">
-          <p className="hero-line">{ready ? content.hero.ready : `${line.text}${pct !== null ? ` ${pct}%` : '…'}`}</p>
+          <p className="hero-line">{status}</p>
           <div className="hero-bar" role="progressbar" aria-label={content.site.loading} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)}>
             <span style={{ width: `${Math.round(p * 100)}%` }} />
           </div>
         </div>
       </div>
     </div>
+    </>
   )
 }
