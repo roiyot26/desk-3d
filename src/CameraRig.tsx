@@ -9,10 +9,13 @@ import type { RoomInfo } from './analyze'
 import type { Quality } from './quality'
 import { getUI, setUI, subscribe, useUI } from './store'
 import { gsap, useGSAP } from './gsap'
-import { markerTargetFor, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
+import { freeCentreNdc, markerTargetFor, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
 import { STOPS, content } from './content'
 import { CHAT_INSET, CHAT_SHEET_QUERY, chatWidth } from './duck/DuckChat'
 import { audio } from './audio'
+
+/** Read-only for other modules (room labels hide while a GSAP fly runs). */
+export const rigFlags = { flying: false }
 
 /**
  * Desktop: the docked duck chat covers the right of the canvas (station panels open beside it;
@@ -571,6 +574,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         tween.current?.kill()
         c.enabled = false
         st.flying = true
+        rigFlags.flying = true
         st.flyTo = to
         st.flyRelease = release
         const p0 = from.position.clone()
@@ -601,6 +605,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         const done = () => {
           tween.current = null
           st.flying = false
+          rigFlags.flying = false
           st.flyTo = null
           if (release) {
             st.focused = false
@@ -659,7 +664,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         // targets.ts); otherwise frame the clicked object.
         const base = fovFor(size.width / size.height)
         const sheet = STOPS.find((x) => x.id === ui.open?.id)?.kind === 'duck' ? DUCK_SHEET : 0.5
-        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dockedLayout(size.width)) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : undefined }), fov: base }
+        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dockedLayout(size.width)) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : undefined, xc: book ? freeCentreNdc(size.width, ...dockedLayout(size.width)) : undefined }), fov: base }
         st.focused = true
         // Sync FOV zoom to the framed lens so pinch/wheel scale the photo from here, not from free-roam.
         if (to.fov !== undefined) st.zoom = THREE.MathUtils.clamp(to.fov / base, ZOOM_MIN, ZOOM_MAX)

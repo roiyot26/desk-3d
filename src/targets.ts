@@ -233,6 +233,16 @@ export function markerTargetFor(targets: Map<string, Target>, id: string): Targe
 export type Pose = { position: THREE.Vector3; target: THREE.Vector3; fov?: number }
 
 /**
+ * Desktop: NDC x of the panel's free area centre, before the rig's projection shift (setViewOffset
+ * moves the image left by `shift` px). Shared by the stop cameras and the featured book.
+ */
+export function freeCentreNdc(W: number, chat = 0, shift = chat / 2, free?: { l: number; r: number }): number {
+  const panel = Math.min(420, 0.4 * W) + 32
+  const visW = Math.max(W - panel, W * 0.45)
+  return free ? ((free.l + free.r) / 2 + shift) / (W / 2) - 1 : chat > 0 ? ((W - panel - chat) / 2 + shift) / (W / 2) - 1 : visW / W - 1
+}
+
+/**
  * Framed view from a Blender STOP camera. The reference lens should cover the part of the screen
  * the panel leaves free (left of the side panel on desktop, above the bottom sheet on phones), so
  * we widen the FOV by that ratio and turn the look-at point so the subject sits in that free area.
@@ -252,13 +262,12 @@ export function poseFromStopCam(c: StopCam, size: { width: number; height: numbe
     // `chat`: px of the docked duck chat. The rig shifts the projection left by `shift`
     // (setViewOffset), so the subject is aimed at the panel's free area here and the lens is
     // fitted to what is really left visible.
-    const visW = Math.max(W - panel, W * 0.45)
     const fitW = free ? Math.max(free.r - free.l, W * 0.25) : Math.max(W - panel - chat, W * 0.3)
     let tanH = Math.tan(c.hfov / 2) * (W / fitW)
     const vfov = THREE.MathUtils.clamp(deg(2 * Math.atan(tanH / A)), 24, 70)
     tanH = Math.tan(THREE.MathUtils.degToRad(vfov) / 2) * A
     // NDC x of the free area's centre, before the rig's projection shift moves it left by `shift`.
-    const xc = free ? ((free.l + free.r) / 2 + shift) / (W / 2) - 1 : chat > 0 ? ((W - panel - chat) / 2 + shift) / (W / 2) - 1 : visW / W - 1
+    const xc = freeCentreNdc(W, chat, shift, free)
     target.addScaledVector(right, -xc * d * tanH)
     return { position: c.position.clone(), target, fov: vfov }
   }
@@ -278,7 +287,7 @@ export function poseFromStopCam(c: StopCam, size: { width: number; height: numbe
  */
 export function poseFor(
   t: Target,
-  ctx: { home: Pose; safe: THREE.Box3; aspect: number; fov: number; info: RoomInfo; /** Portrait: fit the whole object into the top `above` of the screen (clear of the station sheet). */ above?: number },
+  ctx: { home: Pose; safe: THREE.Box3; aspect: number; fov: number; info: RoomInfo; /** Portrait: fit the whole object into the top `above` of the screen (clear of the station sheet). */ above?: number; /** Landscape: put the object's centre at this NDC x (the panel's free area, see freeCentreNdc) instead of the generic left offset. */ xc?: number },
 ): Pose {
   const size = t.box.getSize(new THREE.Vector3())
   const radius = Math.max(size.length() / 2, 0.12)
@@ -307,6 +316,6 @@ export function poseFor(
   // Portrait: aim below the object so it sits in the free band at the top (centre of that band).
   if (above) target.addScaledVector(up, -d * Math.tan(vfov / 2) * (1 - above))
   else if (ctx.aspect < 0.85) target.addScaledVector(up, -d * Math.tan(vfov / 2) * 0.42)
-  else target.addScaledVector(right, d * Math.tan(hfov / 2) * 0.32)
+  else target.addScaledVector(right, d * Math.tan(hfov / 2) * (ctx.xc !== undefined ? -ctx.xc : 0.32))
   return { position, target }
 }

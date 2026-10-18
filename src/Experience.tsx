@@ -13,6 +13,7 @@ import { LightMixer } from './LightMixer'
 import { Hotspots } from './Hotspots'
 import { setCanvasElement } from './interact'
 import { Overlay } from './Overlay'
+import { RoomLabels } from './Labels'
 import { Post, RendererToneMapping, toneOverride, type Tone } from './Post'
 import { RainGlass, RainStreaks } from './Rain'
 import { OpenWalls, RoomLights, RoomModel, glbRain, roomScene } from './Room'
@@ -261,6 +262,7 @@ export default function Experience({ onFatal, initialTier }: { onFatal: Fatal; i
           </>
         )}
       </Canvas>
+      <RoomLabels />
       <Overlay />
     </>
   )

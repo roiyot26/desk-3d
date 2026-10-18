@@ -12,6 +12,8 @@ import { getUI, useUI } from './store'
 import { type Target } from './targets'
 import { cueDebug } from './duck/DuckRig'
 import { sharpenTextTexture, snapToPixel } from './sharp'
+import { LabelDriver, labelDebug, shownLabels } from './Labels'
+import { rigFlags } from './CameraRig'
 
 /** Big invisible hit boxes for small objects and the hover label. No tour markers (stations get hint rims in a later PR). */
 export function Hotspots() {
@@ -23,6 +25,7 @@ export function Hotspots() {
     <>
       {list.filter((t) => t.proxy).map((t) => <Proxy key={t.key} t={t} />)}
       <HoverLabel />
+      <LabelDriver />
       <ScreenSlot targets={targets} />
       <SwitchRocker targets={targets} />
       {DEBUG && <DebugHooks />}
@@ -49,7 +52,8 @@ function HoverLabel() {
   const targets = useUI((s) => s.targets)
   const t = hovered ? targets.get(hovered) : undefined
   // Mouse hover only: a tap already opens the station (touch ↔ desktop parity).
-  if (!t || open) return null
+  // The eight labelled objects already carry an always-visible chip; only fall back when it's hidden.
+  if (!t || open || shownLabels.has(t.id)) return null
   return (
     <Html position={[t.anchor.x, t.anchor.y + (t.def.marker ? 0.09 : 0), t.anchor.z]} center zIndexRange={[35, 30]} calculatePosition={snapToPixel}>
       <div key={t.key} className="hover-label" role="status">
@@ -198,6 +202,8 @@ function DebugHooks() {
         return { pos: r(camera.position), target: c ? r(c.target) : null, controlsEnabled: c?.enabled ?? null, fov: +(camera as THREE.PerspectiveCamera).fov.toFixed(2), viewOffsetX: (camera as THREE.PerspectiveCamera).view?.enabled ? (camera as THREE.PerspectiveCamera).view!.offsetX : 0 }
       },
       open: (id: string) => activate(id),
+      /** Room labels: last layout (chip rects, shown, leader), the UI frame and whether the camera counts as moving. */
+      labels: () => ({ flying: rigFlags.flying, moving: labelDebug.moving, frame: labelDebug.frame, out: labelDebug.last }),
       /** Free roam: face a compass heading (0 = N = -Z window wall, 90 = E = +X door wall, 180 = S, 270 = W) and pitch. */
       look: (yawDeg: number, pitchDeg = 0) => {
         const c = controls as unknown as { enableDamping: boolean; setAzimuthalAngle: (a: number) => void; setPolarAngle: (a: number) => void; update: () => void } | null
