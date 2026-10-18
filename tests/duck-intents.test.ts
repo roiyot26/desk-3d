@@ -149,3 +149,17 @@ describe('duck intents v2: content rules', () => {
     for (const s of content.stops) expect(s.kicker, s.id).not.toMatch(/^Stop \d/)
   })
 })
+
+describe('Hawkeye F1: answers name the résumé link by its current label', () => {
+  const strings = (o: unknown): string[] =>
+    typeof o === 'string' ? [o] : Array.isArray(o) ? o.flatMap(strings) : o && typeof o === 'object' ? Object.values(o).flatMap(strings) : []
+  it('no copy references the old "Just the résumé" link', () => {
+    const hits = strings(content).filter((t) => /just the r[ée]sum[ée]/i.test(t))
+    expect(hits).toEqual([])
+  })
+  it('the résumé answer points at "Quick version (1 page)"', () => {
+    const resume = content.duck.intents.find((i) => i.id === 'resume')!
+    expect(resume.reply).toContain(content.site.resume)
+    expect(content.site.resume).toBe('Quick version (1 page)')
+  })
+})
