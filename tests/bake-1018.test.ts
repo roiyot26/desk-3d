@@ -278,3 +278,30 @@ describe('Shuri PR #9 #78: phone arrival keeps room for the "Ask the duck" chip'
     })
   }
 })
+
+describe('1018b package (Shuri #75 / #77 / #78)', () => {
+  it('poster.jpg is the 1018b render: a 1280×823 JPEG, kept light', () => {
+    const jpg = readFileSync('public/poster.jpg')
+    expect(jpg.readUInt16BE(0)).toBe(0xffd8)
+    let i = 2
+    let size: [number, number] | null = null
+    while (i < jpg.length) {
+      const marker = jpg.readUInt16BE(i)
+      const len = jpg.readUInt16BE(i + 2)
+      if (marker >= 0xffc0 && marker <= 0xffc2) {
+        size = [jpg.readUInt16BE(i + 7), jpg.readUInt16BE(i + 5)]
+        break
+      }
+      i += 2 + len
+    }
+    expect(size).toEqual([1280, 823])
+    expect(jpg.length).toBeLessThan(80_000)
+  })
+  it('the GLB carries the sticky, mug and monitor textures, and the web payload stays under 10 MB', () => {
+    const imgs = new Set(gltf.images.map((im) => im.name))
+    for (const n of ['sticky_nowbuilding', 'mug_at', 'screen_monitor_projects']) expect(imgs.has(n), n).toBe(true)
+    const files = ['public/bake/desk.glb', ...readdirSync('public/bake/lightmaps').filter((f) => f.endsWith('.ktx2')).map((f) => `public/bake/lightmaps/${f}`), 'public/bake/env/room_env.ktx2']
+    const total = files.reduce((s, f) => s + readFileSync(f).length, 0)
+    expect(total).toBeLessThan(10_000_000)
+  })
+})
