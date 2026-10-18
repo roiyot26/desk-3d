@@ -1695,6 +1695,9 @@ a {
 }
 .room-label.on { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 200ms ease, visibility 0s linear 0s; }
 /* travel stays clean: everything fades while the camera moves (back 250 ms after it settles, driven in Labels.tsx) */
+/* multi-touch never belongs to a label (Hawkeye #8 F3): fingers pass through to the canvas until all are up */
+.room-labels.gesture .room-label { pointer-events: none; }
+.room-label { touch-action: none; }
 .room-labels.moving .room-label { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 200ms ease, visibility 0s linear 200ms; }
 /* 44×44 touch target; the padding is transparent */
 .room-label::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }

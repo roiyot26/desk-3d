@@ -31,9 +31,9 @@ describe('B2: label layout', () => {
     // b's anchor sits 20 px below a's: its chip would overlap; a 14 px nudge isn't enough for a 28 px chip, so it hides
     const out = layoutLabels([item('b', 3, 520, 420), item('a', 1, 500, 400)], frame())
     expect(shown(out)).toEqual(['a'])
-    // anchors 36 px apart vertically: an 8–12 px nudge clears it (leader stretches)
-    // b's chip bottom would sit 6 px inside a's top (plus the 2 px gap): an 8 px nudge clears it and the leader stretches to 18
-    const out2 = layoutLabels([item('a', 1, 500, 400), item('b', 3, 520, 376)], frame())
+    // Collisions use the 44 px tap areas (a's spans 354–398): b's would end 6 px inside it (plus the 2 px gap),
+    // so an 8 px nudge clears it and the leader stretches to 18
+    const out2 = layoutLabels([item('a', 1, 500, 400), item('b', 3, 520, 360)], frame())
     expect(shown(out2)).toEqual(['a', 'b'])
     const b = out2.find((o) => o.id === 'b')!
     expect(b.leader).toBe(18)
@@ -67,9 +67,9 @@ describe('B2: label layout', () => {
     expect(s).toContain('p7') // within 2.2 m: comes in on phones
     expect(s).not.toContain('p4')
   })
-  it('desktop shows all 8 when there is room', () => {
+  it('desktop: at most 5 even when all 8 fit, the top 5 by priority', () => {
     const items = Array.from({ length: 8 }, (_, i) => item(`d${i}`, i, 100 + i * 160, 300))
-    expect(shown(layoutLabels(items, frame())).length).toBe(8)
+    expect(shown(layoutLabels(items, frame()))).toEqual(['d0', 'd1', 'd2', 'd3', 'd4'])
   })
   it('never overlaps, in 500 random rooms', () => {
     let seed = 7

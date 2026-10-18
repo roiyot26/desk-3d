@@ -33,10 +33,65 @@ export const shownLabels = new Set<string>()
 /** ?debug read-out for the shot metrics. */
 export const labelDebug: { last: LabelOut[]; moving: boolean; frame: LabelFrame | null } = { last: [], moving: false, frame: null }
 
+/**
+ * Multi-touch never belongs to a label (Hawkeye #8 F3): from the moment a second finger lands until every
+ * finger is up, the layer is pointer-events: none (`.room-labels.gesture`) so new touches land on the canvas,
+ * and the camera's pinch reads touches from the whole document, including a finger that started on a chip.
+ * A label's click right after a gesture is swallowed; a single tap still opens.
+ */
+export const labelGesture = { active: false, endedAt: -Infinity }
+export const GESTURE_CLICK_GUARD_MS = 350
+export function labelClickAllowed(now = performance.now()) {
+  return !labelGesture.active && now - labelGesture.endedAt > GESTURE_CLICK_GUARD_MS
+}
+export function trackLabelGesture(doc: Document, onChange: (active: boolean) => void) {
+  const touch = new Set<number>()
+  const set = (on: boolean) => {
+    if (on === labelGesture.active) return
+    labelGesture.active = on
+    if (!on) labelGesture.endedAt = performance.now()
+    onChange(on)
+  }
+  const down = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch') return
+    touch.add(e.pointerId)
+    if (touch.size > 1) set(true)
+  }
+  const up = (e: PointerEvent) => {
+    touch.delete(e.pointerId)
+    if (!touch.size) set(false)
+  }
+  const tStart = (e: TouchEvent) => {
+    if (e.touches.length > 1) set(true)
+  }
+  const tEnd = (e: TouchEvent) => {
+    if (!e.touches.length) {
+      touch.clear()
+      set(false)
+    }
+  }
+  const o = { capture: true, passive: true } as const
+  doc.addEventListener('pointerdown', down, o)
+  doc.addEventListener('pointerup', up, o)
+  doc.addEventListener('pointercancel', up, o)
+  doc.addEventListener('touchstart', tStart, o)
+  doc.addEventListener('touchend', tEnd, o)
+  doc.addEventListener('touchcancel', tEnd, o)
+  return () => {
+    doc.removeEventListener('pointerdown', down, o)
+    doc.removeEventListener('pointerup', up, o)
+    doc.removeEventListener('pointercancel', up, o)
+    doc.removeEventListener('touchstart', tStart, o)
+    doc.removeEventListener('touchend', tEnd, o)
+    doc.removeEventListener('touchcancel', tEnd, o)
+  }
+}
+
 export function RoomLabels() {
   const ready = useUI((s) => s.stage === 'ready' && s.entered)
   const targets = useUI((s) => s.targets)
   const keys = useMemo(() => new Map(LABELS.map((l) => [l.id, markerTargetFor(targets, l.id)?.key])), [targets])
+  useEffect(() => trackLabelGesture(document, (on) => root?.classList.toggle('gesture', on)), [])
   if (!ready) return null
   return (
     <div
@@ -62,6 +117,7 @@ export function RoomLabels() {
           // A mouse press would focus the button inside an aria-hidden group; the click still fires.
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
+            if (!labelClickAllowed()) return
             // Projects label: land on the project card, not the panel's bio (Shuri #50).
             if (l.id === 'stop-1') panelFocus.card = true
             tapKey(keys.get(l.id) ?? null)
@@ -103,7 +159,8 @@ export function labelAnchors(targets: Map<string, Target>) {
     const box = t.box.clone()
     if (l.id === 'stop-3') for (const o of targets.values()) if (o.id === l.id) box.union(o.box)
     const c = box.getCenter(new THREE.Vector3())
-    return [{ ...l, anchor: new THREE.Vector3(c.x, box.max.y + LABEL_LIFT_M, c.z) }]
+    // Ask the duck keeps its chip and leader above the duck's whole box (Hawkeye #8 WARN-1).
+    return [{ ...l, anchor: new THREE.Vector3(c.x, box.max.y + LABEL_LIFT_M, c.z), own: l.priority === 0 ? box : undefined }]
   })
 }
 
@@ -118,6 +175,18 @@ export function posterLifted(): boolean {
 const v = new THREE.Vector3()
 let screenBoxes: THREE.Box3[] | null = null
 const corner = new THREE.Vector3()
+/** A world box as a screen rect (px); null when any corner is behind the camera. */
+export function projectBox(b: THREE.Box3, camera: THREE.Camera, w: number, h: number): Rect | null {
+  let l = Infinity, t = Infinity, r = -Infinity, bt = -Infinity
+  for (let k = 0; k < 8; k++) {
+    corner.set(k & 1 ? b.max.x : b.min.x, k & 2 ? b.max.y : b.min.y, k & 4 ? b.max.z : b.min.z).project(camera)
+    if (corner.z > 1 || corner.z < -1) return null
+    const x = (corner.x + 1) * 0.5 * w
+    const y = (1 - corner.y) * 0.5 * h
+    l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); bt = Math.max(bt, y)
+  }
+  return { l, t, r, b: bt }
+}
 /** The two featured screens (ScreenSlot_Monitor, ScreenSlot_Laptop) as screen-space rects in front of the camera. */
 function screenRects(camera: THREE.Camera, w: number, h: number) {
   if (!screenBoxes) {
@@ -129,15 +198,8 @@ function screenRects(camera: THREE.Camera, w: number, h: number) {
   }
   const out: { rect: Rect; minPriority: number }[] = []
   for (const b of screenBoxes) {
-    let l = Infinity, t = Infinity, r = -Infinity, bt = -Infinity, ok = true
-    for (let k = 0; k < 8; k++) {
-      corner.set(k & 1 ? b.max.x : b.min.x, k & 2 ? b.max.y : b.min.y, k & 4 ? b.max.z : b.min.z).project(camera)
-      if (corner.z > 1 || corner.z < -1) ok = false
-      const x = (corner.x + 1) * 0.5 * w
-      const y = (1 - corner.y) * 0.5 * h
-      l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); bt = Math.max(bt, y)
-    }
-    if (ok) out.push({ rect: { l, t, r, b: bt }, minPriority: SCREEN_MIN_PRIORITY })
+    const rect = projectBox(b, camera, w, h)
+    if (rect) out.push({ rect, minPriority: SCREEN_MIN_PRIORITY })
   }
   return out
 }
@@ -205,11 +267,14 @@ export function LabelDriver() {
         w,
         h,
         hidden: openId === a.id,
+        own: a.own ? projectBox(a.own, camera, size.width, size.height) ?? undefined : undefined,
+        softScreens: a.priority === 0,
       })
     }
-    const out = layoutLabels(items, { ...s.frame, screens: screenRects(camera, size.width, size.height) })
+    const frame = { ...s.frame, screens: screenRects(camera, size.width, size.height) }
+    const out = layoutLabels(items, frame)
     labelDebug.last = out
-    labelDebug.frame = { ...s.frame, screens: screenRects(camera, size.width, size.height) }
+    labelDebug.frame = frame
     shownLabels.clear()
     for (const o of out) {
       const el = els.get(o.id)
@@ -221,6 +286,7 @@ export function LabelDriver() {
       el.style.transform = `translate(${o.rect.l}px, ${o.rect.t}px)`
       el.style.setProperty('--leader', `${o.leader}px`)
       el.style.setProperty('--lead-x', `${Math.round(o.x - o.rect.l)}px`)
+      // The leader ends at o.y (the duck: its box top), LEADER + nudge below the chip.
     }
   })
   return null

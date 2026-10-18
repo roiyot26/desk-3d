@@ -25,6 +25,10 @@ export type LabelIn = {
   h: number
   /** Hidden by state (its panel is open). */
   hidden?: boolean
+  /** Projected rect of the label's own object (Ask the duck): the chip and its leader stay above it. */
+  own?: Rect
+  /** Screens are soft obstacles for this label: avoided when any placement allows it, else ignored. */
+  softScreens?: boolean
 }
 
 export type LabelFrame = {
@@ -61,8 +65,12 @@ export const EDGE = 24
 export const GAP = 2
 /** Chips stay this far inside the viewport sides. */
 export const SIDE = 8
-export const PHONE_MAX = 5
-/** Phones: labels beyond the top 5 come in when the camera is this close (metres). */
+/** At most this many chips at once (RULING 2026-10-18 13:55: ≤3 on phones, ≤5 on desktop). */
+export const PHONE_MAX = 3
+export const DESKTOP_MAX = 5
+/** Every chip's tap area is at least this big, centred on the chip (`.room-label::before`). */
+export const HIT = 44
+/** Phones: far labels yield to ones the camera is this close to (metres). */
 export const NEAR_M = 2.2
 /** Screens block labels from Stack (priority 3) down; Ask the duck, Projects and 3D for the web may sit over them. */
 export const SCREEN_MIN_PRIORITY = 3
@@ -86,33 +94,72 @@ export function placementOrder(items: LabelIn[], phone: boolean): LabelIn[] {
   return [...items].sort((a, b) => near(a) - near(b) || a.priority - b.priority)
 }
 
-function chipRect(i: LabelIn, f: LabelFrame, nudge: number): Rect {
-  let l = Math.round(i.x - i.w / 2)
-  l = Math.max(SIDE, Math.min(f.w - SIDE - i.w, l))
-  const b = Math.round(i.y - LEADER - nudge)
+/** Sideways shifts (× chip width) tried for a label with soft screens; the anchor stays under the chip, so the leader still drops straight. */
+export const SHIFTS = [0, -0.4, 0.4]
+
+/** The 44 px tap area around a chip (what `.room-label::before` makes hit-testable). */
+export function hitRect(r: Rect): Rect {
+  const w = r.r - r.l, h = r.b - r.t
+  const dx = Math.max(0, HIT - w) / 2, dy = Math.max(0, HIT - h) / 2
+  return { l: r.l - dx, t: r.t - dy, r: r.r + dx, b: r.b + dy }
+}
+
+function chipRect(i: LabelIn, f: LabelFrame, nudge: number, shift = 0, baseY = i.y): Rect {
+  // The tap area, not just the visible chip, stays inside the sides (Hawkeye #8 F2).
+  const side = Math.max(SIDE, Math.max(0, HIT - i.w) / 2)
+  let l = Math.round(i.x - i.w / 2 + shift * i.w)
+  l = Math.max(side, Math.min(f.w - side - i.w, l))
+  const b = Math.round(baseY - LEADER - nudge)
   return { l, t: b - i.h, r: l + i.w, b }
 }
 
+/** Every edge keep-out applies to the 44 px tap area: the frame's sides, top and bottom (the chat sheet), and the UI obstacles. */
+function hitFits(h: Rect, f: LabelFrame): boolean {
+  return h.t >= f.top && h.b <= f.bottom && h.l >= 0 && h.r <= f.w && !f.obstacles.some((o) => overlaps(h, o))
+}
+
 export function layoutLabels(items: LabelIn[], f: LabelFrame): LabelOut[] {
-  const placed: Rect[] = []
+  const placedHits: Rect[] = []
   const out = new Map<string, LabelOut>()
+  const cap = f.phone ? PHONE_MAX : DESKTOP_MAX
   let count = 0
   for (const i of placementOrder(items, f.phone)) {
     const res: LabelOut = { id: i.id, shown: false, rect: chipRect(i, f, 0), leader: LEADER, x: i.x, y: i.y }
     out.set(i.id, res)
     if (i.hidden || !inFrame(i, f)) continue
-    if (f.phone && count >= PHONE_MAX) continue
-    for (const n of NUDGES) {
-      const r = chipRect(i, f, n)
-      if (r.t < f.top + 4) break
-      if (placed.some((p) => overlaps(r, p, GAP)) || f.obstacles.some((o) => overlaps(r, o))) continue
-      if (f.screens?.some((x) => i.priority >= x.minPriority && overlaps(r, x.rect))) continue
-      res.rect = r
-      res.leader = LEADER + n
-      res.shown = true
-      placed.push(r)
-      count++
-      break
+    if (count >= cap) continue
+    // Own object (the duck): the leader ends at the object's projected top, so chip and leader both clear it.
+    const baseY = i.own ? Math.min(i.y, i.own.t) : i.y
+    const hard = (x: { minPriority: number }) => i.priority >= x.minPriority
+    const passes: { shifts: number[]; screen: (x: { minPriority: number }) => boolean }[] = i.softScreens
+      ? [{ shifts: SHIFTS, screen: () => true }, { shifts: [0], screen: hard }]
+      : [{ shifts: [0], screen: hard }]
+    let done = false
+    for (const pass of passes) {
+      for (const sh of pass.shifts) {
+        for (const n of NUDGES) {
+          const r = chipRect(i, f, n, sh, baseY)
+          const h = hitRect(r)
+          if (h.t < f.top) break
+          if (!hitFits(h, f)) continue
+          // Collisions use the tap areas, so neighbouring chips never share a touch (Hawkeye #8 WARN-5); GAP keeps the air between chips.
+          if (placedHits.some((p) => overlaps(h, p, GAP))) continue
+          if (f.screens?.some((x) => pass.screen(x) && overlaps(r, x.rect))) continue
+          if (i.own && overlaps(r, i.own)) continue
+          // The anchor must stay under the chip for the leader to drop straight.
+          if (i.x < r.l + 6 || i.x > r.r - 6) continue
+          res.rect = r
+          res.leader = LEADER + n
+          res.y = baseY
+          res.shown = true
+          placedHits.push(h)
+          count++
+          done = true
+          break
+        }
+        if (done) break
+      }
+      if (done) break
     }
   }
   return items.map((i) => out.get(i.id)!)
