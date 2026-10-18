@@ -4,7 +4,9 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { content } from './content'
 import { rigFlags } from './CameraRig'
 import { tapKey } from './interact'
-import { layoutLabels, type LabelFrame, type LabelIn, type LabelOut, type Rect } from './labelLayout'
+import { panelFocus } from './panelFocus'
+import { roomScene } from './Room'
+import { layoutLabels, SCREEN_MIN_PRIORITY, type LabelFrame, type LabelIn, type LabelOut, type Rect } from './labelLayout'
 import { getUI, useUI } from './store'
 import { markerTargetFor, type Target } from './targets'
 import { SHEET_QUERY } from './useMedia'
@@ -42,8 +44,9 @@ export function RoomLabels() {
       ref={(el) => {
         root = el
       }}
-      role="group"
-      aria-label={content.guide.title}
+      // Pointer/touch shortcuts only (Shuri #49): What's here and the station buttons are the keyboard and
+      // screen-reader path to the same objects, so the chips stay out of the tab order and the a11y tree.
+      aria-hidden="true"
     >
       {LABELS.filter((l) => keys.get(l.id)).map((l) => (
         <button
@@ -55,7 +58,14 @@ export function RoomLabels() {
             if (el) els.set(l.id, el)
             else els.delete(l.id)
           }}
-          onClick={() => tapKey(keys.get(l.id) ?? null)}
+          tabIndex={-1}
+          // A mouse press would focus the button inside an aria-hidden group; the click still fires.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            // Projects label: land on the project card, not the panel's bio (Shuri #50).
+            if (l.id === 'stop-1') panelFocus.card = true
+            tapKey(keys.get(l.id) ?? null)
+          }}
         >
           <span className="room-label-chip">
             {l.priority === 0 && <span className="room-label-dot" aria-hidden="true" />}
@@ -106,6 +116,31 @@ export function posterLifted(): boolean {
 }
 
 const v = new THREE.Vector3()
+let screenBoxes: THREE.Box3[] | null = null
+const corner = new THREE.Vector3()
+/** The two featured screens (ScreenSlot_Monitor, ScreenSlot_Laptop) as screen-space rects in front of the camera. */
+function screenRects(camera: THREE.Camera, w: number, h: number) {
+  if (!screenBoxes) {
+    if (!roomScene) return []
+    screenBoxes = ['ScreenSlot_Monitor', 'ScreenSlot_Laptop'].flatMap((n) => {
+      const o = roomScene!.getObjectByName(n)
+      return o ? [new THREE.Box3().setFromObject(o)] : []
+    })
+  }
+  const out: { rect: Rect; minPriority: number }[] = []
+  for (const b of screenBoxes) {
+    let l = Infinity, t = Infinity, r = -Infinity, bt = -Infinity, ok = true
+    for (let k = 0; k < 8; k++) {
+      corner.set(k & 1 ? b.max.x : b.min.x, k & 2 ? b.max.y : b.min.y, k & 4 ? b.max.z : b.min.z).project(camera)
+      if (corner.z > 1 || corner.z < -1) ok = false
+      const x = (corner.x + 1) * 0.5 * w
+      const y = (1 - corner.y) * 0.5 * h
+      l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); bt = Math.max(bt, y)
+    }
+    if (ok) out.push({ rect: { l, t, r, b: bt }, minPriority: SCREEN_MIN_PRIORITY })
+  }
+  return out
+}
 const lastPos = new THREE.Vector3()
 const lastQ = new THREE.Quaternion()
 
@@ -172,9 +207,9 @@ export function LabelDriver() {
         hidden: openId === a.id,
       })
     }
-    const out = layoutLabels(items, s.frame)
+    const out = layoutLabels(items, { ...s.frame, screens: screenRects(camera, size.width, size.height) })
     labelDebug.last = out
-    labelDebug.frame = s.frame
+    labelDebug.frame = { ...s.frame, screens: screenRects(camera, size.width, size.height) }
     shownLabels.clear()
     for (const o of out) {
       const el = els.get(o.id)

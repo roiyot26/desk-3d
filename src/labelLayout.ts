@@ -35,6 +35,8 @@ export type LabelFrame = {
   bottom: number
   /** UI rects chips must not cover (HUD, side panels, popovers). */
   obstacles: Rect[]
+  /** Projected rects that only block labels at or below `minPriority` (Shuri #51: the monitor and laptop screens, so Contact never reads as the laptop's label). */
+  screens?: { rect: Rect; minPriority: number }[]
   phone: boolean
 }
 
@@ -62,6 +64,8 @@ export const SIDE = 8
 export const PHONE_MAX = 5
 /** Phones: labels beyond the top 5 come in when the camera is this close (metres). */
 export const NEAR_M = 2.2
+/** Screens block labels from Stack (priority 3) down; Ask the duck, Projects and 3D for the web may sit over them. */
+export const SCREEN_MIN_PRIORITY = 3
 
 export function overlaps(a: Rect, b: Rect, gap = 0): boolean {
   return a.l < b.r + gap && b.l < a.r + gap && a.t < b.b + gap && b.t < a.b + gap
@@ -102,6 +106,7 @@ export function layoutLabels(items: LabelIn[], f: LabelFrame): LabelOut[] {
       const r = chipRect(i, f, n)
       if (r.t < f.top + 4) break
       if (placed.some((p) => overlaps(r, p, GAP)) || f.obstacles.some((o) => overlaps(r, o))) continue
+      if (f.screens?.some((x) => i.priority >= x.minPriority && overlaps(r, x.rect))) continue
       res.rect = r
       res.leader = LEADER + n
       res.shown = true

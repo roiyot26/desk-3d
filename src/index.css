@@ -1677,9 +1677,7 @@ a {
   color: var(--ink); font: 600 13px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; white-space: nowrap;
   transition: border-color 120ms ease;
 }
-.room-label:hover .room-label-chip, .room-label.hot .room-label-chip, .room-label:focus-visible .room-label-chip { border-color: rgba(240, 178, 115, 0.6); }
-.room-label:focus-visible { outline: none; }
-.room-label:focus-visible .room-label-chip { outline: 2px solid #f0b273; outline-offset: 2px; }
+.room-label:hover .room-label-chip, .room-label.hot .room-label-chip { border-color: rgba(240, 178, 115, 0.6); }
 .room-label-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .room-label-leader { position: absolute; left: var(--lead-x, 50%); top: 100%; width: 1px; height: var(--leader, 10px); background: rgba(176, 141, 87, 0.5); pointer-events: none; }
 @media (max-width: 700px), (max-aspect-ratio: 4/5) {
@@ -1688,3 +1686,7 @@ a {
 @media (prefers-reduced-motion: reduce) {
   .room-label, .room-label.on, .room-labels.moving .room-label, .room-label-chip { transition: none !important; }
 }
+
+/* stop-1 opened from the Projects label: the card takes focus (Shuri #50) */
+.carousel .card:focus { outline: none; }
+.carousel .card:focus-visible { outline: 2px solid #f0b273; outline-offset: 4px; border-radius: 10px; }

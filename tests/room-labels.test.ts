@@ -133,3 +133,16 @@ describe('B2 (Fury): poster dips to dark, never blends over the live room', () =
     expect(html).not.toMatch(/transition: opacity 1s ease/)
   })
 })
+
+describe('Shuri #51: the monitor and laptop screens block lower-priority labels', () => {
+  const screen = { rect: { l: 400, t: 300, r: 700, b: 520 }, minPriority: 3 }
+  it('Contact (priority 4) never sits on a screen', () => {
+    expect(shown(layoutLabels([item('stop-6', 4, 660, 480)], frame({ screens: [screen] })))).toEqual([])
+  })
+  it('Ask the duck, Projects and 3D for the web may', () => {
+    expect(shown(layoutLabels([item('stop-7', 0, 500, 480), item('stop-2', 2, 640, 420)], frame({ screens: [screen] })))).toEqual(['stop-7', 'stop-2'])
+  })
+  it('off the screen, Contact shows as before', () => {
+    expect(shown(layoutLabels([item('stop-6', 4, 900, 480)], frame({ screens: [screen] })))).toEqual(['stop-6'])
+  })
+})

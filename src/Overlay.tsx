@@ -1,3 +1,4 @@
+import { panelFocus } from './panelFocus'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { STOPS, content, contactLinks, noteById, text, type Stop } from './content'
 import { closePanel, openPanel, parseHash } from './nav'
@@ -373,9 +374,24 @@ function Projects({ initial }: { initial?: string }) {
     if (getUI().open?.id === 'stop-1') history.replaceState(null, '', `${window.location.pathname}${window.location.search}#project-${p.slug}`)
   }, [p.slug])
   const go = (d: number) => setI((i + d + list.length) % list.length)
+  // Opened from the room's Projects label: land on the card, not the bio above it (Shuri #50). The
+  // panel focuses itself on open, so take focus two frames later.
+  const card = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!panelFocus.card) return
+    panelFocus.card = false
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const el = card.current
+        if (!el) return
+        el.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+        el.focus({ preventScroll: true })
+      }),
+    )
+  }, [])
   return (
     <div className="carousel" aria-roledescription="carousel" aria-label="Projects">
-      <article className="card" aria-live="polite">
+      <article ref={card} className="card" aria-live="polite" tabIndex={-1} aria-label={p.name}>
         <h3>{p.name}</h3>
         <p className="tagline">{p.tagline}</p>
         <p>{p.serious}</p>
