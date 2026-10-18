@@ -31,6 +31,14 @@ describe('Hawkeye #7 F2: the "3 steps" toggle never overlaps the next answer', (
     expect(+m[2]).toBeGreaterThanOrEqual(-12)
     expect(css).toMatch(/\.chat \.duck-turn \{ display: flex; flex-direction: column; gap: 12px;/)
   })
+  it('re-gate @c5359c7: ≥4px real clearance below, lifted above the answer, square hit layer at the corners', () => {
+    const rule = css.slice(css.indexOf('.duck-ticker.toggle {'), css.indexOf('}', css.indexOf('.duck-ticker.toggle {')))
+    const m = rule.match(/margin: (-?\d+)px 0 (-?\d+)px/)!
+    expect(12 + +m[2]).toBeGreaterThanOrEqual(4) // turn gap 12px minus the bottom pull-in
+    expect(rule).toMatch(/position: relative/)
+    expect(rule).toMatch(/z-index: 1/)
+    expect(css).toMatch(/\.duck-ticker\.toggle::after \{ content: ''; position: absolute; inset: 0; \}/)
+  })
 })
 
 describe('Hawkeye #7 WARN-4 / Fury: the résumé answer says where Quick version is', () => {
