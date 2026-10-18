@@ -1,5 +1,5 @@
 import { panelFocus } from './panelFocus'
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { STOPS, content, noteById, text, type Stop } from './content'
 import { closePanel, openPanel, parseHash } from './nav'
 import { getUI, setUI, useUI } from './store'
@@ -9,6 +9,7 @@ import { Hud, Toast } from './Hud'
 import { useTyping } from './keyboard'
 import { prefersReducedMotion } from './gsap'
 import { flushSync } from 'react-dom'
+import { sheetCap } from './sheetCaps'
 import { SHEET_QUERY, useMedia } from './useMedia'
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
@@ -131,6 +132,8 @@ function Panel() {
   if (!stop && !note) return null
   const title = stop ? stop.title : note!.title
   const kind = stop?.kind ?? note?.kind ?? 'note'
+  // Vision v2.3.1 (a): a lower per-station, per-width cap where the capped frame ran too bright.
+  const cap = phone ? sheetCap(open.id, window.innerWidth) : undefined
   return (
     <>
       <div className="backdrop" aria-hidden="true" />
@@ -140,6 +143,7 @@ function Panel() {
         aria-labelledby="panel-title"
         key={open.id}
         ref={panel}
+        style={cap ? ({ '--sheet-cap': `${cap}px` } as CSSProperties) : undefined}
       >
         <div className="panel-top">
           <button type="button" className="panel-back" onClick={closePanel} aria-label={content.duck.backToChat}>

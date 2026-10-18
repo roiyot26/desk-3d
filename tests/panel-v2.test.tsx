@@ -7,8 +7,10 @@ vi.mock('../src/audio', () => ({ audio: { unlock: () => {}, play: () => {}, quac
 const { content, STOPS } = await import('../src/content')
 const { StopBody, shouldPublish } = await import('../src/Overlay')
 const { headClamp, sentences } = await import('../src/duck/headClamp')
-const { checkPortrait, fitPortrait, phoneBasePose, poseFromStopCam, PHONE_POSES, TARGET_DEFS } = await import('../src/targets')
+const targets = await import('../src/targets')
+const { checkPortrait, fitPortrait, phoneBasePose, poseFromStopCam, PHONE_POSES, TARGET_DEFS } = targets
 const { setUI } = await import('../src/store')
+const { SHEET_CAPS, CAP_FLOOR, CAP_STEP, sheetCap, widthBucket } = await import('../src/sheetCaps')
 const { Loader } = await import('../src/Loader')
 
 const src = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8')
@@ -43,7 +45,7 @@ describe('panel v2.1–v2.3: paper card tokens and type (Vision A2)', () => {
     const phone = paper.slice(paper.indexOf('/* Phones: the half sheet'))
     const sheet = phone.slice(phone.indexOf('html .panel.paper {'), phone.indexOf('}', phone.indexOf('html .panel.paper {')))
     expect(sheet).toMatch(/height: auto/)
-    expect(sheet).toMatch(/max-height: 400px/)
+    expect(sheet).toMatch(/max-height: var\(--sheet-cap, 400px\)/)
     expect(rule('.panel.paper .panel-scroll')).toMatch(/flex: 0 1 auto/)
     expect(phone).toMatch(/width: 96px;\s*height: 44px/)
   })
@@ -102,7 +104,7 @@ describe('panel v2: markup (Loki copy)', () => {
     const panel = o.slice(o.indexOf('function Panel()'), o.indexOf('let fontsGate'))
     expect(panel).toContain('content.duck.backShort')
     expect(panel).not.toMatch(/panel-kicker|panel-close|scroll-more|className="joke"|tour\.close/)
-    expect(content.duck.backShort).toBe('chat')
+    expect(content.duck.backShort).toBe('Chat')
   })
 })
 
@@ -241,5 +243,54 @@ describe('Shuri #65: the download stage at 100% never shows a stuck number', () 
     const line = html.match(/<p class="hero-wait-line[^"]*" aria-hidden="true">(.*?)<\/p>/)![1].replace(/<[^>]+>/g, '')
     expect(line).not.toMatch(/\d+%/)
     expect(src('Loader.tsx')).toContain("const counting = pct !== null && pct > 0 && !(stage === 'download' && progress >= 1)")
+  })
+})
+
+describe('Vision v2.3.1 (a): per-station, per-width phone caps for the 0.46 frame limit', () => {
+  it('stop-5 at 390 and 360 and stop-2 at 360 cap at 376; every other station keeps the CSS default', () => {
+    expect(sheetCap('stop-5', 390)).toBe(376)
+    expect(sheetCap('stop-5', 360)).toBe(376)
+    expect(sheetCap('stop-2', 360)).toBe(376)
+    expect(sheetCap('stop-2', 390)).toBeUndefined()
+    for (const id of ['stop-1', 'stop-3', 'stop-4', 'stop-6', 'aside-now-building']) for (const w of [390, 360]) expect(sheetCap(id, w), `${id}@${w}`).toBeUndefined()
+  })
+  it('caps are 8 px steps down from 400 with a 360 floor', () => {
+    for (const per of Object.values(SHEET_CAPS))
+      for (const cap of Object.values(per)) {
+        expect((400 - cap!) % CAP_STEP).toBe(0)
+        expect(cap!).toBeGreaterThanOrEqual(CAP_FLOOR)
+        expect(cap!).toBeLessThan(400)
+      }
+  })
+  it('width buckets: under 375 px is the 360 phone', () => {
+    expect(widthBucket(360)).toBe('360')
+    expect(widthBucket(374)).toBe('360')
+    expect(widthBucket(390)).toBe('390')
+    expect(widthBucket(430)).toBe('390')
+  })
+  it('the panel passes the cap as --sheet-cap on phones only; the camera reads the computed max-height', () => {
+    const o = src('Overlay.tsx')
+    expect(o).toMatch(/const cap = phone \? sheetCap\(open\.id, window\.innerWidth\) : undefined/)
+    expect(o).toMatch(/'--sheet-cap': `\$\{cap\}px`/)
+    expect(src('CameraRig.tsx')).toMatch(/parseFloat\(cs\.maxHeight\)/)
+  })
+})
+
+describe('Vision v2.3.1: the duck stays ≥24 px clear above the sheet (Monitor/Projects)', () => {
+  const W = 390
+  const H = 844
+  const base = { position: new THREE.Vector3(0, 1.5, 2), target: new THREE.Vector3(0, 0.8, 0), fov: 78 }
+  const duck = new THREE.Box3(new THREE.Vector3(-0.05, 0.62, 0.3), new THREE.Vector3(0.05, 0.72, 0.4))
+  it('a duck 7 px above the sheet fails; the solver moves it to ≥24 px clear, out of frame or under', () => {
+    const { projectBox } = targets
+    const r = projectBox(duck, base, W, H) as { b: number }
+    const sheetTop = Math.round(r.b + 7)
+    expect(checkPortrait(base, undefined, duck, W, H, sheetTop).duck).toBe(false)
+    const fit = fitPortrait(base, { duck }, W, H, sheetTop)
+    expect(fit.fit.ok).toBe(true)
+    const after = projectBox(duck, fit, W, H)
+    const state = checkPortrait(fit, undefined, duck, W, H, sheetTop).duck
+    expect(state).not.toBe(false)
+    if (state === 'above') expect(sheetTop - (after as { b: number }).b).toBeGreaterThanOrEqual(24)
   })
 })
