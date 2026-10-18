@@ -97,6 +97,14 @@ export function labelAnchors(targets: Map<string, Target>) {
   })
 }
 
+/** True once #poster is out and its opacity has reached 0 (or there is no poster). */
+export function posterLifted(): boolean {
+  const p = document.getElementById('poster')
+  if (!p || !p.isConnected) return true
+  const cs = getComputedStyle(p)
+  return cs.display === 'none' || (p.classList.contains('out') && +cs.opacity === 0)
+}
+
 const v = new THREE.Vector3()
 const lastPos = new THREE.Vector3()
 const lastQ = new THREE.Quaternion()
@@ -105,7 +113,7 @@ export function LabelDriver() {
   const { camera, size } = useThree()
   const targets = useUI((s) => s.targets)
   const anchors = useMemo(() => labelAnchors(targets), [targets])
-  const st = useRef({ sizes: new Map<string, [number, number]>(), settleAt: 0, moving: true, primed: false, frame: null as LabelFrame | null, frameAt: 0 })
+  const st = useRef({ sizes: new Map<string, [number, number]>(), settleAt: 0, moving: true, primed: false, frame: null as LabelFrame | null, frameAt: 0, posterGone: false })
   useEffect(() => {
     const s = st.current
     const remeasure = () => s.sizes.clear()
@@ -122,7 +130,9 @@ export function LabelDriver() {
     lastPos.copy(camera.position)
     lastQ.copy(camera.quaternion)
     s.primed = true
-    const fast = rigFlags.flying || speed > MOVE_MS || turn > TURN_RS
+    // No chips until the poster's dark layer has fully lifted off the room (index.html dip-to-dark).
+    if (!s.posterGone) s.posterGone = posterLifted()
+    const fast = !s.posterGone || rigFlags.flying || speed > MOVE_MS || turn > TURN_RS
     if (fast) s.settleAt = now + SETTLE_MS
     const moving = fast || now < s.settleAt
     if (moving !== s.moving) {
