@@ -145,6 +145,10 @@ function uiFrame(w: number, h: number, phone: boolean): LabelFrame {
     if (r.width >= w * 0.9 && r.top > h * 0.3) bottom = Math.min(bottom, r.top)
     else obstacles.push({ l: r.left, t: r.top, r: r.right, b: r.bottom })
   }
+  // v2.3 #66: the open station sheet's measured top (the same edge the camera framed for) wins over
+  // the live rect, which is still sliding in for the first 350 ms.
+  const u = getUI()
+  if (phone && u.open && u.sheetTop?.id === u.open.id && !u.sheetFull) bottom = Math.min(bottom, u.sheetTop.top)
   return { w, h, top: 0, bottom, obstacles, phone }
 }
 

@@ -14,7 +14,6 @@ import type { RoomInfo } from './analyze'
  * mesh-name fallback any more. Fallbacks are kept only for optional things that are genuinely not
  * in the export:
  *   - the duck: if CLICK_Duck ever goes missing, Room.tsx adds a procedural PLACEHOLDER_Duck,
- *   - the sculpture bonus (no such object in this GLB: skipped silently).
  * A target with no match is skipped silently (no marker, no hit area); its panel stays reachable
  * from the progress dots, the deep links and the plain list.
  *
@@ -84,7 +83,6 @@ export const TARGET_DEFS: TargetDef[] = [
   { key: 'lamp-floor', id: 'action-lamp-floor', action: 'lamp-floor', click: ['CLICK_Lamp_Floor'] },
   { key: 'latch', id: 'action-rain', action: 'rain', click: ['CLICK_Window_Latch'] },
   { key: 'neon', id: 'action-neon', action: 'neon', click: ['CLICK_Neon_Sign'] },
-  { key: 'sculpture', id: 'bonus-sculpture', click: ['CLICK_Art_Sculpture'], fallback: /^Sculpt(Ico|Plinth)$/, view: [0.3, 0.1, 1] },
 ]
 
 /**
@@ -271,13 +269,158 @@ export function poseFromStopCam(c: StopCam, size: { width: number; height: numbe
     target.addScaledVector(right, -xc * d * tanH)
     return { position: c.position.clone(), target, fov: vfov }
   }
-  // Portrait: keep the reference width, subject centred in the free area above the bottom sheet
-  // (top 44% for the default 50% sheet, top 29% for the duck's 65% sheet).
+  // Portrait: keep the reference width, subject centred in the free area above the bottom sheet.
+  // `sheet` is sheetFrac = (measured sheet height + peek) / innerHeight (panel v2.3 #66); the free
+  // area runs from the HUD row (FREE_TOP) to the sheet top less the 12 px gap, so its centre sits at
+  // NDC y = 1 - (FREE_TOP + sheetTop - 12) / H. The duck's own 65% sheet keeps the old +0.06 lift.
   const vfov = THREE.MathUtils.clamp(deg(2 * Math.atan(Math.tan(c.hfov / 2) / A)), 40, 78)
   const tanV = Math.tan(THREE.MathUtils.degToRad(vfov) / 2)
-  const yc = 1 - (1 - sheet - 0.06)
+  const yc = 1 - (FREE_TOP + (1 - sheet) * H - SUBJECT_GAP) / H
   target.addScaledVector(up, -yc * d * tanV)
   return { position: c.position.clone(), target, fov: vfov }
+}
+
+// --- Phone station framing (panel v2.2 #61, v2.3 #66) ------------------------------------------
+
+/** Free area on phones: below the HUD row / top label… */
+export const FREE_TOP = 64
+/** …and this far above the station sheet's top edge. */
+export const SUBJECT_GAP = 12
+/** The duck, when visible above the sheet, keeps this much air above the sheet top (rule 2a); under the sheet, Now building wants as much below it (2c). */
+export const DUCK_CLEAR = 24
+const SIDE = 4
+
+/**
+ * Vision's verified phone base poses (glTF metres, `panel-v2/v22-capture/poses2.json` and
+ * `poses3.json`). stop-2 uses a front pose (its STOP_2 cam cuts the laptop under the sheet and the
+ * dolly-back clips a wall at 360); Contact and Now building use the v2.3 hugged-sheet poses. The
+ * solver below still checks them against the measured sheet and only nudges if a rule fails.
+ */
+export const PHONE_POSES: Record<string, { w: number; P: [number, number, number]; T: [number, number, number]; fov: number }[]> = {
+  'stop-2': [
+    { w: 390, P: [0.842, 1.565, 0.912], T: [0.527, 0.362, 0.236], fov: 78 },
+    { w: 360, P: [0.199, 1.117, 1.04], T: [0.367, 0.288, 0.086], fov: 78 },
+  ],
+  'stop-6': [
+    { w: 390, P: [1.05, 1.15, 0.88], T: [0.654, 0.479, 0.324], fov: 78 },
+    { w: 360, P: [1.05, 1.15, 0.88], T: [0.654, 0.479, 0.325], fov: 78 },
+  ],
+  'aside-now-building': [
+    { w: 390, P: [0.313, 1.338, 0.39], T: [0.147, 0.998, -0.136], fov: 72 },
+    { w: 360, P: [0.313, 1.338, 0.39], T: [0.151, 0.985, -0.123], fov: 72 },
+  ],
+}
+
+export function phoneBasePose(id: string, W: number): Pose | undefined {
+  const list = PHONE_POSES[id]
+  if (!list) return undefined
+  const p = list.reduce((a, b) => (Math.abs(b.w - W) < Math.abs(a.w - W) ? b : a))
+  return { position: new THREE.Vector3(...p.P), target: new THREE.Vector3(...p.T), fov: p.fov }
+}
+
+export type ScreenRect = { l: number; t: number; r: number; b: number }
+/** Projected screen rect of a world box, or 'behind' when every corner is behind the camera, or null when it straddles the camera plane. */
+export function projectBox(box: THREE.Box3, pose: Pose, W: number, H: number): ScreenRect | 'behind' | null {
+  const cam = new THREE.PerspectiveCamera(pose.fov ?? 60, W / H, 0.02, 100)
+  cam.position.copy(pose.position)
+  cam.lookAt(pose.target)
+  cam.updateMatrixWorld()
+  const inv = cam.matrixWorldInverse
+  let behind = 0
+  const r: ScreenRect = { l: Infinity, t: Infinity, r: -Infinity, b: -Infinity }
+  const v = new THREE.Vector3()
+  for (let i = 0; i < 8; i++) {
+    v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z)
+    const z = v.clone().applyMatrix4(inv).z
+    if (z > -0.02) {
+      behind++
+      continue
+    }
+    v.project(cam)
+    const x = ((v.x + 1) / 2) * W
+    const y = ((1 - v.y) / 2) * H
+    r.l = Math.min(r.l, x)
+    r.r = Math.max(r.r, x)
+    r.t = Math.min(r.t, y)
+    r.b = Math.max(r.b, y)
+  }
+  if (behind === 8) return 'behind'
+  if (behind > 0) return null
+  return r
+}
+
+export type FrameCheck = { subject: boolean; duck: 'above' | 'out' | 'under' | false }
+/** The #61 rules 1 and 2 against a sheet top (px). `duckUnder`: required gap when the duck sits under the sheet. */
+export function checkPortrait(pose: Pose, subject: THREE.Box3 | undefined, duck: THREE.Box3 | undefined, W: number, H: number, sheetTop: number, duckUnder = DUCK_CLEAR): FrameCheck {
+  let subj = true
+  if (subject) {
+    const s = projectBox(subject, pose, W, H)
+    subj = !!s && s !== 'behind' && s.t >= FREE_TOP && s.b <= sheetTop - SUBJECT_GAP && s.l >= SIDE && s.r <= W - SIDE
+  }
+  let dk: FrameCheck['duck'] = 'out'
+  if (duck) {
+    const d = projectBox(duck, pose, W, H)
+    if (d === 'behind') dk = 'out'
+    else if (!d) dk = false
+    else if (d.r < 0 || d.l > W || d.b < 0 || d.t > H) dk = 'out'
+    else if (d.t >= sheetTop + duckUnder) dk = 'under'
+    else if (d.b <= sheetTop - DUCK_CLEAR && d.l >= 0 && d.r <= W && d.t >= 0) dk = 'above'
+    else dk = false
+  }
+  return { subject: subj, duck: dk }
+}
+
+/**
+ * The #61 portrait solver ("How Forge gets there"): if the subject or the duck rule fails, step the
+ * aim `s` (look-at along camera-up, in units of d·tan(vfov/2)), then lower the elevation by up to
+ * −14°, then dolly back up to k = 1.3, re-checking each time. vfov stays as given. `aimOnly`
+ * (a panel with no target of its own) allows the ±0.25 aim nudge and nothing else.
+ */
+export function fitPortrait(
+  base: Pose,
+  boxes: { subject?: THREE.Box3; duck?: THREE.Box3 },
+  W: number,
+  H: number,
+  sheetTop: number,
+  opts: { aimOnly?: boolean; duckUnder?: number; safe?: THREE.Box3; minY?: number } = {},
+): Pose & { fit: { s: number; elev: number; k: number; ok: boolean } } {
+  const ok = (p: Pose) => {
+    const c = checkPortrait(p, boxes.subject, boxes.duck, W, H, sheetTop, opts.duckUnder)
+    return c.subject && c.duck !== false
+  }
+  const S_MAX = opts.aimOnly ? 0.25 : 0.35
+  const S_STEP = 0.005
+  const ss: number[] = [0]
+  for (let i = 1; i * S_STEP <= S_MAX + 1e-9; i++) ss.push(i * S_STEP, -i * S_STEP)
+  const elevs = opts.aimOnly ? [0] : [0, -2, -4, -6, -8, -10, -12, -14]
+  const ks = opts.aimOnly ? [1] : [1, 1.02, 1.04, 1.06, 1.08, 1.1, 1.12, 1.14, 1.16, 1.18, 1.2, 1.22, 1.24, 1.26, 1.28, 1.3]
+  const tanV = Math.tan(THREE.MathUtils.degToRad(base.fov ?? 60) / 2)
+  const off0 = base.position.clone().sub(base.target)
+  const len0 = off0.length()
+  const az = Math.atan2(off0.x, off0.z)
+  const el0 = Math.atan2(off0.y, Math.hypot(off0.x, off0.z))
+  const make = (s: number, elev: number, k: number): Pose => {
+    const el = el0 + THREE.MathUtils.degToRad(elev)
+    const len = len0 * k
+    const off = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(len)
+    const position = base.target.clone().add(off)
+    const forward = off.clone().negate().normalize()
+    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize()
+    const up = new THREE.Vector3().crossVectors(right, forward).normalize()
+    const target = base.target.clone().addScaledVector(up, s * len * tanV)
+    return { position, target, fov: base.fov }
+  }
+  const inside = (p: Pose, moved: boolean) =>
+    !moved || ((!opts.safe || opts.safe.containsPoint(p.position)) && p.position.y >= (opts.minY ?? -Infinity))
+  for (const k of ks)
+    for (const elev of elevs) {
+      const moved = k !== 1 || elev !== 0
+      for (const s of ss) {
+        const p = make(s, elev, k)
+        if (inside(p, moved) && ok(p)) return { ...p, fit: { s, elev, k, ok: true } }
+      }
+    }
+  return { ...base, position: base.position.clone(), target: base.target.clone(), fit: { s: 0, elev: 0, k: 1, ok: false } }
 }
 
 /**

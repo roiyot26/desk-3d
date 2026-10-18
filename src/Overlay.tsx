@@ -1,13 +1,15 @@
 import { panelFocus } from './panelFocus'
-import { useEffect, useRef, useState, type RefObject } from 'react'
-import { STOPS, content, contactLinks, noteById, text, type Stop } from './content'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { STOPS, content, noteById, text, type Stop } from './content'
 import { closePanel, openPanel, parseHash } from './nav'
 import { getUI, setUI, useUI } from './store'
 import { Loader, enter } from './Loader'
 import { DuckChat, collapseChat } from './duck/DuckChat'
 import { Hud, Toast } from './Hud'
 import { useTyping } from './keyboard'
-import { gsap, prefersReducedMotion, useGSAP } from './gsap'
+import { prefersReducedMotion } from './gsap'
+import { flushSync } from 'react-dom'
+import { sheetCap } from './sheetCaps'
 import { SHEET_QUERY, useMedia } from './useMedia'
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
 
@@ -64,6 +66,17 @@ function useKeys() {
       if (s.stage !== 'ready') return
       // Esc order: the station panel, then the chat (phone sheet to peek / desktop column collapses).
       if (e.key === 'Escape') {
+        // Desktop, the whole chat restored over a station (v2.3 #67): Esc returns to the panel.
+        if (s.open && s.chatFull) {
+          // Commit now so the card is visible again, then focus its title (rAF fallback for slow frames).
+          flushSync(() => setUI({ chatFull: false }))
+          const title = () => document.getElementById('panel-title')?.focus({ preventScroll: true })
+          title()
+          requestAnimationFrame(() => {
+            if (document.activeElement?.id !== 'panel-title') title()
+          })
+          return
+        }
         if (s.open) {
           closePanel()
           // Phones: the card lives in the log, which only shows at half; raise it and focus "Take me there".
@@ -82,45 +95,29 @@ function useKeys() {
   }, [])
 }
 
+/**
+ * Panel look v2.3 (Vision "A2, paper"): one paper card per station. Desktop: hugged at the top of
+ * the chat column (the chat shrinks to a note under it). Phones: a sheet on the chat peek that hugs
+ * its content up to the CSS cap and scrolls past it. One exit ("← chat"); Esc and a room tap still close.
+ */
 function Panel() {
   const open = useUI((s) => s.open)
   const full = useUI((s) => s.sheetFull)
+  const chatFull = useUI((s) => s.chatFull)
   const ref = useRef<HTMLHeadingElement>(null)
   const panel = useRef<HTMLElement>(null)
   const body = useRef<HTMLDivElement>(null)
-  const { more, scrolled } = useScrollMore(body, open?.id)
+  const more = useScrollMore(body, open?.id)
   const phone = useMedia(SHEET_QUERY)
-  const answered = useUI((s) => s.duckLog.length > 0)
-  const [introOpen, setIntroOpen] = useState(false)
-  useEffect(() => setIntroOpen(false), [open?.id, answered])
-  // Slide the panel in (side panel on desktop, bottom sheet on phones). Motion only, never opacity,
-  // so the copy stays readable even if a slow GPU stalls the tween. Reduced motion: no tween.
-  useGSAP(
-    () => {
-      const el = panel.current
-      if (!el || prefersReducedMotion()) return
-      const sheet = window.matchMedia?.(SHEET_QUERY).matches
-      gsap.from(el, sheet ? { y: 24, duration: 0.35, ease: 'power2.out' } : { x: 16, duration: 0.35, ease: 'power2.out' })
-    },
-    { dependencies: [open?.id], scope: panel, revertOnUpdate: true },
-  )
-  // The duck's sheet is content-sized: publish its height so the stop dots ride just above it.
-  useEffect(() => {
-    const el = panel.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const root = document.documentElement
-    const ro = new ResizeObserver(() => root.style.setProperty('--sheet-h', `${Math.round(el.getBoundingClientRect().height)}px`))
-    ro.observe(el)
-    return () => {
-      ro.disconnect()
-      root.style.removeProperty('--sheet-h')
-    }
-  }, [open?.id])
+  const fonts = usePanelFonts()
+  // Slide-in: a CSS transform animation (index.css panel-in-*), composited, so it never counts as
+  // layout shift (the old GSAP tween scored ≈0.45 CLS per open). Motion only, never opacity.
+  useSheetHeight(panel, fonts ? open?.id : undefined, phone, full)
   const lastFocus = useRef<Element | null>(null)
   useEffect(() => {
     if (open) {
       if (!lastFocus.current) lastFocus.current = document.activeElement
-      ref.current?.focus({ preventScroll: true })
+      if (fonts) ref.current?.focus({ preventScroll: true })
     } else {
       // Back to where the visitor came from: usually the card's "Take me there".
       const back = lastFocus.current && document.contains(lastFocus.current) && lastFocus.current !== document.body ? lastFocus.current : [...document.querySelectorAll('.duck-go')].pop()
@@ -128,87 +125,132 @@ function Panel() {
       lastFocus.current = null
     }
     if (!open && getUI().sheetFull) setUI({ sheetFull: false })
-  }, [open])
-  if (!open) return null
+  }, [open, fonts])
+  if (!open || !fonts) return null
   const stop = STOPS.find((s) => s.id === open.id)
   const note = stop ? undefined : noteById(open.id)
   if (!stop && !note) return null
-  const isBonus = open.id.startsWith('bonus-')
-  const isDuck = stop?.kind === 'duck' || note?.kind === 'duck'
-  // Phones, once the duck has answered: the two intro paragraphs fold behind "What's this?" so
-  // the answer and the "Scripted for now" line both fit in the (65%) sheet.
-  const foldIntro = isDuck && phone && answered
-  // Phones, stop 1: title, one line, the project card. The panel joke stays on desktop / 2D.
-  const jokeText = stop ? (phone && stop.kind === 'projects' ? '' : text(stop.joke)) : note!.joke
-  // The scroll chevron gets its own 24px row under the text (never over it). Hidden next to the
-  // carousel dots and on the duck (its dock sits right below; the fade still says "more").
-  const chev = more && !isDuck && !nearCarousel(body.current)
+  const title = stop ? stop.title : note!.title
+  const kind = stop?.kind ?? note?.kind ?? 'note'
+  // Vision v2.3.1 (a): a lower per-station, per-width cap where the capped frame ran too bright.
+  const cap = phone ? sheetCap(open.id, window.innerWidth) : undefined
   return (
     <>
       <div className="backdrop" aria-hidden="true" />
       <aside
-        className={`panel${isBonus ? ' bonus' : ''}${note?.kind ? ` ${note.kind}` : ''}${stop?.kind === 'duck' ? ' duck' : ''}${foldIntro ? ' folded' : ''}${full ? ' full' : ''}`}
+        className={`panel paper kind-${kind}${full ? ' full' : ''}${chatFull ? ' stepped' : ''}`}
         role="dialog"
         aria-labelledby="panel-title"
         key={open.id}
         ref={panel}
+        style={cap ? ({ '--sheet-cap': `${cap}px` } as CSSProperties) : undefined}
       >
-        <SheetHandle full={full} />
-        {/* Desktop with the chat open: the panel is an overlay inside the chat column. */}
-        <button type="button" className="panel-back" onClick={closePanel}>
-          <span aria-hidden="true">←</span> {content.duck.backToChat}
-        </button>
-        <button type="button" className="panel-close" onClick={closePanel} aria-label={content.tour.close}>
-          ×
-        </button>
-        <p className="panel-kicker">{stop ? stop.kicker : isBonus ? content.tour.foundIt : 'Aside'}</p>
-        <h2 id="panel-title" tabIndex={-1} ref={ref}>
-          {stop ? stop.title : note!.title}
-        </h2>
-        {/* Phones, after an answer: the toggle sits on the title row so the answer keeps the room. */}
-        {foldIntro && (
-          <button type="button" className="intro-toggle head" aria-expanded={introOpen} aria-controls="duck-intro" onClick={() => setIntroOpen(!introOpen)}>
-            {introOpen ? content.duck.hideIntro : content.duck.whatsThis} <span aria-hidden="true">{introOpen ? '▴' : '▾'}</span>
+        <div className="panel-top">
+          <button type="button" className="panel-back" onClick={closePanel} aria-label={content.duck.backToChat}>
+            <span aria-hidden="true">←</span> {content.duck.backShort}
           </button>
-        )}
-        <div className={`panel-scroll${more ? ' more' : ''}${chev ? ' chev' : ''}${scrolled ? ' scrolled' : ''}`}>
-          <div className="panel-body" ref={body}>
-            {(!foldIntro || introOpen) && (
-              <div id="duck-intro" className="panel-intro">
-                {stop ? <StopBody stop={stop} skill={open.skill} project={open.project} /> : note!.body.map((p, k) => <p key={k}>{p}</p>)}
-              </div>
-            )}
-            {jokeText && !foldIntro && <p className="joke">{jokeText}</p>}
-          </div>
-          {chev && (
-            <button
-              type="button"
-              className="scroll-more"
-              aria-label={content.tour.more}
-              onClick={() => body.current?.scrollBy({ top: body.current.clientHeight * 0.8, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })}
-            >
-              <span aria-hidden="true">⌄</span>
-            </button>
-          )}
+          <SheetHandle full={full} />
+        </div>
+        <div className={`panel-scroll${more ? ' has-more' : ''}`} ref={body} tabIndex={0} aria-label={title}>
+          <h2 id="panel-title" tabIndex={-1} ref={ref}>
+            {title}
+          </h2>
+          {stop ? <StopBody stop={stop} skill={open.skill} project={open.project} /> : note!.body.map((p, k) => <p key={k} className="body">{p}</p>)}
+          <div className="panel-fade" aria-hidden="true" />
         </div>
       </aside>
     </>
   )
 }
 
-/** True while the scroll box has more content below the fold (drives the fade + chevron). */
-function useScrollMore(ref: RefObject<HTMLElement>, key: string | undefined) {
+/**
+ * v2.1 §5.4 / 0 CLS: the panel opens once Literata 600/28 and 400/17 are loaded, capped at 400 ms
+ * (then the metric-matched fallback face renders it). One shared promise for the page.
+ */
+let fontsGate: Promise<void> | null = null
+let fontsDone = false
+export function panelFonts(): Promise<void> {
+  if (fontsGate) return fontsGate
+  const f = typeof document !== 'undefined' ? document.fonts : undefined
+  const load = f?.load ? Promise.all([f.load('600 28px Literata'), f.load('400 17px Literata')]).then(() => undefined, () => undefined) : Promise.resolve()
+  fontsGate = Promise.race([load, new Promise<void>((r) => setTimeout(r, 400))]).then(() => {
+    fontsDone = true
+  })
+  return fontsGate
+}
+function usePanelFonts(): boolean {
+  const [ok, setOk] = useState(fontsDone)
+  useEffect(() => {
+    if (ok) return
+    let live = true
+    panelFonts().then(() => live && setOk(true))
+    return () => {
+      live = false
+    }
+  }, [ok])
+  return ok
+}
+
+/** Drag state of the phone sheet handle: the sheet is not re-measured (and the camera not re-framed) mid-drag. */
+export const sheetDrag = { active: false }
+
+/**
+ * Panel v2.3 #66: a ResizeObserver on the phone sheet publishes its measured top edge
+ * (innerHeight − peek − sheet height) for the camera and the room labels. First measure after
+ * document.fonts.ready; then once per animation frame and only on a ≥2 px change; never while the
+ * handle is dragged or the sheet is at full height (the camera keeps the half-sheet framing).
+ */
+export function sheetTopOf(el: HTMLElement, innerHeight: number): number {
+  // Layout values, not the rect: the slide-in transform never skews the measure.
+  const bottom = parseFloat(getComputedStyle(el).bottom) || 0
+  return Math.round(innerHeight - bottom - el.offsetHeight)
+}
+export function shouldPublish(prev: { id: string; top: number } | null, id: string, top: number): boolean {
+  return !prev || prev.id !== id || Math.abs(prev.top - top) >= 2
+}
+function useSheetHeight(panel: RefObject<HTMLElement>, id: string | undefined, phone: boolean, full: boolean) {
+  useEffect(() => {
+    const el = panel.current
+    if (!el || !id || !phone || typeof ResizeObserver === 'undefined') return
+    let raf = 0
+    let ready = false
+    let dead = false
+    const measure = () => {
+      raf = 0
+      if (dead || !ready || sheetDrag.active || el.classList.contains('full') || el.offsetHeight === 0) return
+      const top = sheetTopOf(el, window.innerHeight)
+      if (shouldPublish(getUI().sheetTop, id, top)) setUI({ sheetTop: { id, top } })
+    }
+    const queue = () => {
+      if (!raf) raf = requestAnimationFrame(measure)
+    }
+    const ro = new ResizeObserver(queue)
+    ro.observe(el)
+    window.addEventListener('resize', queue)
+    // A drag that ends without a resize (the content grew mid-drag) still re-measures once.
+    window.addEventListener('pointerup', queue)
+    ;(document.fonts?.ready ?? Promise.resolve()).then(() => {
+      ready = true
+      queue()
+    })
+    return () => {
+      dead = true
+      ro.disconnect()
+      window.removeEventListener('resize', queue)
+      window.removeEventListener('pointerup', queue)
+      if (raf) cancelAnimationFrame(raf)
+    }
+    // `full`: back at half after the full sheet, measure again (the camera re-frames only then).
+  }, [panel, id, phone, full])
+}
+
+/** True while the scroll box has more content below the fold (drives the 12 px fade). */
+function useScrollMore(ref: RefObject<HTMLElement>, key: string | undefined): boolean {
   const [more, setMore] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
-  const [, bump] = useState(0)
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const check = () => {
-      setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 6)
-      setScrolled(el.scrollTop > 4)
-      bump((x) => (x + 1) % 1024) // re-evaluate the chevron vs carousel-dots check on scroll
-    }
+    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 6)
     check()
     el.addEventListener('scroll', check, { passive: true })
     const ro = new ResizeObserver(check)
@@ -221,24 +263,12 @@ function useScrollMore(ref: RefObject<HTMLElement>, key: string | undefined) {
       mo.disconnect()
     }
   }, [ref, key])
-  return { more, scrolled }
+  return more
 }
 
 /**
- * Desktop: the scroll chevron sits at the bottom centre of the panel, exactly where the project
- * carousel's dots land. Hide the chevron (the 32px fade stays) while those dots are in view.
- */
-function nearCarousel(body: HTMLElement | null): boolean {
-  const nav = body?.querySelector('.carousel-nav')
-  if (!body || !nav) return false
-  const b = body.getBoundingClientRect()
-  const n = nav.getBoundingClientRect()
-  return n.bottom > b.top && n.top < b.bottom
-}
-
-/**
- * Phones only (hidden on desktop by CSS): the sheet opens at 50% height. Drag the handle up to
- * snap full height, down to go back to 50% (or close from 50%). A tap toggles.
+ * Phones only (hidden on desktop by CSS): a 96×44 handle sharing the top row with "← chat". Drag up
+ * to snap full height, down to go back to half (or close from half). A tap toggles.
  */
 function SheetHandle({ full }: { full: boolean }) {
   const y0 = useRef<number | null>(null)
@@ -252,12 +282,18 @@ function SheetHandle({ full }: { full: boolean }) {
       onPointerDown={(e) => {
         y0.current = e.clientY
         moved.current = false
+        sheetDrag.active = true
         e.currentTarget.setPointerCapture(e.pointerId)
       }}
       onPointerMove={(e) => {
         if (y0.current !== null && Math.abs(e.clientY - y0.current) > 8) moved.current = true
       }}
+      onPointerCancel={() => {
+        y0.current = null
+        sheetDrag.active = false
+      }}
       onPointerUp={(e) => {
+        sheetDrag.active = false
         if (y0.current === null) return
         const dy = e.clientY - y0.current
         y0.current = null
@@ -278,59 +314,76 @@ function SheetHandle({ full }: { full: boolean }) {
   )
 }
 
+function NewTab() {
+  return <span className="sr-only"> {content.site.newTab}</span>
+}
+
+/** Repo / Live: plain text links, 44 px tall, no arrow glyph; the new tab is announced, not drawn. */
 function Links({ links }: { links: { label: string; url: string }[] }) {
   return (
-    <p className="links">
+    <span className="links">
       {links.map((l) => (
-        <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">
-          {l.label} ↗
+        <a key={l.url} className="lk" href={l.url} target="_blank" rel="noopener noreferrer">
+          {l.label}
+          <NewTab />
         </a>
       ))}
-    </p>
+    </span>
   )
 }
 
-function StopBody({ stop, skill, project }: { stop: Stop; skill?: string; project?: string }) {
+/** Deep-link highlight (v2.1 §3): brass bar, scrolled to the top of the sheet, focus on its heading. */
+function useHighlight(id: string | undefined) {
+  const el = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    if (!id) return
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const h = el.current
+        if (!h) return
+        h.closest('li')?.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+        h.focus({ preventScroll: true })
+      }),
+    )
+  }, [id])
+  return el
+}
+
+export function StopBody({ stop, skill, project }: { stop: Stop; skill?: string; project?: string }) {
   const phone = useMedia(SHEET_QUERY)
-  const body = stop.body.map((p, k) => <p key={k}>{text(p)}</p>)
+  const body = stop.body.map((p, k) => (
+    <p key={k} className="body">
+      {text(p)}
+    </p>
+  ))
   switch (stop.kind) {
     case 'projects':
       return (
         <>
-          {phone ? <p>{content.about.short}</p> : body}
+          {/* #62: one bio line (hidden on the phone half sheet, shown in the full sheet), then the rule and the list. */}
+          <p className="bio">{phone ? content.about.short : stop.body.map(text).join(' ')}</p>
+          <hr className="rule" />
           <Projects initial={project} />
         </>
       )
-    case 'skills': {
-      const f = content.skills.featured
-      return (
-        <>
-          {body}
-          <div className={`skill featured${skill === f.id ? ' hl' : ''}`}>
-            <strong>{f.name}</strong>
-            <span>{f.line}</span>
-          </div>
-          <ul className="skills">
-            {content.skills.items.map((s) => (
-              <li key={s.id} className={skill === s.id ? 'hl' : ''}>
-                <strong>{s.name}</strong>
-                <span>{s.line}</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )
-    }
+    case 'skills':
+      return <Skills intro={body} skill={skill} />
     case 'garden': {
       const p = content.projects.find((x) => x.slug === stop.project)
       return (
         <>
           {body}
-          {p && <Links links={[{ label: 'Repo', url: p.repo }, ...(p.live ? [{ label: 'Live', url: p.live }] : [])]} />}
+          {p && (
+            <div className="meta">
+              <span />
+              <Links links={[{ label: 'Repo', url: p.repo }, ...(p.live ? [{ label: 'Live', url: p.live }] : [])]} />
+            </div>
+          )}
         </>
       )
     }
     case 'career':
+      // Room for the CV PR: its experience block slots in between the list and the teaching line.
       return (
         <>
           {body}
@@ -339,85 +392,98 @@ function StopBody({ stop, skill, project }: { stop: Stop; skill?: string; projec
               <li key={k}>{c}</li>
             ))}
           </ol>
-          <p className="pin">📌 {content.career.teaching}</p>
+          <p className="body teaching">{content.career.teaching}</p>
         </>
       )
-    case 'duck':
-      return <>{body}</>
-    case 'contact':
+    case 'contact': {
+      const c = content.contact
       return (
         <>
           {body}
-          <Links links={contactLinks()} />
+          <div className="contact-actions">
+            <a className="btn-ink" href={c.linkedin.url} target="_blank" rel="noopener noreferrer">
+              {c.linkedin.cta}
+              <NewTab />
+            </a>
+            <a className="lk" href={c.github.url} target="_blank" rel="noopener noreferrer">
+              {c.github.label} · {c.github.handle}
+              <NewTab />
+            </a>
+            {c.email.enabled && c.email.address && (
+              <a className="lk" href={`mailto:${c.email.address}`}>
+                {c.email.label}
+              </a>
+            )}
+          </div>
         </>
       )
+    }
     default:
       return <>{body}</>
   }
 }
 
+function Skills({ intro, skill }: { intro: ReactNode; skill?: string }) {
+  const f = content.skills.featured
+  const all = [f, ...content.skills.items]
+  const hl = useHighlight(skill)
+  return (
+    <>
+      {intro}
+      <ul className="plain skills">
+        {all.map((s) => (
+          <li key={s.id} className={skill === s.id ? 'hl' : undefined}>
+            <h3 className="skill-name" tabIndex={-1} ref={skill === s.id ? hl : undefined}>
+              {s.name}
+            </h3>
+            <p className="skill-line">{s.line}</p>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
 function Projects({ initial }: { initial?: string }) {
   const list = content.projects
-  const [i, setI] = useState(() => Math.max(0, list.findIndex((p) => p.slug === initial)))
+  const hit = list.some((p) => p.slug === initial) ? initial : undefined
+  // The monitor's screen slot shows the deep-linked project (else the first one).
   useEffect(() => {
-    if (initial) setI(Math.max(0, list.findIndex((p) => p.slug === initial)))
-  }, [initial, list])
-  const p = list[i]
-  const first = useRef(true)
-  useEffect(() => {
-    setUI({ slotProject: p.slug })
-    if (first.current) {
-      first.current = false
-      return
-    }
-    // Keep the per-project deep link in sync while the carousel moves.
-    if (getUI().open?.id === 'stop-1') history.replaceState(null, '', `${window.location.pathname}${window.location.search}#project-${p.slug}`)
-  }, [p.slug])
-  const go = (d: number) => setI((i + d + list.length) % list.length)
-  // Opened from the room's Projects label: land on the card, not the bio above it (Shuri #50). The
+    setUI({ slotProject: hit ?? list[0].slug })
+  }, [hit, list])
+  const hl = useHighlight(hit)
+  // Opened from the room's Projects label: land on the list, not the bio above it (Shuri #50). The
   // panel focuses itself on open, so take focus two frames later.
-  const card = useRef<HTMLElement>(null)
+  const first = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     if (!panelFocus.card) return
     panelFocus.card = false
+    if (hit) return
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
-        const el = card.current
+        const el = first.current
         if (!el) return
-        el.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+        el.closest('li')?.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
         el.focus({ preventScroll: true })
       }),
     )
-  }, [])
+  }, [hit])
   return (
-    <div className="carousel" aria-roledescription="carousel" aria-label="Projects">
-      <article ref={card} className="card" aria-live="polite" tabIndex={-1} aria-label={p.name}>
-        <h3>{p.name}</h3>
-        <p className="tagline">{p.tagline}</p>
-        <p>{p.serious}</p>
-        <p className="joke">{p.joke}</p>
-        <p className="tags">{p.tags.join(' · ')}</p>
-        <Links links={[{ label: 'Repo', url: p.repo }, ...(p.live ? [{ label: 'Live', url: p.live }] : [])]} />
-      </article>
-      <div className="carousel-nav">
-        <button type="button" className="btn ghost small" onClick={() => go(-1)} aria-label="Previous project">
-          ‹
-        </button>
-        {list.map((x, k) => (
-          <button
-            key={x.slug}
-            type="button"
-            className={`dot${k === i ? ' on' : ''}`}
-            aria-label={x.name}
-            aria-current={k === i}
-            onClick={() => setI(k)}
-          />
-        ))}
-        <button type="button" className="btn ghost small" onClick={() => go(1)} aria-label="Next project">
-          ›
-        </button>
-      </div>
-    </div>
+    <ul className="plain projects">
+      {list.map((p, k) => (
+        <li key={p.slug} id={`project-${p.slug}`} className={`proj${p.slug === hit ? ' hl' : ''}`}>
+          <h3 tabIndex={-1} ref={p.slug === hit ? hl : k === 0 ? first : undefined}>
+            {p.name}
+          </h3>
+          <p className="tagline">{p.tagline}</p>
+          <p className="more">{p.serious}</p>
+          <div className="meta">
+            <span className="tags">{p.tags.join(' · ')}</span>
+            <Links links={[{ label: 'Repo', url: p.repo }, ...(p.live ? [{ label: 'Live', url: p.live }] : [])]} />
+          </div>
+        </li>
+      ))}
+    </ul>
   )
 }
 

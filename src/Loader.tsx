@@ -57,10 +57,13 @@ export function Loader({ fallback = false }: { fallback?: boolean }) {
     el.setAttribute('aria-hidden', 'true')
   }, [entered])
   const done = entered && ready && lineGone
-  const status = ready ? content.hero.ready : `${line.text}${pct !== null ? ` ${pct}%` : '…'}`
+  // Shuri #65: progress.ts caps the download at 0.999 ("downloaded, unpacking"), so that is the end of the count.
+  const downloaded = stage === 'download' && progress >= 0.999
+  const status = ready ? content.hero.ready : `${line.text}${pct !== null && !downloaded ? ` ${pct}%` : '…'}`
   // Shuri #53: a frozen "0%" reads as stuck, so at 0 or unknown progress the note drops the number and a slow
   // hairline shimmers instead. Screen readers hear the line itself, once per change, never each percent.
-  const counting = pct !== null && pct > 0
+  // Shuri #65: the download stage reaching 100% means "unpacking", not a number stuck at 100.
+  const counting = pct !== null && pct > 0 && !downloaded
   const waitText = counting ? `${line.text} ${pct}%` : `${line.text}…`
   return (
     <>

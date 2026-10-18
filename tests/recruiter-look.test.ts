@@ -25,7 +25,7 @@ describe('B1: tool ticker labels (Vision §2, sans, not the mono call syntax)', 
 describe("B1: first screen and What's here copy", () => {
   it('first screen copy is the brief', () => {
     expect(content.hero.headline).toBe("Roi Yotvat's portfolio")
-    expect(content.hero.sub).toBe("AI-driven full-stack developer. This room is a sample of the 3D I'd put on your site.")
+    expect(content.hero.sub).toBe("I'm a full-stack developer working in AI-driven development. Now I'm adding 3D for the web, and this room is a sample of it.")
     expect(content.hero.enter).toBe('Enter the room')
     expect(content.site.resume).toBe('Quick version (1 page)')
   })

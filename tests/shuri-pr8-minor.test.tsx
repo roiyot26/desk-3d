@@ -7,12 +7,22 @@ const { setUI } = await import('../src/store')
 const { Loader } = await import('../src/Loader')
 const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
 
-describe('Shuri #52: the project card focus ring is inset, so .panel-body cannot clip it', () => {
-  it('inset box-shadow ring, no outset outline', () => {
-    const rule = css.match(/\.carousel \.card:focus-visible \{([^}]*)\}/)![1]
-    expect(rule).toMatch(/box-shadow: inset 0 0 0 2px #f0b273/)
-    expect(rule).toMatch(/outline: none/)
-    expect(rule).not.toMatch(/outline-offset: [1-9]/)
+describe('Shuri #52 (carried into panel v2): focus rings on the paper panel are never clipped by its scroll box', () => {
+  // The carousel card is gone (Vision v2.1). The ring is now the paper spec's 2 px ink outline with a
+  // 2 px offset, so the scroll region needs ≥4 px of its own padding on each side to keep it whole.
+  const paper = css.slice(css.indexOf('panel look v2.3'))
+  it('2 px ink ring, 2 px offset, no orange on paper', () => {
+    const rule = paper.match(/\.panel\.paper :is\(a, button\):focus-visible \{([^}]*)\}/)![1]
+    expect(rule).toMatch(/outline: 2px solid var\(--p-ink\)/)
+    expect(rule).toMatch(/outline-offset: 2px/)
+    expect(paper.slice(0, paper.indexOf('#60:'))).not.toMatch(/#f0b273/i)
+  })
+  it('the scroll region pads ≥ ring + offset on both sides', () => {
+    const rule = paper.match(/\.panel\.paper \.panel-scroll \{([^}]*)\}/)![1]
+    const pad = +rule.match(/padding: 0 (\d+)px/)![1]
+    const margin = +rule.match(/margin: 0 -(\d+)px/)![1]
+    expect(pad).toBeGreaterThanOrEqual(4)
+    expect(margin).toBe(pad) // the text column stays where the spec puts it
   })
 })
 
@@ -39,7 +49,7 @@ describe('Shuri #53: the slow-load note never reads a frozen 0%', () => {
     expect(at(0)).toBe('unpacking the room…')
     expect(at(0.2)).toBe('unpacking the room…')
     expect(at(0.5)).toBe('unpacking the room…')
-    expect(at(0.7)).toBe('watering the plants…')
+    expect(at(0.7)).toBe('loading the plants…')
     // only one live region in the note; the visible line is aria-hidden
     setUI({ entered: true, stage: 'download', progress: 0.3 })
     const html = renderToStaticMarkup(<Loader />)

@@ -4,6 +4,7 @@ import { openChat, openPanel } from '../nav'
 import { getUI, setUI, subscribe, useUI, type DuckEntry, type SheetState } from '../store'
 import { markerTargetFor } from '../targets'
 import { askDuck } from './run'
+import { headClamp } from './headClamp'
 import { CHAT_SHEET_QUERY } from '../useMedia'
 
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -503,8 +504,12 @@ export function DuckChat() {
   const chatOpen = useUI((s) => s.chatOpen)
   const unread = useUI((s) => s.chatUnread)
   const sheet = useUI((s) => s.sheet)
+  const station = useUI((s) => !!s.open)
+  const chatFull = useUI((s) => s.chatFull)
   const phone = useSheetLayout()
   const box = useRef<HTMLElement>(null)
+  // v2.2 #59 / v2.3 #67: desktop with a station open, the column shrinks to a dark note under the card.
+  const note = ready && !phone && chatOpen && station && !chatFull
   useKeyboardInset(ready && phone)
   // Publish the space the chat takes so panels, the caption and the camera keep clear of it.
   useLayoutEffect(() => {
@@ -517,6 +522,7 @@ export function DuckChat() {
       root.style.setProperty('--chat-h', ready && phone ? `${Math.round(r?.height ?? PEEK_PX)}px` : '0px')
       root.classList.toggle('chat-docked', !!docked)
       root.classList.toggle('chat-sheet', ready && phone)
+      root.classList.toggle('chat-note', !!docked && note)
     }
     set()
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -527,7 +533,7 @@ export function DuckChat() {
       ro.disconnect()
       window.removeEventListener('resize', set)
     }
-  }, [ready, phone, chatOpen])
+  }, [ready, phone, chatOpen, note])
   useEffect(() => {
     document.documentElement.classList.toggle('sheet-raised', ready && phone && sheet !== 'peek')
   }, [ready, phone, sheet])
@@ -550,12 +556,26 @@ export function DuckChat() {
         <StationKeys />
       </>
     )
+  if (note)
+    return (
+      <>
+        <section key="note" ref={box} className="chat docked chatnote" aria-label={content.duck.expandChat}>
+          <NoteLine />
+          <div className="chat-dock">
+            <Input />
+          </div>
+        </section>
+        <StationKeys />
+      </>
+    )
   const raised = !phone || sheet !== 'peek'
   return (
     <>
+      {/* Own keys: the note is a new element, not the column moved and resized (that scored as layout shift). */}
       <section
+        key="column"
         ref={box}
-        className={`chat ${phone ? `sheet ${sheet}` : 'docked'}`}
+        className={`chat ${phone ? `sheet ${sheet}${station ? ' station' : ''}` : 'docked'}`}
         aria-label={content.duck.expandChat}
         data-sheet={phone ? sheet : undefined}
       >
@@ -585,6 +605,80 @@ export function DuckChat() {
       <StationKeys />
     </>
   )
+}
+
+/** The duck's last line, as the note shows it (the greeting before any answer). */
+export function lastDuckLine(log: DuckEntry[]): string {
+  const last = [...log].reverse().find((e) => e.reply)
+  return last?.reply ?? content.duck.greet.line
+}
+
+/**
+ * The note's last line (v2.3 #67): head-clamped to two lines so the closing question survives, and
+ * a button: Enter, Space or click restores the whole chat column with focus on its last message.
+ */
+function NoteLine() {
+  const log = useUI((s) => s.duckLog)
+  const full = lastDuckLine(log)
+  const btn = useRef<HTMLButtonElement>(null)
+  const probe = useRef<HTMLSpanElement>(null)
+  const [shown, setShown] = useState(full)
+  useLayoutEffect(() => {
+    const b = btn.current
+    const p = probe.current
+    if (!b || !p) return
+    let live = true
+    const run = () => {
+      if (!live) return
+      const cs = getComputedStyle(b)
+      const w = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      if (w <= 0) return
+      p.style.width = `${w}px`
+      const lines = parseFloat(cs.lineHeight) * 2 + 1
+      setShown(headClamp(full, (c) => {
+        p.textContent = c
+        return p.scrollHeight <= lines
+      }))
+    }
+    run()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(run) : null
+    ro?.observe(b)
+    document.fonts?.ready.then(run)
+    return () => {
+      live = false
+      ro?.disconnect()
+    }
+  }, [full])
+  return (
+    <>
+      <button type="button" className="last" ref={btn} aria-label={`${content.duck.showWholeChat}: ${shown}`} onClick={showWholeChat}>
+        {shown}
+      </button>
+      <span className="last last-probe" ref={probe} aria-hidden="true" />
+    </>
+  )
+}
+
+/** Restore the full chat column over the station card (the card waits; Esc brings it back). */
+export function showWholeChat() {
+  setUI({ chatFull: true })
+  // The column mounts on the next commit; keep trying for a few frames until focus is inside it.
+  let tries = 0
+  const tick = () => {
+    const col = document.querySelector<HTMLElement>('.chat.docked:not(.chatnote)')
+    if (col) {
+      const scroll = col.querySelector<HTMLElement>('.chat-scroll')
+      if (scroll) scroll.scrollTop = scroll.scrollHeight
+      const msg = [...col.querySelectorAll<HTMLElement>('.duck-answer')].pop()
+      if (msg) {
+        msg.tabIndex = -1
+        msg.focus({ preventScroll: true })
+      } else col.querySelector<HTMLElement>('.chat-dock input, .chat-dock textarea')?.focus()
+      if (col.contains(document.activeElement)) return
+    }
+    if (tries++ < 20) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
 }
 
 /** Collapse the desktop column; focus lands on the duck bubble that replaces it. */

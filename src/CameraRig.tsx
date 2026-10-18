@@ -9,13 +9,17 @@ import type { RoomInfo } from './analyze'
 import type { Quality } from './quality'
 import { getUI, setUI, subscribe, useUI } from './store'
 import { gsap, useGSAP } from './gsap'
-import { freeCentreNdc, markerTargetFor, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
+import { DUCK_CLEAR, fitPortrait, freeCentreNdc, markerTargetFor, phoneBasePose, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
 import { STOPS, content } from './content'
 import { CHAT_INSET, CHAT_SHEET_QUERY, chatWidth } from './duck/DuckChat'
 import { audio } from './audio'
 
 /** Read-only for other modules (room labels hide while a GSAP fly runs). */
-export const rigFlags = { flying: false }
+export const rigFlags = {
+  flying: false,
+  /** Last phone station framing (panel v2.3 #66): the sheet top it framed for, and the #61 solver's step. Read by __desk3d.cam(). */
+  frame: null as null | { id: string; sheetTop: number; measured: boolean; sheetFrac: number; s: number; elev: number; k: number; ok: boolean; reframes: number },
+}
 
 /**
  * Desktop: the docked duck chat covers the right of the canvas (station panels open beside it;
@@ -93,6 +97,27 @@ function dockedLayout(w: number): [number, number | undefined, { l: number; r: n
   const chat = chatWidth(w) + CHAT_INSET
   // The station panel overlays the chat column, so the station frames in the canvas area.
   return [chat, fitCache.key ? fitCache.shift : chat / 2, { l: 12, r: w - chat - 12 }]
+}
+
+/**
+ * Phones, before the station sheet's first measure: its top from the CSS cap (the panel's computed
+ * max-height above the chat peek). Read from CSS so the camera never hard-codes the sheet height.
+ */
+function capSheetTop(h: number): number {
+  const el = document.querySelector<HTMLElement>('.panel')
+  const cs = el ? getComputedStyle(el) : null
+  const bottom = cs ? parseFloat(cs.bottom) || 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chat-h')) || 0
+  const cap = cs ? parseFloat(cs.maxHeight) : NaN
+  return Math.round(h - bottom - (Number.isFinite(cap) ? cap : h * 0.5))
+}
+
+/** The station subject the #61 rules check: the marker object; the books station checks every book. */
+function subjectBox(targets: Map<string, Target>, id: string, t: Target | undefined): THREE.Box3 | undefined {
+  if (id === 'stop-3') {
+    const books = [...targets.values()].filter((x) => x.id === id)
+    if (books.length) return books.reduce((b, x) => b.union(x.box), new THREE.Box3())
+  }
+  return t?.box
 }
 
 /** The duck's bottom sheet opens at 65% on phones (index.css .panel.duck); frame above it. */
@@ -452,6 +477,9 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     driftPolar: 0,
     // Focus (panel / tour) state.
     openKey: '',
+    /** Phones: when the open station started waiting for its first sheet measure (s). */
+    waitId: '',
+    waitAt: 0,
     saved: null as Pose | null,
     /** Destination of the running fly (so a panel opened mid-fly can still return to it). */
     flyTo: null as Pose | null,
@@ -655,20 +683,63 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     // "how he builds with AI" answer lands on that spine. Other skills keep the shelf stop cam.
     const featured = content.skills.featured.id
     const book = ui.open?.skill === featured ? ui.targets.get(`book-${featured}`) : undefined
-    const key = ui.open ? `${ui.open.id}${book ? `:${featured}` : ''}` : ''
-    if (key !== st.openKey) {
+    // Phones (v2.3 #66): frame for the station sheet's *measured* top. The key carries it, so a
+    // ≥2 px change (the panel's ResizeObserver already coalesces to one rAF and skips drags)
+    // re-frames once. Hold the first move until the measure lands (≤300 ms; fonts.ready first).
+    const portrait = size.width / size.height < 0.85
+    const isStation = !!ui.open && STOPS.find((x) => x.id === ui.open?.id)?.kind !== 'duck'
+    const measured = portrait && isStation && ui.sheetTop?.id === ui.open?.id ? ui.sheetTop!.top : null
+    let hold = false
+    if (portrait && isStation && measured === null) {
+      if (st.waitId !== ui.open!.id) {
+        st.waitId = ui.open!.id
+        st.waitAt = now
+      }
+      hold = now - st.waitAt < 0.3
+    }
+    const key = ui.open ? `${ui.open.id}${book ? `:${featured}` : ''}${portrait && isStation ? `@${measured ?? 'cap'}` : ''}` : ''
+    if (key !== st.openKey && !hold) {
+      const reframe = !!ui.open && st.openKey.split('@')[0] === key.split('@')[0]
       st.openKey = key
       const t = book ?? (ui.open ? markerTargetFor(ui.targets, ui.open.id) : undefined)
       const stopCam = ui.open && !book ? ui.stopCams.get(ui.open.id) : undefined
       const current: Pose = { position: cam.position.clone(), target: c.target.clone(), fov: cam.fov }
       const dur = quality.reducedMotion ? 0 : EASE_TIME
-      if (t || stopCam) {
+      const phoneFit = portrait && isStation && !book
+      const sheetTop = phoneFit ? (measured ?? capSheetTop(size.height)) : 0
+      if (phoneFit && !t && !stopCam && ui.open) {
+        // A panel with no target of its own keeps the current camera; only the ±0.25 aim nudge
+        // may move it if the duck rule fails against the measured sheet (v2.3 #66).
+        const duckBox = ui.targets.get('duck')?.box
+        const to = fitPortrait(current, { duck: duckBox }, size.width, size.height, sheetTop, { aimOnly: true })
+        rigFlags.frame = { id: ui.open.id, sheetTop, measured: measured !== null, sheetFrac: 1 - sheetTop / size.height, s: to.fit.s, elev: 0, k: 1, ok: to.fit.ok, reframes: (reframe ? (rigFlags.frame?.reframes ?? 0) + 1 : 0) }
+        if (to.fit.s !== 0) {
+          if (!st.saved) st.saved = current
+          st.focused = true
+          fly(current, to, dur, false)
+        }
+      } else if (t || stopCam) {
         if (!st.saved) st.saved = st.flying && st.flyRelease && st.flyTo ? st.flyTo : current
         // Blender's STOP_*_Cam framing wins (node.quaternion·Rx(-90°) / target_gltf_yup, see
         // targets.ts); otherwise frame the clicked object.
         const base = fovFor(size.width / size.height)
-        const sheet = STOPS.find((x) => x.id === ui.open?.id)?.kind === 'duck' ? DUCK_SHEET : 0.5
-        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dockedLayout(size.width)) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : undefined, xc: book ? freeCentreNdc(size.width, ...dockedLayout(size.width)) : undefined }), fov: base }
+        const kind = STOPS.find((x) => x.id === ui.open?.id)?.kind
+        // sheetFrac: the measured station sheet plus the peek, as a share of the viewport height.
+        const sheet = kind === 'duck' ? DUCK_SHEET : phoneFit ? 1 - sheetTop / size.height : 0.5
+        let to: Pose = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dockedLayout(size.width)) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : undefined, xc: book ? freeCentreNdc(size.width, ...dockedLayout(size.width)) : undefined }), fov: base }
+        if (phoneFit && ui.open) {
+          // #61: Vision's verified base pose where the stop cam can't work (stop-2) or v2.3 re-posed
+          // it (Contact, Now building); then the rule checks + s / elevation / dolly steps.
+          to = phoneBasePose(ui.open.id, size.width) ?? to
+          const subject = subjectBox(ui.targets, ui.open.id, t)
+          const fit = fitPortrait(to, { subject, duck: ui.targets.get('duck')?.box }, size.width, size.height, sheetTop, {
+            duckUnder: DUCK_CLEAR,
+            safe,
+            minY: 1.0,
+          })
+          to = fit
+          rigFlags.frame = { id: ui.open.id, sheetTop, measured: measured !== null, sheetFrac: sheet, s: fit.fit.s, elev: fit.fit.elev, k: fit.fit.k, ok: fit.fit.ok, reframes: reframe ? (rigFlags.frame?.reframes ?? 0) + 1 : 0 }
+        }
         st.focused = true
         // Sync FOV zoom to the framed lens so pinch/wheel scale the photo from here, not from free-roam.
         if (to.fov !== undefined) st.zoom = THREE.MathUtils.clamp(to.fov / base, ZOOM_MIN, ZOOM_MAX)
