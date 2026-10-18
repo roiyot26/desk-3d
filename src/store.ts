@@ -60,6 +60,8 @@ export type UIState = {
   duckPointing: string | null
   /** The duck has pointed at something at least once: the idle drift stays off for good (brief §3). */
   duckPointed: boolean
+  /** The "What's here" guide (HUD popover on desktop, half sheet on phones). */
+  guide: boolean
   // --- HUD
   toast: { text: string; short?: string; at: number } | null
   muted: boolean
@@ -98,6 +100,7 @@ let state: UIState = {
   chatUnread: false,
   duckPointing: null,
   duckPointed: false,
+  guide: false,
   toast: null,
   muted: (() => {
     try {

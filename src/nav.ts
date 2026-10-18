@@ -36,6 +36,7 @@ function writeHash(o: Open) {
 
 /** The duck is not a panel any more: its station (and #stop-7 / #duck) opens the chat. */
 export const DUCK_ID = 'stop-7'
+const ASIDE_IDS = content.asides.map((a) => a.id)
 
 export function openChat() {
   setUI((s) => ({
@@ -59,7 +60,8 @@ export function openPanel(o: NonNullable<Open>, opts: { writeHash?: boolean } = 
     hoverTouch: false,
     // Phones: flying to a station drops the chat sheet to peek so the station stays in view.
     sheet: 'peek',
-    visited: STOP_IDS.includes(o.id) && !s.visited.includes(o.id) ? [...s.visited, o.id] : s.visited,
+    // Stations and asides (the sticky note) get the quiet tick in What's here.
+    visited: (STOP_IDS.includes(o.id) || ASIDE_IDS.includes(o.id)) && !s.visited.includes(o.id) ? [...s.visited, o.id] : s.visited,
     bonusFound: BONUS_IDS.includes(o.id) && !s.bonusFound.includes(o.id) ? [...s.bonusFound, o.id] : s.bonusFound,
   }))
   if (opts.writeHash !== false) writeHash(o)

@@ -18,7 +18,7 @@
     "enterHint": "Turns on sound · press Enter",
     "enterHintTouch": "Turns on sound",
     "phoneNote": "This is the plain version. The 3D room runs on phones too: tap Enter the 3D room.",
-    "more": "Lights and sound"
+    "more": "What's here, lights and sound"
   },
   "tour": {
     "close": "Close",
@@ -350,7 +350,7 @@
         "text": "teaching the duck to talk"
       }
     ],
-    "ready": "room ready. Bring headphones, or don't.",
+    "ready": "room ready",
     "title": "roi@desk ~/room"
   },
   "audio": {
@@ -453,7 +453,7 @@
           "works with ai",
           "work with ai"
         ],
-        "reply": "Agents help him plan, build and review, with tests and a human in the loop. Even this answer is a tool call.",
+        "reply": "Agents help him plan, build and review, with tests and a human in the loop. Even this answer is a tool call. Watch the ticker.",
         "tools": [
           {
             "name": "search_portfolio",
@@ -1728,5 +1728,69 @@
     "action-lamp-floor": "Floor lamp · click to switch",
     "action-rain": "Window latch · rain on/off",
     "action-neon": "Neon sign · </>"
+  },
+  "hero": {
+    "_note": "First screen over poster.jpg (Vision recruiter look §1, Loki brief §1).",
+    "headline": "Roi Yotvat's portfolio",
+    "sub": "AI-driven full-stack developer. This room is a sample of the 3D I'd put on your site.",
+    "enter": "Enter the room",
+    "ready": "room ready"
+  },
+  "guide": {
+    "_note": "What's here (Vision §4, Loki §5). Rows in label priority order; ticks reuse visited tracking. No counts, no score.",
+    "button": "What's here",
+    "title": "What's here",
+    "rows": [
+      {
+        "id": "stop-7",
+        "label": "Ask the duck",
+        "proof": "How he works with AI"
+      },
+      {
+        "id": "stop-1",
+        "label": "Projects",
+        "proof": "What he's shipped"
+      },
+      {
+        "id": "stop-2",
+        "label": "3D for the web",
+        "proof": "The offer"
+      },
+      {
+        "id": "stop-3",
+        "label": "Stack",
+        "proof": "The tools, with AI first"
+      },
+      {
+        "id": "stop-6",
+        "label": "Contact",
+        "proof": "GitHub and LinkedIn"
+      },
+      {
+        "id": "stop-5",
+        "label": "Career",
+        "proof": "The path, and teaching since 2022"
+      },
+      {
+        "id": "stop-4",
+        "label": "Virtual Garden",
+        "proof": "One shipped product, up close"
+      },
+      {
+        "id": "aside-now-building",
+        "label": "Now building",
+        "proof": "What's current"
+      }
+    ],
+    "visited": "opened",
+    "also": "Also in the room",
+    "alsoItems": [
+      "Type `claude` for agentic mode",
+      "Flip the wall switch or a lamp",
+      "Click the window latch to stop the rain",
+      "Click the `</>` neon sign"
+    ],
+    "sculpture": "Somewhere, a flawless object",
+    "close": "Close"
   }
 }

@@ -61,20 +61,6 @@ function FadeIn({ text }: { text: string }) {
 }
 
 
-/** Italic status while the duck is "looking" — disappears when the answer lands (Vision). */
-function lookingLine() {
-  const open = getUI().open
-  if (open) {
-    const stop = STOPS.find((x) => x.id === open.id)
-    const note = stop ? undefined : content.bonus.find((b) => b.id === open.id) ?? content.asides.find((a) => a.id === open.id)
-    const name = (stop?.label ?? note?.title ?? '').split(' · ')[0].toLowerCase()
-    if (name) return content.duck.status.at.replace('{x}', name)
-  }
-  const pointing = getUI().duckPointing
-  if (pointing) return content.duck.status.pointing.replace('{x}', pointing)
-  return content.duck.status.thinking
-}
-
 /** Still of the scene duck; a 2-frame blink every ~6 s is the only motion in the panel (Vision). */
 function Avatar({ size }: { size: number }) {
   return (
@@ -121,6 +107,51 @@ function StationCard({ e }: { e: DuckEntry }) {
   )
 }
 
+/**
+ * The tool ticker (Vision recruiter look §2): one quiet sans line above the answer,
+ * "search_portfolio · fly_to monitor · open projects", the current step in ink. Once the answer
+ * lands it collapses to "3 steps ▸" (tap to expand). Never the old mono ticker.
+ */
+function Ticker({ e }: { e: DuckEntry }) {
+  const [open, setOpen] = useState(false)
+  const steps = e.steps
+  const live = !e.reply
+  if (!steps.length)
+    return live ? (
+      <p className="duck-ticker" aria-live="polite">
+        <span className="sr-only">{content.duck.status.thinkingSr}</span>
+        <span aria-hidden="true">…</span>
+      </p>
+    ) : null
+  const cur = live ? Math.max(0, e.shown - 1) : -1
+  const count = `${steps.length} step${steps.length === 1 ? '' : 's'}`
+  const line = (
+    <>
+      {steps.map((t, i) => (
+        <span key={i}>
+          {i > 0 && <span className="sep" aria-hidden="true"> · </span>}
+          <span className={i === cur ? 'cur' : i < e.shown || !live ? 'done' : 'next'}>{t}</span>
+        </span>
+      ))}
+    </>
+  )
+  if (live)
+    return (
+      <p className="duck-ticker live" aria-live="polite">
+        {line}
+      </p>
+    )
+  return (
+    <button type="button" className={`duck-ticker toggle${open ? ' open' : ''}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+      {open ? line : count}{' '}
+      {/* Drawn, not a ▸ glyph: not every system font has one. */}
+      <svg className={`ticker-caret${open ? ' open' : ''}`} width="8" height="8" viewBox="0 0 8 8" aria-hidden="true" focusable="false">
+        <path d="M2 1l4 3-4 3z" fill="currentColor" />
+      </svg>
+    </button>
+  )
+}
+
 function Turn({ e }: { e: DuckEntry }) {
   const touch = isTouch()
   const greet = e.greet
@@ -134,12 +165,7 @@ function Turn({ e }: { e: DuckEntry }) {
           {e.question}
         </p>
       )}
-      {!e.reply && (
-        <p className="duck-looking" aria-live="polite">
-          <span aria-hidden="true">{lookingLine()}</span>
-          <span className="sr-only">{content.duck.status.thinkingSr}</span>
-        </p>
-      )}
+      {!e.greet && <Ticker e={e} />}
       {e.reply && (
         <p className={`duck-answer${e.matched ? '' : ' miss'}${e.error ? ' error' : ''}`}>
           <FadeIn text={greet ?? e.reply} />
@@ -247,10 +273,11 @@ function Log() {
 }
 
 /**
- * Opening chips (Shuri PR #6 fix 1): the greeting's three, stacked full width under the greeting,
- * then "More questions" as a text link. More opens the other presets as extra stacked rows, with
- * "Fewer questions" right under them; on phones the sheet goes to full while More is open. Used
- * chips stay but go quiet. All sentence case (Fury #3).
+ * Opening chips (Vision recruiter look §2, on Shuri's PR #6 stack): the greeting's three, stacked
+ * full width under the greeting, one sentence each in the duck's voice (Literata). "More questions"
+ * (a sans text link) opens the other presets as extra stacked rows, "Fewer questions" right under
+ * them; on phones the sheet goes to full while More is open. Used chips stay but go quiet.
+ * All sentence case (Fury #3).
  */
 function Chips() {
   const thinking = useUI((s) => s.duckThinking)

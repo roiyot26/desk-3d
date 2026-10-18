@@ -58,6 +58,17 @@ export const content = raw as unknown as {
   toasts: Record<string, string>
   /** One-line versions of the status toasts. */
   toastShort: Record<string, string>
+  hero: { headline: string; sub: string; enter: string; ready: string }
+  guide: {
+    button: string
+    title: string
+    rows: { id: string; label: string; proof: string }[]
+    visited: string
+    also: string
+    alsoItems: string[]
+    sculpture: string
+    close: string
+  }
   duck: {
     placeholder: string
     send: string
