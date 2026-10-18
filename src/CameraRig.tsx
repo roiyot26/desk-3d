@@ -9,7 +9,7 @@ import type { RoomInfo } from './analyze'
 import type { Quality } from './quality'
 import { getUI, setUI, subscribe, useUI } from './store'
 import { gsap, useGSAP } from './gsap'
-import { freeCentreNdc, markerTargetFor, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
+import { freeCentreNdc, freeWidthShare, markerTargetFor, phoneFreeTop, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
 import { STOPS, content } from './content'
 import { CHAT_INSET, CHAT_SHEET_QUERY, chatWidth } from './duck/DuckChat'
 import { audio } from './audio'
@@ -288,20 +288,40 @@ function introOf(home: Pose & { zoom?: number }, duck: Target | undefined, aspec
  * PHONE_DUCK_NDC on the arrival lens (about a quarter from the top), and never lower than
  * PHONE_DUCK_NDC_ROOM on the wider room lens the first input eases to, so it stays clear of the
  * sheet after the intro too. Desktop is untouched.
+ *
+ * The lift is capped so the top of the duck's box stays PHONE_CHIP_ROOM px below the top edge on
+ * the arrival lens: the "Ask the duck" chip hangs above that box (labelAnchors), and its 44 px tap
+ * area must stay on screen, or the layout hides it (Shuri PR #9 #78: at 390 the 10-18 bake's room
+ * bounds lifted the duck far enough that the chip dropped ~1.5 s after arrival).
  */
 export const PHONE_DUCK_NDC = 0.5
 export const PHONE_DUCK_NDC_ROOM = 0.35
-function phoneLift<P extends Pose & { zoom?: number; roomZoom?: number }>(pose: P, duck: Target | undefined, aspect: number): P {
+/** Chip 26 + leader 10 + tap-area pad 9 + 8 px air, rounded up. */
+export const PHONE_CHIP_ROOM = 56
+export function phoneLift<P extends Pose & { zoom?: number; roomZoom?: number }>(pose: P, duck: Target | undefined, aspect: number, height = 844): P {
   if (!duck) return pose
   const c = duck.box.getCenter(new THREE.Vector3())
   const cam = new THREE.PerspectiveCamera(50, aspect, 0.01, 100)
-  const ndcY = (zoom: number, drop: number) => {
+  const aim = (zoom: number, drop: number) => {
     cam.fov = fovFor(aspect) * zoom
     cam.updateProjectionMatrix()
     cam.position.copy(pose.position)
     cam.lookAt(pose.target.clone().add(new THREE.Vector3(0, -drop, 0)))
     cam.updateMatrixWorld()
+  }
+  const ndcY = (zoom: number, drop: number) => {
+    aim(zoom, drop)
     return c.clone().project(cam).y
+  }
+  // NDC y of the duck box's highest corner (where the chip's leader ends).
+  const topY = (zoom: number, drop: number) => {
+    aim(zoom, drop)
+    let hi = -Infinity
+    for (let i = 0; i < 8; i++) {
+      const b = duck.box
+      hi = Math.max(hi, new THREE.Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).project(cam).y)
+    }
+    return hi
   }
   // Smallest drop that puts the duck at or above `ndc` with this lens.
   const dropFor = (zoom: number, ndc: number) => {
@@ -315,7 +335,20 @@ function phoneLift<P extends Pose & { zoom?: number; roomZoom?: number }>(pose: 
     }
     return hi
   }
-  const drop = Math.max(dropFor(pose.zoom ?? 1, PHONE_DUCK_NDC), dropFor(pose.roomZoom ?? pose.zoom ?? 1, PHONE_DUCK_NDC_ROOM))
+  const zoom = pose.zoom ?? 1
+  let drop = Math.max(dropFor(zoom, PHONE_DUCK_NDC), dropFor(pose.roomZoom ?? zoom, PHONE_DUCK_NDC_ROOM))
+  // Cap: the largest drop that keeps the box top at or below the chip's room on the arrival lens.
+  const limit = 1 - (2 * PHONE_CHIP_ROOM) / Math.max(height, 1)
+  if (topY(zoom, drop) > limit) {
+    let lo = -1
+    let hi = drop
+    for (let i = 0; i < 28; i++) {
+      const m = (lo + hi) / 2
+      if (topY(zoom, m) > limit) hi = m
+      else lo = m
+    }
+    drop = lo
+  }
   return drop ? { ...pose, target: pose.target.clone().add(new THREE.Vector3(0, -drop, 0)) } : pose
 }
 
@@ -394,7 +427,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
       const aspect = size.width / size.height
       const sheet = !!window.matchMedia?.(CHAT_SHEET_QUERY).matches
       const intro = introOf(leadHome(homeView(info, portrait, aspect), duck, aspect, !sheet), duck, aspect)
-      return sheet && portrait ? phoneLift(intro, duck, aspect) : intro
+      return sheet && portrait ? phoneLift(intro, duck, aspect, size.height) : intro
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [info, portrait, tall, duck],
@@ -668,7 +701,9 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         // targets.ts); otherwise frame the clicked object.
         const base = fovFor(size.width / size.height)
         const sheet = STOPS.find((x) => x.id === ui.open?.id)?.kind === 'duck' ? DUCK_SHEET : 0.5
-        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dockedLayout(size.width)) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : undefined, xc: book ? freeCentreNdc(size.width, ...dockedLayout(size.width)) : undefined }), fov: base }
+        const dl = dockedLayout(size.width)
+        const centred = !!book || !!t?.def.fill
+        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dl) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : t?.def.fill ? phoneFreeTop(size.height) : undefined, xc: centred ? freeCentreNdc(size.width, ...dl) : undefined, freeShare: freeWidthShare(size.width, dl[0], dl[2]) }), fov: base }
         st.focused = true
         // Sync FOV zoom to the framed lens so pinch/wheel scale the photo from here, not from free-roam.
         if (to.fov !== undefined) st.zoom = THREE.MathUtils.clamp(to.fov / base, ZOOM_MIN, ZOOM_MAX)

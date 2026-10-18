@@ -168,3 +168,62 @@ The morph is not baked; the lightmap is the closed pose. `DUCK_BeamOrigin` is an
 
 The GLB is a closed room for 360° free-roam: `FrontWall`, `Ceiling`, and `Baseboard_Front` are real charcoal (#23242B-family) meshes with lightmap UV2 (same atlas/groups as the other walls). Materials are double-sided. Looking up or turning around never opens into a black void.
 `CITY_Backdrop` stays the unlit city+sky plane outside the window (soft point lights, not chunky squares).
+
+## Post-go-live pass (Oct 11): sleeping cat + fixes (baked Oct 11, staged in web_next/)
+
+**Cat (`CAT_Root`).**
+- Hierarchy: `CAT_Root` (a top-level empty) holds `ARM_Cat` and `CAT_Throw`. `ARM_Cat` holds the skinned mesh `CAT_Body`.
+- Placement: a ginger tabby curled on a folded throw on the left half of the window sill, about 45 cm along the curl and 30 × 30 cm in footprint. It is clear of the monitor, duck, keyboard, terrarium and cactus.
+- Joints: 6 bones (`Spine`, `Chest`, `Head`, `Tail1`, `Tail2`, `Tail3`), 4 weights per vertex.
+- Animations, both 24 fps, seamless (first key = last key), sampled, starting at t = 0:
+  - `ANIM_Cat_Breathe`: 3.5 s. The ribcage (Chest) scales about 3 % and the belly (Spine) about 1.5 %.
+  - `ANIM_Cat_TailFlick`: 2.5 s. One lazy tail-tip flick that settles by about 1.5 s, then rest.
+- Suggested playback: loop Breathe all the time. Play TailFlick once every 6–15 s at random, either additively or on its own action, since the two touch different bones.
+- There is no `CLICK_Cat`. Existing CLICK_/STOP_/KEY_ names and the Duck `Quack` morph are unchanged.
+- Lightmap: `CAT_Body` and `CAT_Throw` carry TEXCOORD_1 and are in the shared lightmap atlas like every other prop. The cat was baked at its rest pose (frame 1). The animations move at most about 1 cm (breathing) and a few cm at the tail tip, so sampling the static lightmap by UV2 on the skinned mesh is fine. Use the same `lightMap` setup as the other props; three.js `SkinnedMesh` supports `lightMap` with `uv1`.
+- Materials: `MAT_Cat_Fur` (baked tabby albedo, roughness 0.88), `MAT_Cat_Cream` (muzzle), `MAT_Cat_Nose`, and `MAT_Cat_Throw` (#5A5052, roughness 0.95).
+
+**Fixes:**
+- Back wall: it is one continuous mesh, `BackWall` (a full slab with the window opening cut out), replacing BackWall_Low/High/Left/Right. That removes the horizontal seam lines. Its lightmap texel density is matched to the other walls.
+- Ceiling: it gets about 1.4× the wall lightmap texel density (about 117 texels/m). The Fill group, which lights the ceiling, bakes at 512 spp and is denoised with OIDN as before.
+- Window: the cyan streak was a thin cyan neon roof band on a near city building, seen through the glass. The mid-distance roof bands were removed too. The only city neon left is the magenta blade sign.
+- Wall/ceiling/floor base textures:
+  - Walls and ceiling ship as flat #3A3236 with luma-only grain, so there is no chroma.
+  - Wall and floor base textures are 512 px UASTC + zstd. ETC1S was what made the blue-violet blocks.
+  - Check it yourself with `_patch/chroma_check.py web/desk.glb`.
+- City lights: sparse, mostly warm amber points of varied size (about 1–2 px radius) and warmth. There are no squares.
+- Fill: build_desk.py now bakes the synced Fill (3300K, desaturated 55 %, warm cast neutralised, half share: 200/30/12.5 W). The one-off web grade (`fill_grade.py`) is therefore off by default (`FILL_GRADE=1` to re-enable). Keep `default_intensity` 1.0.
+
+**Final Vision palette (Oct 11):**
+- Rug field #403535 and border #332A2D, roughness 0.9, no sheen.
+- Cat:
+  - fur #9C5F33, stripes #5E3820, belly and inner legs #C08A60
+  - muzzle #C9B39C blended into the ginger over about 1.8 cm, chin tip #DCCFBF, nose #3A2A26
+- Throw #5E5560.
+- Floor albedo #2F2A29. The cool window light and the 8000K room fill no longer light the floor, rug, cat or throw.
+
+**Wall, ceiling and floor base textures:**
+- `MAT_Paint_Charcoal_base` (walls and ceiling) and `MAT_Concrete_Floor_v2_base` ship as **KTX2 UASTC + zstd at 512 px**. They are not ETC1S, so there are no blocks.
+- The wall texture is flat #3A3236 with a luma-only grain (zero chroma).
+- `_patch/chroma_check.py desk.glb` decodes both textures and reports 8×8-block chroma drift.
+- Forge no longer needs the flat #3A3233 workaround.
+
+**Cat animations in three.js:**
+```js
+const mixer = new THREE.AnimationMixer(gltf.scene);
+const clip = n => THREE.AnimationClip.findByName(gltf.animations, n);
+mixer.clipAction(clip('ANIM_Cat_Breathe')).play();                    // 3.5 s, LoopRepeat, seamless
+const flick = mixer.clipAction(clip('ANIM_Cat_TailFlick'));           // 2.5 s
+flick.setLoop(THREE.LoopOnce); flick.clampWhenFinished = false;
+const nextFlick = () => setTimeout(() => { flick.reset().play(); nextFlick(); }, 6000 + Math.random() * 9000);
+nextFlick();                                                           // mixer.update(dt) in your render loop
+```
+- Each clip only has the channels that move: Breathe = Chest and Spine scale, TailFlick = Tail2 and Tail3 rotation (`_patch/anim_prune.py`). They never share a bone, so both play at full weight together.
+- Apply the lightmap to `CAT_Body` exactly like the other meshes (uv1 = TEXCOORD_1).
+
+**Fill scale (Vision cat pass, option 2):** the Fill lightmap ships at gain **0.80** (`lightmaps/manifest.json`: Fill `scale` 2.419709 = `scale_baked` 3.024636 x `gain` 0.80). The texture is unchanged, so just use `scale` as before. `FILL_GAIN` in `compress_web.sh` sets it on every compress without stacking. Tested 0.85 and 0.80; 0.80 puts the walls at about #4A3836 in the wide view.
+
+## 2026-10-18 texture pass (no re-bake)
+Four embedded textures were replaced in `desk.glb` (lightmaps, geometry, node names, animations unchanged; same UASTC settings):
+`screen_laptop_blender` (ScreenSlot_Laptop), `screen_monitor_projects` (ScreenSlot_Monitor), `sticky_nowbuilding` (MAT_StickyNote), `mug_at` (MAT_MugPrint).
+Payload 9.60 MB. Previews: `_handoff/textures_1018/`.

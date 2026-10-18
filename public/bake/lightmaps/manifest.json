@@ -9,19 +9,20 @@
     {
       "group": "DeskLamp",
       "file": "lightmaps/lm_DeskLamp.ktx2",
-      "scale": 13.55035,
+      "scale": 12.876225,
       "default_intensity": 1.0,
       "lights": [
         "LGT_DeskLamp_Key",
         "LGT_DeskLamp_Glow"
       ],
       "emissive_materials": [],
-      "resolution": 2048
+      "resolution": 2048,
+      "scale_baked": 12.876225
     },
     {
       "group": "FloorLamp",
       "file": "lightmaps/lm_FloorLamp.ktx2",
-      "scale": 24.065023,
+      "scale": 21.226164,
       "default_intensity": 1.0,
       "lights": [
         "LGT_FloorLamp_Bulb"
@@ -29,12 +30,13 @@
       "emissive_materials": [
         "MAT_Linen_Shade"
       ],
-      "resolution": 2048
+      "resolution": 2048,
+      "scale_baked": 21.226164
     },
     {
       "group": "Fill",
       "file": "lightmaps/lm_Fill.ktx2",
-      "scale": 5.956414,
+      "scale": 2.419709,
       "default_intensity": 1.0,
       "lights": [
         "LGT_Fill_Room",
@@ -43,12 +45,14 @@
         "LGT_Fill_CeilingWash"
       ],
       "emissive_materials": [],
-      "resolution": 2048
+      "resolution": 2048,
+      "scale_baked": 3.024636,
+      "gain": 0.8
     },
     {
       "group": "Window",
       "file": "lightmaps/lm_Window.ktx2",
-      "scale": 0.757251,
+      "scale": 1.006952,
       "default_intensity": 1.0,
       "lights": [
         "LGT_Window_Fill"
@@ -64,12 +68,13 @@
         "CityWinWarm",
         "CityWinWarmFar"
       ],
-      "resolution": 1024
+      "resolution": 1024,
+      "scale_baked": 1.006952
     },
     {
       "group": "Neon",
       "file": "lightmaps/lm_Neon.ktx2",
-      "scale": 0.345347,
+      "scale": 0.312052,
       "default_intensity": 1.0,
       "lights": [
         "LGT_Neon_MonitorRim",
@@ -82,12 +87,13 @@
         "ScreenSlot_Monitor",
         "ScreenSlot_Laptop"
       ],
-      "resolution": 1024
+      "resolution": 1024,
+      "scale_baked": 0.312052
     },
     {
       "group": "Pictures",
       "file": "lightmaps/lm_Pictures.ktx2",
-      "scale": 0.374987,
+      "scale": 0.370497,
       "default_intensity": 1.0,
       "lights": [
         "LGT_Picture_Poster",
@@ -101,13 +107,14 @@
         "ArtPanAsparagus",
         "ScreenSlot_Frame3DRender"
       ],
-      "resolution": 1024
+      "resolution": 1024,
+      "scale_baked": 0.370497
     }
   ],
   "env": {
     "file": "env/room_env.ktx2",
     "projection": "equirectangular (Blender eye at (0.35,-0.75,1.20) Z-up; +Y Blender = -Z glTF)",
-    "scale": 3.61938,
+    "scale": 2.4375,
     "use": "scene.environment / material.envMap for metals+gloss only (diffuse already in lightmaps): envMapIntensity ~ scale * 0.5"
   },
   "resolution_note": "per-group 'resolution'; all groups share the same UV2 (TEXCOORD_1) layout, so sample each by UV and sum (any RT size)"
