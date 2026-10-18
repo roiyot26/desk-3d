@@ -139,6 +139,13 @@ describe('#67: the note line is clamped from the start', () => {
     expect(out.endsWith('end?')).toBe(true)
     expect(fits(out)).toBe(true)
   })
+  it('a URL inside a sentence is never split, and the result is an exact tail of the text', () => {
+    const t = 'Roi is looking for work on products that use AI and on 3D for the web. LinkedIn is the fastest way to reach him: linkedin.com/in/roi-yotvat-874ba9209/. All his code is on GitHub. Want to see both on the mug?'
+    const out = headClamp(t, (c) => c.length <= 140)
+    expect(out).toBe('…LinkedIn is the fastest way to reach him: linkedin.com/in/roi-yotvat-874ba9209/. All his code is on GitHub. Want to see both on the mug?')
+    expect(t.endsWith(out.slice(1))).toBe(true)
+    expect(headClamp(t, (c) => c.length <= 80)).toBe('…All his code is on GitHub. Want to see both on the mug?')
+  })
   it('sentences keep their punctuation', () => {
     expect(sentences('A b. C d? E!')).toEqual(['A b.', 'C d?', 'E!'])
   })

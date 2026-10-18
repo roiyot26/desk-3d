@@ -660,17 +660,23 @@ function NoteLine() {
 /** Restore the full chat column over the station card (the card waits; Esc brings it back). */
 export function showWholeChat() {
   setUI({ chatFull: true })
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      const scroll = document.querySelector<HTMLElement>('.chat.docked .chat-scroll')
+  // The column mounts on the next commit; keep trying for a few frames until focus is inside it.
+  let tries = 0
+  const tick = () => {
+    const col = document.querySelector<HTMLElement>('.chat.docked:not(.chatnote)')
+    if (col) {
+      const scroll = col.querySelector<HTMLElement>('.chat-scroll')
       if (scroll) scroll.scrollTop = scroll.scrollHeight
-      const msg = [...document.querySelectorAll<HTMLElement>('.chat.docked .duck-answer')].pop()
+      const msg = [...col.querySelectorAll<HTMLElement>('.duck-answer')].pop()
       if (msg) {
         msg.tabIndex = -1
         msg.focus({ preventScroll: true })
-      } else document.querySelector<HTMLElement>('.chat.docked .chat-dock input, .chat.docked .chat-dock textarea')?.focus()
-    }),
-  )
+      } else col.querySelector<HTMLElement>('.chat-dock input, .chat-dock textarea')?.focus()
+      if (col.contains(document.activeElement)) return
+    }
+    if (tries++ < 20) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
 }
 
 /** Collapse the desktop column; focus lands on the duck bubble that replaces it. */
