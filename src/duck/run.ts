@@ -1,7 +1,7 @@
 import { setLights, setRain, startAgentic } from '../actions'
 import { audio } from '../audio'
 import type { DuckTool } from '../content'
-import { findSecret, getUI, setMuted, setUI, type DuckCard, type DuckEntry, type Open } from '../store'
+import { getUI, setMuted, setUI, type DuckCard, type DuckEntry, type Open } from '../store'
 import { TARGET_DEFS, targetByKey } from '../targets'
 import { content } from '../content'
 import { duckEngine } from './engine'
@@ -25,18 +25,28 @@ function patchEntry(id: number, p: Partial<DuckEntry>) {
 
 const onOff = (v: string | undefined): boolean | 'toggle' => (v === 'on' ? true : v === 'off' ? false : 'toggle')
 
-/** Where fly_to / open lead. `open` wins (project slug or panel id); else fly_to's target panel. */
+/**
+ * Where fly_to / open lead. `open` wins (project slug or panel id); else fly_to's target panel.
+ * A fly_to target that carries a skill (a book: `book-claude-code`) keeps it when it lands on
+ * the same panel, so the stack panel highlights that skill and the camera frames that book.
+ */
 export function destination(flyTo?: string, open?: string): Open {
+  const def = flyTo ? (targetByKey(getUI().targets, flyTo)?.def ?? TARGET_DEFS.find((d) => d.key === flyTo)) : undefined
+  // Only a key that names the book itself carries its skill ("bookshelf" aliases to the marker book).
+  const skill = def && def.key === flyTo ? def.skill : undefined
   if (open) {
     if (content.projects.some((p) => p.slug === open)) return { id: 'stop-1', project: open }
-    if (content.stops.some((s) => s.id === open) || content.bonus.some((b) => b.id === open)) return { id: open }
+    if (content.stops.some((s) => s.id === open) || content.bonus.some((b) => b.id === open))
+      return skill && def?.id === open ? { id: open, skill } : { id: open }
   }
-  if (flyTo) {
-    const t = targetByKey(getUI().targets, flyTo)
-    const id = t?.id ?? TARGET_DEFS.find((d) => d.key === flyTo)?.id
-    if (id && !id.startsWith('action-')) return { id }
-  }
+  if (def && !def.id.startsWith('action-')) return skill ? { id: def.id, skill } : { id: def.id }
   return null
+}
+
+/** `fly_to("unvisited")` (the roam intent): the first station the visitor hasn't opened yet. */
+const ROAM_ORDER = ['terrarium', 'laptop', 'bookshelf', 'career', 'sticky', 'mug', 'monitor']
+export function pickUnvisited(visited: string[]): string {
+  return ROAM_ORDER.find((k) => { const d = destination(k); return !!d && !visited.includes(d.id) }) ?? ROAM_ORDER[0]
 }
 
 function perform(t: DuckTool, nav: { flyTo?: string; open?: string }) {
@@ -46,7 +56,7 @@ function perform(t: DuckTool, nav: { flyTo?: string; open?: string }) {
       if (t.sources?.length) setUI({ sources: { keys: t.sources, at: performance.now() } })
       break
     case 'fly_to':
-      nav.flyTo = t.args[0]
+      nav.flyTo = t.args[0] === 'unvisited' ? pickUnvisited(getUI().visited) : t.args[0]
       break
     case 'open':
       nav.open = t.args[0]
@@ -91,7 +101,6 @@ export async function askDuck(question: string) {
   busy = true
   let id = -1
   try {
-    findSecret('duck')
     id = nextId++
     setUI((s) => ({
       duckLog: [...s.duckLog.filter((e) => e.greet), ...s.duckLog.filter((e) => !e.greet).slice(-5), { id, question: q, steps: [], shown: 0, reply: null, matched: true }],
@@ -123,7 +132,7 @@ export async function askDuck(question: string) {
       const card = cardFor(dest)
       if (card) {
         patchEntry(id, { card })
-        setUI({ duckPointing: card.label.toLowerCase() })
+        setUI({ duckPointing: card.label.toLowerCase(), duckPointed: true })
       }
     }
     if (!getUI().chatOpen) setUI({ chatUnread: true })

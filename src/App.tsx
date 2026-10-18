@@ -31,7 +31,7 @@ export function isPhone() {
 
 /**
  * Phones with WebGL open the room too (low tier, phone framing, bottom sheets); the plain page is
- * one tap away ("Just the résumé →"). The 2D page is the default only without WebGL, or when the
+ * one tap away ("Quick version (1 page)"). The 2D page is the default only without WebGL, or when the
  * phone asks to save data / has very little memory, and then it carries a sticky
  * "Enter the 3D room →" bar. ?view=list / ?view=room force either.
  */
@@ -65,7 +65,8 @@ export default function App() {
 
   // The poster in index.html is the first paint. It fades into the canvas once the room is ready.
   // It stays behind the loader's log until the visitor presses Enter.
-  const entered = useUI((s) => s.entered)
+  // The poster stays up behind the loader until the room is ready, even if the visitor entered early.
+  const entered = useUI((s) => s.entered && s.stage === 'ready')
   useEffect(() => {
     const poster = document.getElementById('poster')
     if (!poster) return

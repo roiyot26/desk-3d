@@ -123,6 +123,11 @@ a {
 .loader.done {
   pointer-events: none;
 }
+/* Entered before the room is ready: the log keeps showing progress but never blocks the chat. */
+.loader.early .loader-card { pointer-events: none; }
+.loader.early .loader-actions,
+.loader.early .loader-hint { display: none; }
+.chat-sheet .loader.early { align-items: start; padding-top: 72px; }
 .loader-card {
   pointer-events: auto;
   width: min(460px, 100%);
@@ -460,23 +465,6 @@ a {
 
 
 
-/* ---------- secrets card ---------- */
-.secrets-card {
-  position: fixed;
-  z-index: 35;
-  inset: 0;
-  margin: auto;
-  height: fit-content;
-  width: min(360px, 86vw);
-  padding: 22px;
-  border-radius: 16px;
-  background: var(--panel);
-  border: 1px solid var(--accent);
-}
-.secrets-card h2 {
-  margin: 0 30px 8px 0;
-}
-
 /* ---------- hint (cold-open line under the canvas) ---------- */
 .hint {
   position: fixed;
@@ -683,25 +671,7 @@ a {
 .hud-btn.icon { width: 32px; justify-content: center; padding: 0; }
 .hud-btn.lights { color: var(--muted); }
 .hud-btn.lights.on { color: var(--accent); }
-.hud-btn.flash { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(240, 178, 115, 0.25); }
-.hud-secrets { position: relative; }
-.hud-pop {
-  position: absolute;
-  right: 0;
-  top: 38px;
-  margin: 0;
-  padding: 10px 14px;
-  list-style: none;
-  min-width: 190px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--muted);
-}
-.hud-pop li.got { color: var(--ink); }
-/* Phones: the HUD becomes a clean top bar. Résumé on the left, secrets + mute on the right,
+/* Phones: the HUD becomes a clean top bar. Quick version on the left, lights + mute on the right,
    on a soft dark gradient. Badges stay out of the top 64px (Hotspots.tsx), so nothing covers it. */
 @media (max-width: 700px), (max-aspect-ratio: 4/5) {
   .hud {
@@ -745,7 +715,6 @@ a {
   font-size: 13px;
 }
 .toast p + p { display: block; width: fit-content; margin: 6px auto 0; }
-.toast .toast-secret { color: var(--accent); border-color: rgba(240, 178, 115, 0.45); }
 @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ---------- Ask the duck ---------- */
@@ -810,9 +779,6 @@ a {
 
 
 
-
-/* ---------- secrets card ---------- */
-.secrets-list { list-style: none; padding: 0; margin: 8px 0; line-height: 1.7; color: var(--accent); font-size: 14px; }
 
 /* ---------- list view: poster hero + phone note ---------- */
 .list-hero {
@@ -957,10 +923,8 @@ a {
   .btn.small { min-height: 44px; min-width: 44px; justify-content: center; }
   .hud-btn { min-height: 44px; }
   .hud-btn.icon { width: 44px; flex: none; }
-  .hud-pop { top: 50px; }
   .panel-close { width: 44px; height: 44px; top: 6px; right: 6px; }
   .panel h2 { margin-right: 50px; }
-  .secrets-card h2 { margin-right: 44px; }
 
   /* Bottom stepper: 26px rings, 44px buttons. */
   
@@ -1471,7 +1435,6 @@ a {
 .chat-docked .hint.with-panel { display: none; }
 .chat-docked .hint,
 .chat-docked .toast { right: var(--chat-w); }
-.chat-docked .secrets-card { right: calc(var(--chat-w) + 12px); }
 
 /* Dim the room behind a raised phone sheet (no blur). */
 .sheet-raised::before {
@@ -1594,7 +1557,6 @@ a {
 /* HUD: one row; on phones résumé + a 44px "⋯" menu (≤56px bar). */
 .hud-group { display: contents; }
 .hud-more { display: none; position: relative; }
-.hud-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 @media (max-width: 430px) {
   .hud { flex-wrap: nowrap; align-items: center; padding-bottom: 4px; }
   .hud .hud-btn.resume { min-height: 44px; white-space: nowrap; }
@@ -1602,5 +1564,4 @@ a {
   .hud-group { display: none; }
   .hud.menu-open .hud-group { display: flex; flex-direction: column; align-items: stretch; gap: 8px; position: absolute; top: calc(100% + 8px); right: 0; padding: 10px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45); z-index: 60; }
   .hud.menu-open .hud-group .hud-btn { min-height: 44px; min-width: 44px; justify-content: center; }
-  .hud.menu-open .hud-pop { position: static; margin-top: 8px; }
 }

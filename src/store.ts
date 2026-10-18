@@ -58,26 +58,15 @@ export type UIState = {
   chatUnread: boolean
   /** The station the duck last pointed at with a card (status line). */
   duckPointing: string | null
+  /** The duck has pointed at something at least once: the idle drift stays off for good (brief §3). */
+  duckPointed: boolean
   // --- HUD
   toast: { text: string; short?: string; at: number } | null
-  /** Last newly found secret (HUD flash). */
-  secretFlash: { id: string; at: number } | null
-  secrets: string[]
-  secretsCard: 'hidden' | 'open' | 'dismissed'
   muted: boolean
   music: boolean
 }
 
-const SECRETS_KEY = 'desk3d-secrets'
 const MUTE_KEY = 'desk3d-muted'
-
-function loadSecrets(): string[] {
-  try {
-    return (JSON.parse(sessionStorage.getItem(SECRETS_KEY) ?? '[]') as string[]).filter((id) => id !== 'tour')
-  } catch {
-    return []
-  }
-}
 
 let state: UIState = {
   stage: 'download',
@@ -108,10 +97,8 @@ let state: UIState = {
   sheet: 'peek',
   chatUnread: false,
   duckPointing: null,
+  duckPointed: false,
   toast: null,
-  secretFlash: null,
-  secrets: loadSecrets(),
-  secretsCard: 'hidden',
   muted: (() => {
     try {
       return localStorage.getItem(MUTE_KEY) === '1'
@@ -143,7 +130,7 @@ export function useUI<T>(sel: (s: UIState) => T): T {
   return useSyncExternalStore(subscribe, () => sel(state), () => sel(state))
 }
 
-/** `short` is the one-line phone version (merged with a "★ Secret n/6" flash into a single line). */
+/** `short` is a one-line form of the toast (kept in content for phones). */
 export function toast(text: string, short?: string) {
   setUI({ toast: { text, short, at: performance.now() } })
 }
@@ -157,8 +144,6 @@ export function setMuted(muted: boolean) {
   setUI({ muted })
 }
 
-export const SECRET_COUNT = 6
-
 /**
  * Test hook for screenshots on very slow (software-GL) machines: with `?debug`, setting
  * `window.__desk3dHoldMoment = true` keeps toasts and agentic mode on until it is cleared.
@@ -167,16 +152,3 @@ export function momentHeld(): boolean {
   return DEBUG_FLAG && !!(window as unknown as { __desk3dHoldMoment?: boolean }).__desk3dHoldMoment
 }
 const DEBUG_FLAG = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')
-
-/** Mark a secret as found (persists for the session). Returns true when it was new. */
-export function findSecret(id: string): boolean {
-  if (state.secrets.includes(id)) return false
-  const secrets = [...state.secrets, id]
-  try {
-    sessionStorage.setItem(SECRETS_KEY, JSON.stringify(secrets))
-  } catch {
-    /* private mode */
-  }
-  setUI({ secrets, secretFlash: { id, at: performance.now() }, secretsCard: secrets.length >= SECRET_COUNT && state.secretsCard === 'hidden' ? 'open' : state.secretsCard })
-  return true
-}

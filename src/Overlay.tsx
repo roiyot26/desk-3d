@@ -4,7 +4,7 @@ import { closePanel, openPanel, parseHash } from './nav'
 import { getUI, setUI, useUI } from './store'
 import { Loader, enter } from './Loader'
 import { DuckChat, collapseChat } from './duck/DuckChat'
-import { Hud, SecretsCard, Toast } from './Hud'
+import { Hud, Toast } from './Hud'
 import { useTyping } from './keyboard'
 import { gsap, prefersReducedMotion, useGSAP } from './gsap'
 import { SHEET_QUERY, useMedia } from './useMedia'
@@ -21,7 +21,6 @@ export function Overlay() {
       <Hud />
       <Panel />
       <DuckChat />
-      <SecretsCard />
       <Hint />
       <Toast />
     </>
@@ -53,7 +52,7 @@ function useKeys() {
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       const s = getUI()
-      if (s.stage !== 'ready') return
+      // Enter works before the room is ready (Fury #6); everything else waits for the room.
       if (!s.entered) {
         if (e.key === 'Enter') {
           e.preventDefault()
@@ -61,6 +60,7 @@ function useKeys() {
         }
         return
       }
+      if (s.stage !== 'ready') return
       // Esc order: the station panel, then the chat (phone sheet to peek / desktop column collapses).
       if (e.key === 'Escape') {
         if (s.open) {
@@ -160,7 +160,7 @@ function Panel() {
         <button type="button" className="panel-close" onClick={closePanel} aria-label={content.tour.close}>
           ×
         </button>
-        <p className="panel-kicker">{stop ? stop.kicker.replace(/^Stop \d+ · /, '') : isBonus ? content.tour.foundIt : 'Aside'}</p>
+        <p className="panel-kicker">{stop ? stop.kicker : isBonus ? content.tour.foundIt : 'Aside'}</p>
         <h2 id="panel-title" tabIndex={-1} ref={ref}>
           {stop ? stop.title : note!.title}
         </h2>

@@ -10,7 +10,7 @@ import type { Quality } from './quality'
 import { getUI, setUI, subscribe, useUI } from './store'
 import { gsap, useGSAP } from './gsap'
 import { markerTargetFor, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
-import { STOPS } from './content'
+import { STOPS, content } from './content'
 import { CHAT_INSET, CHAT_SHEET_QUERY, chatWidth } from './duck/DuckChat'
 import { audio } from './audio'
 
@@ -598,11 +598,15 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
 
     // --- Focus: ease to a framed view when a panel opens, back to the saved pose when it closes.
     const ui = getUI()
-    const key = ui.open ? `${ui.open.id}` : ''
+    // The featured skill (Claude Code) frames its own book, not the whole shelf: the duck's
+    // "how he builds with AI" answer lands on that spine. Other skills keep the shelf stop cam.
+    const featured = content.skills.featured.id
+    const book = ui.open?.skill === featured ? ui.targets.get(`book-${featured}`) : undefined
+    const key = ui.open ? `${ui.open.id}${book ? `:${featured}` : ''}` : ''
     if (key !== st.openKey) {
       st.openKey = key
-      const t = ui.open ? markerTargetFor(ui.targets, ui.open.id) : undefined
-      const stopCam = ui.open ? ui.stopCams.get(ui.open.id) : undefined
+      const t = book ?? (ui.open ? markerTargetFor(ui.targets, ui.open.id) : undefined)
+      const stopCam = ui.open && !book ? ui.stopCams.get(ui.open.id) : undefined
       const current: Pose = { position: cam.position.clone(), target: c.target.clone(), fov: cam.fov }
       const dur = quality.reducedMotion ? 0 : EASE_TIME
       if (t || stopCam) {
@@ -637,7 +641,8 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
     }
 
     // --- Free roam. Slow idle drift: a gentle sway around wherever the viewer left the camera.
-    if (!st.intro && !quality.reducedMotion && !st.interacting && now - st.lastInput > IDLE_AFTER) {
+    // Once the duck has pointed at something, the camera holds still for good (no idle drift).
+    if (!st.intro && !quality.reducedMotion && !st.interacting && !ui.duckPointed && now - st.lastInput > IDLE_AFTER) {
       if (st.driftStart < 0) {
         // From the camera itself, not OrbitControls' cached spherical (stale until its next
         // update(): it once swung the phone home ~70° off the desk toward the default camera).

@@ -14,15 +14,18 @@ export function enter() {
 
 /**
  * Themed loader: a coding-agent style log over the poster. Lines appear as the real progress
- * passes their threshold (download = first 85%, shader warm-up the rest). When the room is ready
- * it waits for Enter (sound on). The plain page is the HUD's "Just the résumé" link (one link,
- * not two: the loader no longer repeats it).
+ * passes their threshold (download = first 85%, shader warm-up the rest). Enter works before the
+ * room is ready (Fury #6): the duck greets and answers in text right away, while the log keeps
+ * showing progress behind the chat (non-blocking) and fades once the room is ready. The plain page
+ * is the HUD's "Quick version (1 page)" link.
  */
 export function Loader() {
   const stage = useUI((s) => s.stage)
   const progress = useUI((s) => s.progress)
   const entered = useUI((s) => s.entered)
   const ready = stage === 'ready'
+  // Entered before the room finished loading: progress stays visible but stops catching input.
+  const early = entered && !ready
   // Touch: no keyboard hint, no window-chrome dots.
   const touch = useMedia('(hover: none), (pointer: coarse)')
   const p = stage === 'download' ? progress * 0.85 : stage === 'compile' ? 0.93 : 1
@@ -34,13 +37,13 @@ export function Loader() {
   // reduced motion). autoAlpha also sets visibility:hidden at the end so it stops catching focus.
   useGSAP(
     () => {
-      if (!entered || !root.current) return
+      if (!entered || !ready || !root.current) return
       gsap.to(root.current, { autoAlpha: 0, duration: prefersReducedMotion() ? 0 : 0.8, delay: prefersReducedMotion() ? 0 : 0.1, ease: 'power2.out' })
     },
-    { dependencies: [entered], scope: root },
+    { dependencies: [entered, ready], scope: root },
   )
   useEffect(() => {
-    if (ready) enterRef.current?.focus({ preventScroll: true })
+    enterRef.current?.focus({ preventScroll: true })
   }, [ready])
   // After Enter the loader is gone for good: inert + hidden, so focus can never land in it.
   useEffect(() => {
@@ -50,7 +53,7 @@ export function Loader() {
     el.setAttribute('aria-hidden', 'true')
   }, [entered])
   return (
-    <div ref={root} className={`loader${entered ? ' done' : ''}${ready ? ' ready' : ''}`} aria-live="polite" aria-busy={!ready}>
+    <div ref={root} className={`loader${entered && ready ? ' done' : ''}${early ? ' early' : ''}${ready ? ' ready' : ''}`} aria-live="polite" aria-busy={!ready}>
       <div className="loader-card">
         <p className="loader-title">
           {!touch && (
@@ -86,7 +89,7 @@ export function Loader() {
           <span style={{ width: `${Math.round(p * 100)}%` }} />
         </div>
         <div className="loader-actions">
-          <button ref={enterRef} type="button" className="btn primary" disabled={!ready} onClick={enter}>
+          <button ref={enterRef} type="button" className="btn primary" onClick={enter}>
             {content.site.enter}
             {!touch && <kbd>⏎</kbd>}
           </button>
