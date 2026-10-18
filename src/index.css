@@ -1707,6 +1707,8 @@ html .panel.paper .panel-back:hover { background: var(--p-hover); }
 .panel.paper a.lk {
   display: inline-flex;
   align-items: center;
+  justify-content: center; /* Shuri #81: "Live" was 41 px wide */
+  min-width: 44px;
   min-height: 44px;
   padding: 0 6px;
   border-radius: 3px;
@@ -1835,3 +1837,9 @@ html .chat.docked.chatnote {
 .chatnote .last:focus-visible { outline: 2px solid #ECE2D2; outline-offset: 2px; }
 .chatnote .last-probe { position: absolute; left: -9999px; top: 0; height: auto; min-height: 0; max-height: none; padding: 0; border: 0; visibility: hidden; pointer-events: none; }
 .chatnote .chat-dock { order: 2; flex: none; }
+
+/* Shuri #79: phone focus rings stay on paper at the sheet edges (the sheet has no top padding) */
+html .chat.sheet.peek.station .chat-handle:focus-visible { outline: 2px solid var(--p-ink); outline-offset: -4px; }
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  html .panel.paper .panel-top :is(.panel-back, .sheet-handle):focus-visible { outline-offset: -2px; }
+}

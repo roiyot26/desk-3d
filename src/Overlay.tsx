@@ -476,7 +476,7 @@ function Projects({ initial }: { initial?: string }) {
             {p.name}
           </h3>
           <p className="tagline">{p.tagline}</p>
-          <p className="more">{[p.serious, p.joke].filter(Boolean).join(' ')}</p>
+          <p className="more">{p.serious}</p>
           <div className="meta">
             <span className="tags">{p.tags.join(' · ')}</span>
             <Links links={[{ label: 'Repo', url: p.repo }, ...(p.live ? [{ label: 'Live', url: p.live }] : [])]} />

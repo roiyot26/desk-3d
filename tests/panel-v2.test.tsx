@@ -237,12 +237,23 @@ describe('#61 solver', () => {
 })
 
 describe('Shuri #65: the download stage at 100% never shows a stuck number', () => {
-  it('download at progress 1: the line has no percent', () => {
-    setUI({ entered: true, stage: 'download', progress: 1 })
-    const html = renderToStaticMarkup(<Loader />)
-    const line = html.match(/<p class="hero-wait-line[^"]*" aria-hidden="true">(.*?)<\/p>/)![1].replace(/<[^>]+>/g, '')
-    expect(line).not.toMatch(/\d+%/)
-    expect(src('Loader.tsx')).toContain("const counting = pct !== null && pct > 0 && !(stage === 'download' && progress >= 1)")
+  const line = (html: string) => html.match(/<p class="hero-wait-line[^"]*" aria-hidden="true">(.*?)<\/p>/)![1].replace(/<[^>]+>/g, '')
+  const block = (html: string) => html.match(/<p class="hero-line">([^<]*)<\/p>/)![1]
+  it('download at the real cap (progress.ts: 0.999): neither the note nor the block line shows a percent', () => {
+    // progress.ts never sets 1 during download; the reopened #65 froze on "… 50%" here
+    expect(src('progress.ts')).toMatch(/Math\.min\(loaded \/ total, 0\.999\)/)
+    for (const progress of [0.999, 1]) {
+      setUI({ entered: true, stage: 'download', progress })
+      expect(line(renderToStaticMarkup(<Loader />)), `note @${progress}`).not.toMatch(/\d+%/)
+      setUI({ entered: false, stage: 'download', progress })
+      expect(block(renderToStaticMarkup(<Loader />)), `block @${progress}`).not.toMatch(/\d+%/)
+    }
+  })
+  it('below the cap both lines still count', () => {
+    setUI({ entered: true, stage: 'download', progress: 0.98 })
+    expect(line(renderToStaticMarkup(<Loader />))).toMatch(/\d+%$/)
+    setUI({ entered: false, stage: 'download', progress: 0.98 })
+    expect(block(renderToStaticMarkup(<Loader />))).toMatch(/\d+%$/)
   })
 })
 
@@ -292,5 +303,23 @@ describe('Vision v2.3.1: the duck stays ≥24 px clear above the sheet (Monitor/
     const state = checkPortrait(fit, undefined, duck, W, H, sheetTop).duck
     expect(state).not.toBe(false)
     if (state === 'above') expect(sheetTop - (after as { b: number }).b).toBeGreaterThanOrEqual(24)
+  })
+})
+
+describe('Shuri #79/#81/#82 (PR #11 at 624cd98)', () => {
+  it('#79: peek handle ring is ink inset on paper; phone back/handle rings sit inside the sheet', () => {
+    expect(css).toMatch(/\.chat\.sheet\.peek\.station \.chat-handle:focus-visible \{ outline: 2px solid var\(--p-ink\); outline-offset: -4px; \}/)
+    expect(css).toMatch(/@media \(max-width: 700px\), \(max-aspect-ratio: 4\/5\) \{\s*html \.panel\.paper \.panel-top :is\(\.panel-back, \.sheet-handle\):focus-visible \{ outline-offset: -2px; \}/)
+  })
+  it('#81: every paper text link is at least 44 px wide, label centred', () => {
+    const lk = css.match(/\.panel\.paper a\.lk \{([^}]*)\}/)![1]
+    expect(lk).toMatch(/min-width: 44px/)
+    expect(lk).toMatch(/justify-content: center/)
+  })
+  it('#82: project prose is the serious line only; no quip on the card', () => {
+    expect(src('Overlay.tsx')).not.toMatch(/p\.joke/)
+    const html = renderToStaticMarkup(<StopBody stop={stop('stop-1')} />)
+    for (const p of content.projects) if (p.joke) expect(html, p.slug).not.toContain(p.joke.replace(/'/g, '&#x27;'))
+    expect(html).not.toContain('raining in here since the first commit')
   })
 })
