@@ -8,8 +8,9 @@
 export const CAP_STEP = 8
 export const CAP_FLOOR = 360
 export const SHEET_CAPS: Record<string, Partial<Record<'390' | '360', number>>> = {
-  'stop-2': { '360': 376 },
-  'stop-5': { '390': 376, '360': 376 },
+  // box sweep (shots/pr-panel-v2/sweep/): first 8 px step at or under 0.46
+  'stop-2': { '360': 384 }, // 400 0.467, 392 0.462, 384 0.457
+  'stop-5': { '390': 384, '360': 368 }, // 390: 0.463, 0.462, 0.458 / 360: 0.469 ... 376 0.461, 368 0.460
 }
 
 export function widthBucket(w: number): '390' | '360' {

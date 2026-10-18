@@ -247,10 +247,10 @@ describe('Shuri #65: the download stage at 100% never shows a stuck number', () 
 })
 
 describe('Vision v2.3.1 (a): per-station, per-width phone caps for the 0.46 frame limit', () => {
-  it('stop-5 at 390 and 360 and stop-2 at 360 cap at 376; every other station keeps the CSS default', () => {
-    expect(sheetCap('stop-5', 390)).toBe(376)
-    expect(sheetCap('stop-5', 360)).toBe(376)
-    expect(sheetCap('stop-2', 360)).toBe(376)
+  it('stop-5 caps at 384 (390) and 368 (360), stop-2 at 384 (360); every other station keeps the CSS default', () => {
+    expect(sheetCap('stop-5', 390)).toBe(384)
+    expect(sheetCap('stop-5', 360)).toBe(368)
+    expect(sheetCap('stop-2', 360)).toBe(384)
     expect(sheetCap('stop-2', 390)).toBeUndefined()
     for (const id of ['stop-1', 'stop-3', 'stop-4', 'stop-6', 'aside-now-building']) for (const w of [390, 360]) expect(sheetCap(id, w), `${id}@${w}`).toBeUndefined()
   })
