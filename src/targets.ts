@@ -49,6 +49,11 @@ export type TargetDef = {
   /** Optional camera direction (object -> camera) and distance factor, used when no STOP_*_Cam exists. */
   view?: [number, number, number]
   distance?: number
+  /**
+   * Small subjects (the sticky note): frame so the object's width is this share of the free width
+   * (beside the side panel on desktop, the full width on phones), instead of the room-scale fit.
+   */
+  fill?: number
   /** Nudge the marker / label away from a neighbour (world metres). */
   markerOffset?: [number, number, number]
   /** Toggle something in the room instead of opening a panel. */
@@ -58,6 +63,9 @@ export type TargetDef = {
 const books: TargetDef[] = [content.skills.featured, ...content.skills.items]
   .filter((s) => s.book)
   .map((s, i) => ({ key: `book-${s.id}`, id: 'stop-3', click: [`CLICK_Book_${s.book}`], skill: s.id, marker: i === 0 }))
+
+/** Share of the free width the sticky note fills at its station (Shuri #76: at least 25%). */
+export const STICKY_FILL = 0.34
 
 export const TARGET_DEFS: TargetDef[] = [
   { key: 'monitor', id: 'stop-1', marker: true, click: ['CLICK_Monitor_Projects'], view: [0.25, 0.25, 1] },
@@ -77,7 +85,9 @@ export const TARGET_DEFS: TargetDef[] = [
     view: [0.45, 0.35, 1],
     distance: 5,
   },
-  { key: 'sticky', id: 'aside-now-building', click: ['CLICK_StickyNote_NowBuilding'] },
+  // Shuri PR #9 #76: the note itself, not the windowsill cat. Seen from a little right and above, so
+  // the cat (behind and to the right) slides off the right edge / under the panel; ~1/3 of the free width.
+  { key: 'sticky', id: 'aside-now-building', click: ['CLICK_StickyNote_NowBuilding'], view: [0.3, 0.12, 1], fill: STICKY_FILL },
   // The room circuit (bake groups Fill + Pictures, + ShelfLEDCyan); the lamps and neon have their own.
   { key: 'switch', id: 'action-lights', action: 'lights-room', click: ['CLICK_Switch_Lights'] },
   { key: 'lamp-desk', id: 'action-lamp-desk', action: 'lamp-desk', click: ['CLICK_Lamp_Desk'] },
@@ -242,6 +252,13 @@ export function freeCentreNdc(W: number, chat = 0, shift = chat / 2, free?: { l:
   return free ? ((free.l + free.r) / 2 + shift) / (W / 2) - 1 : chat > 0 ? ((W - panel - chat) / 2 + shift) / (W / 2) - 1 : visW / W - 1
 }
 
+/** Desktop: share of the canvas width the station panel leaves free (same layout as freeCentreNdc). */
+export function freeWidthShare(W: number, chat = 0, free?: { l: number; r: number }): number {
+  const panel = Math.min(420, 0.4 * W) + 32
+  const px = free ? free.r - free.l : chat > 0 ? W - panel - chat : Math.max(W - panel, W * 0.45)
+  return Math.min(1, Math.max(px, 1) / W)
+}
+
 /**
  * Framed view from a Blender STOP camera. The reference lens should cover the part of the screen
  * the panel leaves free (left of the side panel on desktop, above the bottom sheet on phones), so
@@ -287,7 +304,7 @@ export function poseFromStopCam(c: StopCam, size: { width: number; height: numbe
  */
 export function poseFor(
   t: Target,
-  ctx: { home: Pose; safe: THREE.Box3; aspect: number; fov: number; info: RoomInfo; /** Portrait: fit the whole object into the top `above` of the screen (clear of the station sheet). */ above?: number; /** Landscape: put the object's centre at this NDC x (the panel's free area, see freeCentreNdc) instead of the generic left offset. */ xc?: number },
+  ctx: { home: Pose; safe: THREE.Box3; aspect: number; fov: number; info: RoomInfo; /** Portrait: fit the whole object into the top `above` of the screen (clear of the station sheet). */ above?: number; /** Landscape: put the object's centre at this NDC x (the panel's free area, see freeCentreNdc) instead of the generic left offset. */ xc?: number; /** Landscape: share of the width left free by the panel (freeWidthShare), for `def.fill`. */ freeShare?: number },
 ): Pose {
   const size = t.box.getSize(new THREE.Vector3())
   const radius = Math.max(size.length() / 2, 0.12)
@@ -295,6 +312,12 @@ export function poseFor(
   const hfov = 2 * Math.atan(Math.tan(vfov / 2) * ctx.aspect)
   const fit = radius / Math.sin(Math.min(vfov, hfov) / 2)
   let dist = THREE.MathUtils.clamp(fit * 1.25 * (t.def.distance ?? 1), 0.6, 2.4)
+  if (t.def.fill) {
+    // Width of the object across the view (its horizontal extent) = fill × the free width at `dist`.
+    const share = ctx.aspect < 0.85 ? 1 : ctx.freeShare ?? 1
+    const w = Math.max(Math.hypot(size.x, size.z), 0.02)
+    dist = THREE.MathUtils.clamp(w / (2 * Math.tan(hfov / 2) * t.def.fill * share), 0.15, 2.4)
+  }
   const above = ctx.aspect < 0.85 ? ctx.above : undefined
   // Back off until the object's full height fits in the free band above the sheet (85% of it).
   if (above) dist = THREE.MathUtils.clamp(Math.max(dist, (size.y / 2) / (Math.tan(vfov / 2) * above * 0.85)), 0.6, 2.4)
