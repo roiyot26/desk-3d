@@ -32,6 +32,7 @@ export function noscriptHtml(c: C) {
 <h2>Stack</h2><ul>${[c.skills.featured, ...c.skills.items].map((s) => `<li><strong>${esc(s.name)}</strong>: ${esc(s.line)}</li>`).join('')}</ul>
 <h2>3D for the web</h2>${(pitch?.body ?? []).map((p) => `<p>${esc(p)}</p>`).join('')}
 <h2>Path</h2><ul>${c.career.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><p>${esc(c.career.teaching)}</p>
-<h2>Contact</h2><ul>${links.map((l) => `<li>${esc(l.label)}: <a href="${l.url}">${esc(l.url)}</a></li>`).join('')}</ul>
+<h2>${esc(c.cv.experienceTitle)}</h2><ol>${c.cv.experience.map((x) => `<li><strong>${esc(x.years)} · ${esc(x.role)}</strong><p>${esc(x.summary)}</p></li>`).join('')}</ol>
+<h2>Contact</h2><ul>${links.map((l) => `<li>${esc(l.label)}: <a href="${l.url}">${esc(l.url)}</a></li>`).join('')}<li>CV: <a href="${c.cv.file}">${esc(c.cv.download)} (PDF)</a></li></ul>
 </main>`
 }

@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import { STOPS, content, contactLinks, text } from './content'
+import { CvLink, Experience } from './CvLink'
+import { CV_URL } from './links'
 
 /**
  * Plain HTML version (?view=list, and the automatic fallback when WebGL is missing or fails).
@@ -27,6 +29,7 @@ export function ListView({ webglOk, fallback }: { webglOk: boolean; fallback: bo
             </span>
           ))}
         </p>
+        <CvLink className="list-cv" />
       </header>
       {webglOk && (
         <a className="list-hero" href={roomUrl}>
@@ -92,6 +95,8 @@ export function ListView({ webglOk, fallback }: { webglOk: boolean; fallback: bo
         <p className="small">{content.career.teaching}</p>
       </section>
 
+      <Experience as="h2" />
+
       <section aria-labelledby="l-contact">
         <h2 id="l-contact">Contact</h2>
         <ul>
@@ -100,6 +105,9 @@ export function ListView({ webglOk, fallback }: { webglOk: boolean; fallback: bo
               {l.label}: <a href={l.url}>{l.url.replace(/^https?:\/\//, '').replace(/^mailto:/, '')}</a>
             </li>
           ))}
+          <li>
+            CV: <a href={CV_URL} target="_blank" rel="noopener noreferrer">{content.cv.download} (PDF)</a>
+          </li>
         </ul>
       </section>
     </main>

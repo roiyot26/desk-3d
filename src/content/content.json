@@ -184,6 +184,31 @@
     ],
     "teaching": "Also: I've taught full-stack development since 2022."
   },
+  "cv": {
+    "_note": "The public CV (public/Roi-Yotvat-CV.pdf) and the year-by-year experience block (Career panel + Quick version). Years, role and summary only: no company names.",
+    "download": "Download CV",
+    "file": "Roi-Yotvat-CV.pdf",
+    "fileNote": "PDF, 1 page, opens in a new tab",
+    "headline": "Full-stack developer, AI-driven development",
+    "experienceTitle": "Experience",
+    "experience": [
+      {
+        "years": "2026 – now",
+        "role": "Full-stack developer",
+        "summary": "Lead developer on full-stack projects for enterprise clients at a creative and dev agency: custom WordPress and React / Next.js sites, end to end. Brought LLM coding agents and custom AI tooling (including a hybrid-search RAG assistant over MCP) into the team, and teaches an internal web development course."
+      },
+      {
+        "years": "2022 – 2026",
+        "role": "Full-stack developer and coding instructor",
+        "summary": "Built and maintained client web apps with React, Node.js / Express and MongoDB. Taught multiple full-stack course cycles of 60–70 students each."
+      },
+      {
+        "years": "2021 – 2022",
+        "role": "Full-stack developer bootcamp",
+        "summary": "Intensive four-month program of self-led learning and team projects: HTML, CSS, JavaScript, React, Node.js, Express, MongoDB."
+      }
+    ]
+  },
   "stops": [
     {
       "id": "stop-1",
@@ -1408,7 +1433,7 @@
           "html version",
           "list view"
         ],
-        "reply": "Want it flat? Hit Quick version (1 page) in the top-right corner. Same content, fast, printable. Want to see the career path on the cork board?",
+        "reply": "Here's the CV as a PDF: https://roiyot26.github.io/desk-3d/Roi-Yotvat-CV.pdf. Want it as a page instead? Hit Quick version (1 page) in the top-right corner. Want to see the career path on the cork board?",
         "tools": [
           {
             "name": "search_portfolio",

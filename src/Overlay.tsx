@@ -1,6 +1,7 @@
 import { panelFocus } from './panelFocus'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { STOPS, content, contactLinks, noteById, text, type Stop } from './content'
+import { CvLink, Experience } from './CvLink'
 import { closePanel, openPanel, parseHash } from './nav'
 import { getUI, setUI, useUI } from './store'
 import { Loader, enter } from './Loader'
@@ -340,6 +341,8 @@ function StopBody({ stop, skill, project }: { stop: Stop; skill?: string; projec
             ))}
           </ol>
           <p className="pin">📌 {content.career.teaching}</p>
+          <Experience />
+          <CvLink />
         </>
       )
     case 'duck':
@@ -349,6 +352,7 @@ function StopBody({ stop, skill, project }: { stop: Stop; skill?: string; projec
         <>
           {body}
           <Links links={contactLinks()} />
+          <CvLink />
         </>
       )
     default:
