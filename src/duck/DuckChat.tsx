@@ -559,7 +559,7 @@ export function DuckChat() {
   if (note)
     return (
       <>
-        <section ref={box} className="chat docked chatnote" aria-label={content.duck.expandChat}>
+        <section key="note" ref={box} className="chat docked chatnote" aria-label={content.duck.expandChat}>
           <NoteLine />
           <div className="chat-dock">
             <Input />
@@ -571,7 +571,9 @@ export function DuckChat() {
   const raised = !phone || sheet !== 'peek'
   return (
     <>
+      {/* Own keys: the note is a new element, not the column moved and resized (that scored as layout shift). */}
       <section
+        key="column"
         ref={box}
         className={`chat ${phone ? `sheet ${sheet}${station ? ' station' : ''}` : 'docked'}`}
         aria-label={content.duck.expandChat}

@@ -164,6 +164,14 @@ describe('#67: the note line is clamped from the start', () => {
   })
 })
 
+describe('0 CLS on desktop: the note is its own element', () => {
+  it('the note and the column carry different keys, so the column is replaced, not moved', () => {
+    const d = src('duck/DuckChat.tsx')
+    expect(d).toMatch(/<section key="note" ref=\{box\} className="chat docked chatnote"/)
+    expect(d).toMatch(/<section\s+key="column"/)
+  })
+})
+
 describe('#66: the camera frames for the measured sheet', () => {
   it('re-measure publishes only on a ≥2 px change (or a new station)', () => {
     expect(shouldPublish(null, 'stop-6', 466)).toBe(true)
