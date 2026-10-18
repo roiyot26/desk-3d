@@ -41,7 +41,6 @@ export function Guide() {
   const open = useUI((s) => s.guide)
   const visited = useUI((s) => s.visited)
   const asked = useUI((s) => s.duckLog.some((e) => !e.greet))
-  const sculpture = useUI((s) => s.bonusFound.includes('bonus-sculpture'))
   const phone = useMedia(SHEET_QUERY)
   const box = useRef<HTMLDivElement>(null)
   const g = content.guide
@@ -105,13 +104,6 @@ export function Guide() {
               <Coded text={t} />
             </li>
           ))}
-          {/* The sculpture bonus: a quiet tick only (Fury #8), and only once found, so it never reads as a to-do. */}
-          {sculpture && (
-            <li className="guide-bonus">
-              <span>{g.sculpture}</span>
-              <Tick on label={g.visited} />
-            </li>
-          )}
         </ul>
       </div>
     </div>

@@ -199,7 +199,7 @@ function DebugHooks() {
       cam: () => {
         const c = controls as unknown as { enabled: boolean; target: THREE.Vector3 } | null
         const r = (v: THREE.Vector3) => v.toArray().map((n) => +n.toFixed(3))
-        return { pos: r(camera.position), target: c ? r(c.target) : null, controlsEnabled: c?.enabled ?? null, fov: +(camera as THREE.PerspectiveCamera).fov.toFixed(2), viewOffsetX: (camera as THREE.PerspectiveCamera).view?.enabled ? (camera as THREE.PerspectiveCamera).view!.offsetX : 0 }
+        return { pos: r(camera.position), target: c ? r(c.target) : null, controlsEnabled: c?.enabled ?? null, fov: +(camera as THREE.PerspectiveCamera).fov.toFixed(2), viewOffsetX: (camera as THREE.PerspectiveCamera).view?.enabled ? (camera as THREE.PerspectiveCamera).view!.offsetX : 0, frame: rigFlags.frame }
       },
       open: (id: string) => activate(id),
       /** Room labels: last layout (chip rects, shown, leader), the UI frame and whether the camera counts as moving. */

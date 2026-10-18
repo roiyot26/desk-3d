@@ -40,7 +40,7 @@ export const content = raw as unknown as {
   tour: Record<string, string>
   contact: {
     github: Link & { handle: string }
-    linkedin: Link & { handle: string }
+    linkedin: Link & { handle: string; /** The panel's primary button (v2.1 Contact). */ cta: string }
     email: { enabled: boolean; label: string; address: string }
   }
   about: { lead: string; ai: string; next: string; nextShort: string; practice: string; short: string; intro: string; stackLine: string }
@@ -66,7 +66,6 @@ export const content = raw as unknown as {
     visited: string
     also: string
     alsoItems: string[]
-    sculpture: string
     close: string
   }
   duck: {
@@ -99,6 +98,10 @@ export const content = raw as unknown as {
     error: string
     retry: string
     backToChat: string
+    /** The panel's one exit, visible text after "←" (accessible name is backToChat). */
+    backShort: string
+    /** Desktop chat note button's accessible-name prefix (v2.3 #67). */
+    showWholeChat: string
     newBelow: string
     stations: string
   }

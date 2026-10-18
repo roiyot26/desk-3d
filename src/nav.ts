@@ -44,6 +44,8 @@ export function openChat() {
     chatUnread: false,
     sheet: s.sheet === 'peek' ? 'half' : s.sheet,
     open: null,
+    chatFull: false,
+    sheetTop: null,
     visited: s.visited.includes(DUCK_ID) ? s.visited : [...s.visited, DUCK_ID],
   }))
 }
@@ -56,6 +58,9 @@ export function openPanel(o: NonNullable<Open>, opts: { writeHash?: boolean } = 
   setUI((s) => ({
     open: o,
     intro: false,
+    // A new station: the desktop chat folds back to its note, and the phone sheet is re-measured.
+    chatFull: false,
+    sheetTop: s.open?.id === o.id ? s.sheetTop : null,
     hovered: null,
     hoverTouch: false,
     // Phones: flying to a station drops the chat sheet to peek so the station stays in view.
@@ -69,7 +74,7 @@ export function openPanel(o: NonNullable<Open>, opts: { writeHash?: boolean } = 
 
 /** Close the panel and return to free roam. */
 export function closePanel() {
-  setUI({ open: null, intro: false })
+  setUI({ open: null, intro: false, chatFull: false, sheetTop: null })
   writeHash(null)
 }
 

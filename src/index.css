@@ -320,26 +320,6 @@ a {
   /* Slide-in is a GSAP tween in Overlay.tsx (motion only, never opacity: content stays readable
      even if a slow GPU stalls the animation). */
 }
-.panel-close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--ink);
-  font-size: 20px;
-  cursor: pointer;
-}
-.panel-kicker {
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
 .panel h2 {
   margin: 6px 40px 12px 0;
   font-size: 24px;
@@ -367,25 +347,6 @@ a {
   transition: opacity 0.2s;
 }
 .panel-scroll.more::after { opacity: 1; }
-.scroll-more {
-  position: absolute;
-  left: 50%;
-  bottom: 2px;
-  z-index: 1;
-  transform: translateX(-50%);
-  width: 30px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(240, 178, 115, 0.16);
-  color: var(--accent);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  animation: nudge 1.6s ease-in-out infinite;
-}
-@keyframes nudge { 50% { transform: translate(-50%, 3px); } }
 .sheet-handle { display: none; }
 .panel-body {
   flex: 1;
@@ -399,10 +360,6 @@ a {
 .panel-body p {
   margin: 0 0 10px;
 }
-.joke {
-  color: var(--muted);
-  font-style: italic;
-}
 .links {
   display: flex;
   flex-wrap: wrap;
@@ -414,81 +371,6 @@ a {
 
 
 
-.card {
-  padding: 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--line);
-}
-.card h3 {
-  margin: 0;
-  font-size: 18px;
-}
-.tagline {
-  color: var(--accent);
-  margin: 2px 0 8px !important;
-}
-.tags {
-  font-size: 12px;
-  color: var(--muted);
-}
-.carousel-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-.dot {
-  width: 10px;
-  height: 10px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid var(--accent);
-  background: transparent;
-  cursor: pointer;
-}
-.dot.on {
-  background: var(--accent);
-}
-.skill,
-.skills li {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 10px;
-  border-radius: 10px;
-  margin-bottom: 6px;
-  background: rgba(255, 255, 255, 0.035);
-}
-.skill span,
-.skills li span {
-  font-size: 13px;
-  color: var(--muted);
-}
-.skill.featured {
-  border: 1px solid var(--accent);
-  transform: translateX(-4px);
-  background: rgba(240, 178, 115, 0.1);
-}
-.skills {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0;
-}
-.skills li.hl,
-.skill.hl {
-  outline: 1px solid var(--accent);
-}
-.career {
-  padding-left: 20px;
-}
-.career li {
-  margin-bottom: 8px;
-}
-.pin {
-  font-size: 13px;
-  color: var(--muted);
-}
 
 /* ---------- tour progress ---------- */
 
@@ -1483,7 +1365,6 @@ a {
 
 .chat-docked .hud { right: calc(var(--chat-w) + 12px); }
 .chat-docked .panel { left: auto; right: 24px; top: 24px; bottom: 24px; width: clamp(380px, 32vw, 520px); max-height: none; z-index: 43; border-radius: 14px; padding-top: 56px; }
-.chat-docked .panel .panel-close { display: none; }
 .chat-docked .backdrop { display: none; }
 .panel-back { display: none; }
 .chat-docked .panel .panel-back { display: inline-flex; align-items: center; gap: 8px; position: absolute; top: 10px; left: 14px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; }
@@ -1680,8 +1561,6 @@ a {
 .guide-also-label { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .guide-also ul { list-style: none; margin: 0; padding: 0; }
 .guide-also li { font-size: 14px; line-height: 1.5; color: var(--muted); }
-.guide-bonus { display: flex; align-items: center; gap: 10px; }
-.guide-bonus span:first-child { flex: 1; }
 .guide-code { font-family: var(--font-duck); font-style: italic; color: var(--ink); }
 
 
@@ -1717,7 +1596,234 @@ a {
   .room-label, .room-label.on, .room-labels.moving .room-label, .room-label-chip { transition: none !important; }
 }
 
-/* stop-1 opened from the Projects label: the card takes focus (Shuri #50) */
-.carousel .card:focus { outline: none; }
-/* Inset ring: .panel-body's overflow clipped an outset outline (Shuri #52). */
-.carousel .card:focus-visible { outline: none; box-shadow: inset 0 0 0 2px #f0b273; }
+
+/* ---------- panel look v2.3: "A2, paper" (Vision, vision-panel-look-v2.md v2.1 → v2.2 → v2.3) ----------
+   One paper card per station: Literata only (system sans for meta and links), radius 4, one exit
+   ("← chat"), no kicker / × / chevron / carousel / numerals / italics / uppercase / orange on paper.
+   Desktop: hugged at the top of the chat column; the chat shrinks to a dark note under it (#59, #67).
+   Phones: the sheet hugs its content up to the 400 px cap (#66); the camera frames for the measured
+   height (Overlay.tsx useSheetHeight → CameraRig). Specificity beats the older .chat-docked/.room-mode rules. */
+:root {
+  --paper: #E4D8C2;
+  --p-ink: #2A211B;
+  --pencil: #645747;
+  --brass: #6E4F26;
+  --p-hover: #D6C8AF;
+  --note-h: 150px;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+html .panel.paper {
+  top: 24px;
+  right: 24px;
+  bottom: auto;
+  left: auto;
+  width: clamp(380px, 32vw, 520px);
+  height: auto;
+  max-height: calc(100dvh - 48px);
+  padding: 12px 28px 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--p-ink);
+  backdrop-filter: none;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  font-family: var(--font-duck);
+  z-index: 43;
+}
+/* #59: the card always leaves ≥12 px above the chat note. */
+html.chat-note .panel.paper { max-height: calc(100dvh - 48px - var(--note-h) - 12px); }
+/* #67: "Show the whole chat" restores the column over the card; Esc brings the card back. */
+html .panel.paper.stepped { visibility: hidden; }
+.panel.paper .panel-top { position: relative; display: flex; align-items: center; min-height: 44px; flex: none; }
+html .panel.paper .panel-back {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 8px;
+  margin: 0 0 0 -8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--p-ink);
+  font: 500 15px/1 var(--sans);
+  cursor: pointer;
+}
+html .panel.paper .panel-back:hover { background: var(--p-hover); }
+/* The scroll region reaches 12 px past the text on both sides so focus rings (2 px + 2 px offset)
+   and the highlight's brass bar aren't clipped by its overflow. */
+.panel.paper .panel-scroll {
+  position: relative;
+  display: block;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -12px;
+  padding: 0 12px 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pencil) transparent;
+}
+.panel.paper .panel-scroll::before,
+.panel.paper .panel-scroll::after { content: none; }
+.panel.paper .panel-scroll:focus { outline: none; }
+.panel.paper .panel-scroll:focus-visible { outline: 2px solid var(--p-ink); outline-offset: -2px; }
+/* 12 px fade (paper → transparent), only while more content is below (#63). */
+.panel.paper .panel-fade {
+  position: sticky;
+  bottom: -24px;
+  height: 12px;
+  margin-top: -12px;
+  background: linear-gradient(rgba(228, 216, 194, 0), var(--paper));
+  pointer-events: none;
+  opacity: 0;
+}
+.panel.paper .panel-scroll.has-more .panel-fade { opacity: 1; }
+.panel.paper h2 { margin: 6px 0 14px; font: 600 28px/1.15 var(--font-duck); letter-spacing: -0.005em; color: var(--p-ink); }
+.panel.paper h2:focus,
+.panel.paper h3:focus { outline: none; }
+.panel.paper p { margin: 0 0 12px; }
+.panel.paper .body { font: 400 17px/1.55 var(--font-duck); }
+.panel.paper .bio { margin: 0 0 4px; font: 400 17px/1.5 var(--font-duck); }
+.panel.paper .rule { margin: 18px 0 0; border: 0; border-top: 1.5px solid var(--p-ink); }
+.panel.paper ul.plain { list-style: none; margin: 0; padding: 0; }
+/* Rows are separated by space only (no ruled lines); deep links land 28 px under the top (Shuri #64). */
+.panel.paper .proj,
+.panel.paper .skills li { position: relative; padding: 18px 0 0; scroll-margin-top: 28px; }
+.panel.paper .proj h3 { margin: 0 0 2px; font: 600 19px/1.3 var(--font-duck); }
+.panel.paper .tagline { margin: 0 0 6px; font: 400 17px/1.5 var(--font-duck); color: var(--p-ink); }
+.panel.paper .more { margin: 0 0 4px; font: 400 16px/1.55 var(--font-duck); }
+.panel.paper .meta { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; min-height: 44px; }
+.panel.paper .tags { margin-right: auto; font: 500 13px/1.4 var(--sans); letter-spacing: 0.01em; color: var(--pencil); }
+.panel.paper .links { display: flex; gap: 12px; margin: 0 -6px 0 auto; }
+.panel.paper a.lk {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 6px;
+  border-radius: 3px;
+  font: 500 15px/1 var(--sans);
+  color: var(--p-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--brass);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.panel.paper a.lk:hover { background: var(--p-hover); text-decoration-thickness: 2px; }
+/* Focus on paper: 2 px ink ring, 2 px offset (11.19:1). No orange anywhere on paper. */
+.panel.paper :is(a, button):focus-visible { outline: 2px solid var(--p-ink); outline-offset: 2px; box-shadow: none; }
+/* Deep-link highlight: a 3 px brass bar 12 px left of the row. */
+.panel.paper .hl::before { content: ''; position: absolute; left: -12px; top: 18px; bottom: 0; width: 3px; background: var(--brass); }
+.panel.paper .skills { margin: 0; }
+.panel.paper .skills li { display: block; margin: 0; padding-top: 12px; border-radius: 0; background: none; outline: none; }
+.panel.paper .skills li.hl::before { top: 12px; }
+.panel.paper .skill-name { margin: 0; font: 600 17px/1.4 var(--font-duck); }
+.panel.paper .skill-line { margin: 0; font: 400 16px/1.55 var(--font-duck); color: var(--p-ink); }
+.panel.paper ol.career { margin: 0 0 18px; padding-left: 1.5em; list-style: decimal; font: 400 16px/1.55 var(--font-duck); }
+.panel.paper ol.career li { margin: 0; }
+.panel.paper ol.career li + li { margin-top: 12px; }
+.panel.paper ol.career li::marker { color: var(--p-ink); }
+.panel.paper .contact-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; margin: 6px 0 4px; }
+.panel.paper .contact-actions a.lk { margin-left: -6px; }
+.panel.paper .btn-ink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 4px;
+  background: var(--p-ink);
+  color: var(--paper);
+  font: 600 16px/1 var(--sans);
+  text-decoration: none;
+}
+.panel.paper .btn-ink:hover { background: #3a2e25; }
+
+/* Phones: the half sheet on the chat peek hugs its content, max 400 px (#66); full sheet on drag. */
+@media (max-width: 700px), (max-aspect-ratio: 4/5) {
+  html .panel.paper {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--chat-h, 88px) + var(--kb, 0px));
+    width: auto;
+    height: auto;
+    max-height: 400px;
+    padding: 0 16px;
+    border-radius: 4px 4px 0 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.4);
+  }
+  html .panel.paper.full { height: calc(100dvh - 56px - var(--chat-h, 88px)); max-height: none; }
+  .panel.paper .panel-top { height: 44px; }
+  html .panel.paper .sheet-handle {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 96px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  html .panel.paper .sheet-handle span { width: 40px; height: 4px; margin: 10px auto 0; border-radius: 2px; background: var(--pencil); }
+  .panel.paper .panel-scroll { padding-bottom: 12px; }
+  .panel.paper.full .panel-scroll { flex: 1 1 auto; }
+  .panel.paper .panel-fade { bottom: -12px; }
+  .panel.paper h2 { margin: 2px 0 6px; font-size: 22px; line-height: 1.2; }
+  .panel.paper .body { font-size: 16px; line-height: 1.5; }
+  .panel.paper .proj { padding-top: 12px; }
+  .panel.paper .proj h3 { font-size: 18px; }
+  .panel.paper .tagline { margin: 0 0 2px; font-size: 16px; line-height: 1.45; }
+  /* Half sheet: title, line, meta. The bio and the project paragraph show in the full sheet. */
+  .panel.paper:not(.full) .bio,
+  .panel.paper:not(.full) .proj .more { display: none; }
+  .panel.paper:not(.full) .bio + .rule { margin-top: 8px; }
+}
+
+/* #60: the phone chat stays dark; only the peek turns paper, and only while a station sheet is open. */
+.chat.sheet { transition: height 0.28s ease-out, max-height 0.28s ease-out, background-color 0.15s, color 0.15s; }
+.chat.sheet.peek.station { background: var(--paper); color: var(--p-ink); border-top: 1px solid var(--pencil); box-shadow: none; }
+.chat.sheet.peek.station .chat-name,
+.chat.sheet.peek.station .peek-last { color: var(--p-ink); }
+.chat.sheet.peek.station .chat-handle span { background: var(--pencil); }
+@media (prefers-reduced-motion: reduce) { .chat.sheet, .chat.sheet.peek.station { transition: none; } }
+
+/* #59 / #67: desktop, station open: the chat column shrinks to a dark note under the card. */
+html .chat.docked.chatnote {
+  top: auto;
+  right: 24px;
+  bottom: 24px;
+  width: clamp(380px, 32vw, 520px);
+  height: var(--note-h);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 20px;
+  border-radius: 4px;
+  background: #1C1716;
+  box-shadow: inset 0 1px 0 #B08D57, 0 18px 40px rgba(0, 0, 0, 0.45);
+  z-index: 44;
+}
+.chatnote .last {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  max-height: calc(2 * 1.55em); /* safety net only: the text is head-clamped in JS */
+  overflow: hidden;
+  padding: 0 0 0 12px;
+  border-left: 2px solid #B08D57;
+  border-radius: 2px;
+  font: 400 17px/1.55 var(--font-duck);
+  color: #ECE2D2;
+  cursor: pointer;
+}
+.chatnote .last:hover { background: rgba(236, 226, 210, 0.06); }
+.chatnote .last:focus-visible { outline: 2px solid #ECE2D2; outline-offset: 2px; }
+.chatnote .last-probe { position: absolute; left: -9999px; top: 0; height: auto; min-height: 0; max-height: none; padding: 0; border: 0; visibility: hidden; pointer-events: none; }
+.chatnote .chat-dock { order: 2; flex: none; }

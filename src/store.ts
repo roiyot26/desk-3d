@@ -20,6 +20,14 @@ export type UIState = {
   open: Open
   /** Phones: the bottom sheet is snapped to full height (default 50%). */
   sheetFull: boolean
+  /**
+   * Phones: the station sheet's measured top edge (px from the viewport top) for the open panel
+   * (panel v2.3 #66). Set by the panel's ResizeObserver; the camera frames for it and the labels
+   * use the same edge. null until the first measure after fonts.ready.
+   */
+  sheetTop: { id: string; top: number } | null
+  /** Desktop: the visitor asked for the whole chat while a station is open (the note expands, the card steps aside). */
+  chatFull: boolean
   /** The visitor has dragged the camera at least once (the bottom caption fades out). */
   dragged: boolean
   /** Hovered hit-target key (see targets.ts), shown as a label after a short idle. */
@@ -77,6 +85,8 @@ let state: UIState = {
   intro: false,
   open: null,
   sheetFull: false,
+  sheetTop: null,
+  chatFull: false,
   dragged: false,
   hovered: null,
   hoverTouch: false,

@@ -131,8 +131,8 @@ describe('duck intents v2: content rules', () => {
     expect(byId['hire-for'].reply).toMatch(/Chrome extension that grows a garden/)
     expect(byId['hire-for'].reply).toMatch(/retrieval tracer/)
     expect(byId['hire-for'].reply).toMatch(/chord wheel/)
-    // B1 ships the tool ticker, so the brief's line is back.
-    expect(byId['build-with-ai'].reply).toMatch(/Watch the ticker\.$/)
+    // B1 ships the tool ticker; Loki v2's reply still ends by pointing at it (copy-rewrite-v2.md §3).
+    expect(byId['build-with-ai'].reply).toMatch(/The steps behind this answer are listed under it\.$/)
     expect(content.duck.greet.chips.map((c) => c.label)).toEqual(['What would I hire Roi for?', 'Show me how he builds with AI', 'Show me 3D for the web'])
   })
   it('opening chips run the brief tools', () => {
