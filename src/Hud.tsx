@@ -139,9 +139,8 @@ export function Hud() {
   )
   return (
     <div className={`hud${menu ? ' menu-open' : ''}${entered ? ' in' : ''}`} ref={el}>
-      {!entered ? (
-        resume
-      ) : (
+      {/* Before Enter the first screen has its own Quick version button: no duplicate up here. */}
+      {!entered ? null : (
         <>
           <button ref={more} type="button" className="hud-btn icon hud-more" aria-expanded={menu} aria-controls="hud-group" aria-label={content.site.more} onClick={() => setMenu(!menu)}>
             <span aria-hidden="true">⋯</span>

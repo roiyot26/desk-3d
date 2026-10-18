@@ -64,9 +64,15 @@ export function Loader() {
         <h1 className="hero-title">{content.hero.headline}</h1>
         <p className="hero-sub">{content.hero.sub}</p>
         <div className="hero-actions">
-          <button ref={enterRef} type="button" className="hero-btn primary" onClick={enter}>
-            {content.hero.enter}
-          </button>
+          <span className="hero-enter">
+            <button ref={enterRef} type="button" className="hero-btn primary" onClick={enter} aria-describedby="hero-enter-hint">
+              {content.hero.enter}
+            </button>
+            {/* Mute is hidden before Enter, so say it here (Shuri #7 fix 4). */}
+            <span id="hero-enter-hint" className="hero-hint">
+              {content.hero.enterHint}
+            </span>
+          </span>
           <a className="hero-btn secondary" href={LIST_URL}>
             {content.site.resume}
           </a>

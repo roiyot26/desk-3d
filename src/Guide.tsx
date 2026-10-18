@@ -100,11 +100,13 @@ export function Guide() {
               <Coded text={t} />
             </li>
           ))}
-          {/* The sculpture bonus: a quiet tick only (Fury #8). No score, no toast. */}
-          <li className="guide-bonus">
-            <span>{g.sculpture}</span>
-            <Tick on={sculpture} label={g.visited} />
-          </li>
+          {/* The sculpture bonus: a quiet tick only (Fury #8), and only once found, so it never reads as a to-do. */}
+          {sculpture && (
+            <li className="guide-bonus">
+              <span>{g.sculpture}</span>
+              <Tick on label={g.visited} />
+            </li>
+          )}
         </ul>
       </div>
     </div>

@@ -173,7 +173,9 @@ export function cardFor(o: NonNullable<Open>): DuckCard | null {
   const stop = content.stops.find((x) => x.id === o.id)
   const note = stop ? undefined : content.bonus.find((b) => b.id === o.id) ?? content.asides.find((a) => a.id === o.id)
   const proj = o.project ? content.projects.find((p) => p.slug === o.project) : undefined
-  const title = proj?.name ?? stop?.title ?? note?.title
+  // Cards name the object the way its label and What's here row do ("Projects"), not the panel headline.
+  const label = content.guide.rows.find((r) => r.id === o.id)?.label
+  const title = proj?.name ?? label ?? stop?.title ?? note?.title
   if (!title) return null
   return { open: o, title, label: (stop?.label ?? note?.title ?? title).split(' · ')[0] }
 }

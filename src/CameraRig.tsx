@@ -280,6 +280,43 @@ function introOf(home: Pose & { zoom?: number }, duck: Target | undefined, aspec
 }
 
 /**
+ * Phones open with the duck sheet at half (~45–52% of the frame), so the arrival look-at is lowered
+ * (the camera tilts down) until the duck sits in the free band above the sheet: its centre at
+ * PHONE_DUCK_NDC on the arrival lens (about a quarter from the top), and never lower than
+ * PHONE_DUCK_NDC_ROOM on the wider room lens the first input eases to, so it stays clear of the
+ * sheet after the intro too. Desktop is untouched.
+ */
+export const PHONE_DUCK_NDC = 0.5
+export const PHONE_DUCK_NDC_ROOM = 0.3
+function phoneLift<P extends Pose & { zoom?: number; roomZoom?: number }>(pose: P, duck: Target | undefined, aspect: number): P {
+  if (!duck) return pose
+  const c = duck.box.getCenter(new THREE.Vector3())
+  const cam = new THREE.PerspectiveCamera(50, aspect, 0.01, 100)
+  const ndcY = (zoom: number, drop: number) => {
+    cam.fov = fovFor(aspect) * zoom
+    cam.updateProjectionMatrix()
+    cam.position.copy(pose.position)
+    cam.lookAt(pose.target.clone().add(new THREE.Vector3(0, -drop, 0)))
+    cam.updateMatrixWorld()
+    return c.clone().project(cam).y
+  }
+  // Smallest drop that puts the duck at or above `ndc` with this lens.
+  const dropFor = (zoom: number, ndc: number) => {
+    if (ndcY(zoom, 0) >= ndc) return 0
+    let lo = 0
+    let hi = 3
+    for (let i = 0; i < 28; i++) {
+      const m = (lo + hi) / 2
+      if (ndcY(zoom, m) >= ndc) hi = m
+      else lo = m
+    }
+    return hi
+  }
+  const drop = Math.max(dropFor(pose.zoom ?? 1, PHONE_DUCK_NDC), dropFor(pose.roomZoom ?? pose.zoom ?? 1, PHONE_DUCK_NDC_ROOM))
+  return drop ? { ...pose, target: pose.target.clone().add(new THREE.Vector3(0, -drop, 0)) } : pose
+}
+
+/**
  * Arrival framing: step from the room's home spot toward the duck (same heading, look-at lowered
  * halfway to the duck) until the duck is DUCK_FILL of the frame height. Free roam then looks
  * around from there.
@@ -350,7 +387,12 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const duck = useUI((s) => s.targets.get('duck'))
   const home = useMemo(
-    () => introOf(leadHome(homeView(info, portrait, size.width / size.height), duck, size.width / size.height, !window.matchMedia?.(CHAT_SHEET_QUERY).matches), duck, size.width / size.height),
+    () => {
+      const aspect = size.width / size.height
+      const sheet = !!window.matchMedia?.(CHAT_SHEET_QUERY).matches
+      const intro = introOf(leadHome(homeView(info, portrait, aspect), duck, aspect, !sheet), duck, aspect)
+      return sheet && portrait ? phoneLift(intro, duck, aspect) : intro
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [info, portrait, tall, duck],
   )

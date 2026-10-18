@@ -5,7 +5,7 @@ import { content } from '../src/content'
 vi.mock('../src/actions', () => ({ setLights: () => {}, setRain: () => {}, startAgentic: () => {} }))
 vi.mock('../src/audio', () => ({ audio: {} }))
 vi.mock('../src/targets', () => ({ TARGET_DEFS: [], targetByKey: () => undefined }))
-const { tickerLabel } = await import('../src/duck/run')
+const { tickerLabel, cardFor } = await import('../src/duck/run')
 
 describe('B1: tool ticker labels (Vision §2, sans, not the mono call syntax)', () => {
   const by = Object.fromEntries(content.duck.intents.map((i) => [i.id, i]))
@@ -38,4 +38,24 @@ describe("B1: first screen and What's here copy", () => {
     expect(content.guide.alsoItems).toHaveLength(4)
   })
   it('the menu label has no "features" word', () => expect(content.site.more).not.toMatch(/feature/i))
+})
+
+describe('B1 fixes (Shuri #7)', () => {
+  it('station cards use the object label, not the panel headline', () => {
+    expect(cardFor({ id: 'stop-1' })?.title).toBe('Projects')
+    expect(cardFor({ id: 'stop-2' })?.title).toBe('3D for the web')
+    expect(cardFor({ id: 'stop-3', skill: 'claude-code' })?.title).toBe('Stack')
+    // A specific project keeps its own name.
+    expect(cardFor({ id: 'stop-1', project: content.projects[0].slug })?.title).toBe(content.projects[0].name)
+  })
+  it('the hire answer points at "Projects"', () => {
+    const hire = content.duck.intents.find((i) => i.id === 'hire-for')!
+    expect(hire.tools.find((t) => t.name === 'open')?.args).toEqual(['stop-1'])
+    expect(cardFor({ id: 'stop-1' })?.title).toBe(content.guide.rows.find((r) => r.id === 'stop-1')?.label)
+  })
+  it('Enter says it turns on sound (mute is hidden before Enter)', () => expect(content.hero.enterHint).toBe('Turns on sound'))
+  it('the collapsed tool line has a spoken label', () => {
+    expect(content.duck.showSteps.replace('{n}', '3')).toBe('Show 3 steps')
+    expect(content.duck.hideSteps).toBeTruthy()
+  })
 })

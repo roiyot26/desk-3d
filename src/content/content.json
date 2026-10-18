@@ -1720,7 +1720,9 @@
     "retry": "Retry",
     "newBelow": "New message",
     "stations": "Stations",
-    "backToChat": "Back to chat"
+    "backToChat": "Back to chat",
+    "showSteps": "Show {n} steps",
+    "hideSteps": "Hide steps"
   },
   "labels": {
     "action-lights": "Light switch",
@@ -1734,7 +1736,8 @@
     "headline": "Roi Yotvat's portfolio",
     "sub": "AI-driven full-stack developer. This room is a sample of the 3D I'd put on your site.",
     "enter": "Enter the room",
-    "ready": "room ready"
+    "ready": "room ready",
+    "enterHint": "Turns on sound"
   },
   "guide": {
     "_note": "What's here (Vision §4, Loki §5). Rows in label priority order; ticks reuse visited tracking. No counts, no score.",

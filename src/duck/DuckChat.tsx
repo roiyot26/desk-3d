@@ -118,7 +118,7 @@ function Ticker({ e }: { e: DuckEntry }) {
   const live = !e.reply
   if (!steps.length)
     return live ? (
-      <p className="duck-ticker" aria-live="polite">
+      <p className="duck-ticker">
         <span className="sr-only">{content.duck.status.thinkingSr}</span>
         <span aria-hidden="true">…</span>
       </p>
@@ -137,12 +137,19 @@ function Ticker({ e }: { e: DuckEntry }) {
   )
   if (live)
     return (
-      <p className="duck-ticker live" aria-live="polite">
+      // Hidden from screen readers: the log would announce every step; the answer is announced.
+      <p className="duck-ticker live" aria-hidden="true">
         {line}
       </p>
     )
   return (
-    <button type="button" className={`duck-ticker toggle${open ? ' open' : ''}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+    <button
+      type="button"
+      className={`duck-ticker toggle${open ? ' open' : ''}`}
+      aria-expanded={open}
+      aria-label={open ? `${content.duck.hideSteps}: ${steps.join(', ')}` : content.duck.showSteps.replace('{n}', String(steps.length))}
+      onClick={() => setOpen(!open)}
+    >
       {open ? line : count}{' '}
       {/* Drawn, not a ▸ glyph: not every system font has one. */}
       <svg className={`ticker-caret${open ? ' open' : ''}`} width="8" height="8" viewBox="0 0 8 8" aria-hidden="true" focusable="false">
@@ -296,6 +303,8 @@ function Chips() {
     const next = !more
     setMore(next)
     if (next && phone && !getUI().open) setUI({ sheet: 'full' })
+    // Fewer: back to half (Shuri #6 note 2), unless the visitor already moved the sheet.
+    else if (!next && phone && getUI().sheet === 'full') setUI({ sheet: 'half' })
   }
   return (
     <div className="duck-chips-stack">

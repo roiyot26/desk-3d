@@ -151,7 +151,9 @@ a {
   color: var(--muted);
   text-shadow: 0 1px 12px rgba(11, 11, 14, 0.5);
 }
-.hero-actions { display: flex; gap: 12px; margin-top: 24px; pointer-events: auto; }
+.hero-actions { display: flex; align-items: flex-start; gap: 12px; margin-top: 24px; pointer-events: auto; }
+.hero-enter { display: inline-flex; flex-direction: column; gap: 6px; }
+.hero-hint { font-size: 12.5px; line-height: 1.4; color: var(--muted); pointer-events: none; }
 .hero-btn {
   display: inline-flex;
   align-items: center;
@@ -196,6 +198,11 @@ a {
   .hero-title { font-size: 34px; line-height: 1.1; }
   .hero-sub { font-size: 17px; }
   .hero-actions { flex-direction: column; gap: 10px; max-width: 360px; }
+  .hero-actions { align-items: stretch; }
+  .hero-enter { width: 100%; position: relative; gap: 0; }
+  /* phone: the hint sits inside the 56px button so it adds no height and the copy above stays on the dark scrim band */
+  .hero-enter .hero-btn.primary { padding-bottom: 14px; }
+  .hero-hint { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 12px; line-height: 1; color: var(--accent-ink); opacity: 0.78; }
   .hero-btn { height: 56px; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1233,8 +1240,19 @@ a {
 .duck-ticker .cur { color: var(--ink); }
 .duck-ticker.live .next { opacity: 0.55; }
 .duck-ticker .sep { opacity: 0.6; }
-.duck-ticker.toggle { position: relative; cursor: pointer; }
-.duck-ticker.toggle::after { content: ''; position: absolute; inset: -12px -8px; }
+.duck-ticker.toggle {
+  position: relative;
+  cursor: pointer;
+  /* 44px tall box (hit area) around the 12.5px line; negative margins keep the visual spacing. */
+  min-height: 44px;
+  padding: 0 8px;
+  margin: -13px 0 -17px -8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.duck-ticker.toggle:focus-visible { outline: 2px solid #f0b273; outline-offset: 0; }
 .duck-ticker.toggle:hover { color: var(--ink); }
 .duck-ticker .ticker-caret { display: inline-block; vertical-align: 0; margin-left: 1px; transition: transform 0.15s; }
 .duck-ticker .ticker-caret.open { transform: rotate(180deg); }
@@ -1279,7 +1297,7 @@ a {
   line-height: 1.4;
   cursor: pointer;
 }
-.chip-more-link::after { content: ''; position: absolute; inset: -12px -8px; }
+.chip-more-link::after { content: ''; position: absolute; inset: -13px -8px; }
 .chip-more-link:hover { text-decoration: underline; }
 .duck-retry {
   align-self: flex-start;
