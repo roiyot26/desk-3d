@@ -1722,7 +1722,7 @@ a {
 /* Inset ring: .panel-body's overflow clipped an outset outline (Shuri #52). */
 .carousel .card:focus-visible { outline: none; box-shadow: inset 0 0 0 2px #f0b273; }
 
-/* ---------- CV (cv-public): "Download CV" link and the year-by-year experience block ---------- */
+/* ---------- CV (cv-public): "CV (PDF) ↗" link and the year-by-year experience block ---------- */
 .cv-link {
   display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box; min-height: 44px; padding: 0 14px;
   border-radius: 10px; border: 1px solid rgba(240, 178, 115, 0.45); background: rgba(240, 178, 115, 0.06);
@@ -1730,9 +1730,11 @@ a {
 }
 .cv-link:hover { border-color: rgba(240, 178, 115, 0.8); background: rgba(240, 178, 115, 0.12); }
 .cv-link:focus-visible { outline: 2px solid #f0b273; outline-offset: 2px; }
-.panel .cv-link { margin-top: 12px; }
+.panel .cv-link { margin: 12px 0; }
+/* Contact (Shuri #68): same look as GitHub ↗ / LinkedIn ↗ in the .links row. */
+.links .cv-inline { font-weight: 600; }
 /* First card: a quiet third action under Enter / Quick version; hides with the rest of the block on Enter. */
-.hero-cv { margin-top: 12px; pointer-events: auto; border-color: rgba(236, 230, 221, 0.2); background: transparent; color: var(--ink); font-weight: 500; transition: opacity 220ms ease, visibility 0s linear 0s; }
+.hero-cv { margin: 12px 0; pointer-events: auto; border-color: rgba(236, 230, 221, 0.2); background: transparent; color: var(--ink); font-weight: 500; transition: opacity 220ms ease, visibility 0s linear 0s; }
 .loader.entered .hero-cv { opacity: 0; visibility: hidden; transition: opacity 220ms ease, visibility 0s linear 220ms; }
 .list-cv { margin: 0 0 16px; }
 .experience { margin-top: 16px; }

@@ -28,8 +28,8 @@ describe('cv-public: the PDF ships', () => {
     expect(existsSync('public/Roi-Yotvat-CV.pdf')).toBe(true)
     const pdf = readFileSync('public/Roi-Yotvat-CV.pdf')
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-')
-    expect(statSync('public/Roi-Yotvat-CV.pdf').size).toBe(202026)
     expect(pdf.toString('latin1')).toMatch(/\/Count 1\b/)
+    expect(statSync('public/Roi-Yotvat-CV.pdf').size).toBeLessThan(120_000)
     expect(CV_URL).toBe('/desk-3d/Roi-Yotvat-CV.pdf')
   })
   it('keeps the wording "full-stack developer, AI-driven development"', () => {
@@ -37,56 +37,81 @@ describe('cv-public: the PDF ships', () => {
   })
 })
 
-describe('cv-public: Download CV link', () => {
-  it('opens the PDF in a new tab, 44px tap target, file note for screen readers', () => {
+describe('cv-public: the CV link reads "CV (PDF) ↗" everywhere (Shuri #70)', () => {
+  it('pill: new tab, no download attribute, 44px, sr-only note', () => {
     const html = renderToStaticMarkup(<CvLink />)
     expect(html).toContain(`href="${CV_URL}"`)
     expect(html).toContain('target="_blank"')
     expect(html).toContain('rel="noopener noreferrer"')
-    expect(html).toContain('Download CV')
-    expect(html).toMatch(/class="sr-only"> \(PDF, 1 page, opens in a new tab\)/)
+    expect(html).not.toMatch(/\sdownload[\s=>]/)
+    expect(html).toMatch(/>CV \(PDF\) ↗<span class="sr-only"> \(PDF, 1 page, opens in a new tab\)<\/span><\/a>/)
+    expect(html).not.toMatch(/Download/)
     const rule = css.match(/\.cv-link \{([^}]*)\}/)![1]
     expect(rule).toMatch(/min-height: 44px/)
     expect(rule).toMatch(/display: inline-flex/)
   })
-  it('is on the first card, and hides with the rest of the block on Enter', () => {
+  it('first card keeps the pill, with a 12px gap below, and it hides on Enter', () => {
     setUI({ entered: false, stage: 'download', progress: 0.2 })
     const html = renderToStaticMarkup(<Loader />)
     expect(cvLinks(html).length).toBe(1)
     expect(html).toMatch(/class="cv-link hero-cv"/)
+    expect(css).toMatch(/\.hero-cv \{ margin: 12px 0;/)
     expect(css).toMatch(/\.loader\.entered \.hero-cv \{ opacity: 0; visibility: hidden;/)
   })
-  it('is in the Quick version (header and contact list)', () => {
-    const html = renderToStaticMarkup(<ListView webglOk={false} fallback={false} />)
-    expect(cvLinks(html).length).toBe(1)
-    expect(html).toMatch(/CV: <a href="\/desk-3d\/Roi-Yotvat-CV\.pdf" target="_blank"/)
-  })
-  it('is in the Contact and Career panels', () => {
+  it('Contact (#68): a third inline link in the GitHub / LinkedIn row, no pill', () => {
     const src = readFileSync('src/Overlay.tsx', 'utf8')
     const contact = src.slice(src.indexOf("case 'contact':"), src.indexOf('default:', src.indexOf("case 'contact':")))
-    expect(contact).toMatch(/<CvLink \/>/)
-    const career = src.slice(src.indexOf("case 'career':"), src.indexOf("case 'duck':"))
-    expect(career).toMatch(/<Experience \/>/)
-    expect(career).toMatch(/<CvLink \/>/)
+    expect(contact).toMatch(/<Links links=\{contactLinks\(\)\}>\s*(\{\/\*[^]*?\*\/\}\s*)?<CvLink variant="inline" \/>\s*<\/Links>/)
+    expect(contact).not.toMatch(/<CvLink \/>/)
+    const inline = renderToStaticMarkup(<CvLink variant="inline" />)
+    expect(inline).toMatch(/^<a class="cv-inline" href="\/desk-3d\/Roi-Yotvat-CV\.pdf" target="_blank" rel="noopener noreferrer"[^>]*>CV \(PDF\) ↗/)
+    expect(css).toMatch(/\.links \.cv-inline \{ font-weight: 600; \}/)
   })
-  it('is in the no-JS page', () => {
-    expect(noscriptHtml(raw)).toContain('<a href="Roi-Yotvat-CV.pdf">Download CV (PDF)</a>')
+  it('Career keeps the pill with a 12px gap below; the 📌 pin is gone (#71)', () => {
+    const src = readFileSync('src/Overlay.tsx', 'utf8')
+    const career = src.slice(src.indexOf("case 'career':"), src.indexOf("case 'duck':"))
+    expect(career).toMatch(/<Experience \/>\s*<CvLink \/>/)
+    expect(career).not.toMatch(/📌|career\.teaching/)
+    expect(css).toMatch(/\.panel \.cv-link \{ margin: 12px 0; \}/)
+  })
+  it('Quick version: header pill, and the Contact row reads "CV: Roi-Yotvat-CV.pdf" with the sr-only new-tab note', () => {
+    const html = renderToStaticMarkup(<ListView webglOk={false} fallback={false} />)
+    expect(cvLinks(html).length).toBe(1)
+    expect(html).toMatch(/CV: <a href="\/desk-3d\/Roi-Yotvat-CV\.pdf" target="_blank" rel="noopener noreferrer">Roi-Yotvat-CV\.pdf<span class="sr-only"> \(PDF, opens in a new tab\)<\/span><\/a>/)
+    expect(html).not.toMatch(/Download CV/)
+    expect(html).not.toContain(content.career.teaching)
+  })
+  it('no-JS page: "CV: Roi-Yotvat-CV.pdf"', () => {
+    const html = noscriptHtml(raw)
+    expect(html).toContain('<li>CV: <a href="Roi-Yotvat-CV.pdf">Roi-Yotvat-CV.pdf</a></li>')
+    expect(html).not.toMatch(/Download CV/)
   })
 })
 
-describe('cv-public: year-by-year experience', () => {
-  it('matches experience.json (years, role, summary only)', () => {
+describe('cv-public: experience and education', () => {
+  it('matches experience.json years and roles; summaries about 110 characters at most (#71)', () => {
     expect(content.cv.experience.map((x) => [x.years, x.role])).toEqual(XP)
-    for (const x of content.cv.experience) expect(x.summary.length).toBeGreaterThan(40)
-    for (const x of content.cv.experience) expect(Object.keys(x).sort()).toEqual(['role', 'summary', 'years'])
+    for (const x of content.cv.experience) {
+      expect(Object.keys(x).sort()).toEqual(['role', 'summary', 'years'])
+      expect(x.summary.length, x.summary).toBeLessThanOrEqual(110)
+      expect(x.summary.length).toBeGreaterThan(40)
+    }
   })
-  it('renders every year, newest first, in the Career panel block and the Quick version', () => {
+  it('the RAG/MCP line appears once, in Career, not again in the block (#71)', () => {
+    const rag = /RAG|MCP/
+    expect(content.career.items.filter((x) => rag.test(x)).length).toBe(1)
+    for (const x of content.cv.experience) expect(x.summary).not.toMatch(rag)
+  })
+  it('titled "Experience and education", so the bootcamp matches the PDF (#72)', () => {
+    expect(content.cv.experienceTitle).toBe('Experience and education')
     const block = renderToStaticMarkup(<Experience />)
+    expect(block).toMatch(/<h3 id="xp-h3">Experience and education<\/h3>/)
     const years = [...block.matchAll(/<span class="xp-years">([^<]+)<\/span>/g)].map((m) => m[1])
     expect(years).toEqual(['2026 – now', '2022 – 2026', '2021 – 2022'])
     const list = renderToStaticMarkup(<ListView webglOk={false} fallback={false} />)
-    expect(list).toMatch(/<h2 id="xp-h2">Experience<\/h2>/)
+    expect(list).toMatch(/<h2 id="xp-h2">Experience and education<\/h2>/)
     for (const [, role] of XP) expect(list).toContain(role)
+    expect(noscriptHtml(raw)).toContain('<h2>Experience and education</h2>')
   })
   it('names no employer anywhere in the site copy', () => {
     const all = JSON.stringify(raw) + noscriptHtml(raw)
@@ -94,19 +119,45 @@ describe('cv-public: year-by-year experience', () => {
   })
 })
 
+describe('cv-public: the email stays in the PDF only (Fury #69: keep in PDF, never on the site)', () => {
+  const EMAIL = /roiyot261098|@gmail\.com/i
+  it('not in content.json, the no-JS page or index.html', () => {
+    expect(JSON.stringify(raw)).not.toMatch(EMAIL)
+    expect(noscriptHtml(raw)).not.toMatch(EMAIL)
+    expect(readFileSync('index.html', 'utf8')).not.toMatch(EMAIL)
+    expect(content.contact.email.enabled).toBe(false)
+    expect(content.contact.email.address).toBe('')
+  })
+  it('not on any rendered site page (first card, Quick version, CV links, experience)', () => {
+    setUI({ entered: false, stage: 'download', progress: 0.2 })
+    const pages = [<Loader key="l" />, <ListView key="v" webglOk fallback={false} />, <CvLink key="c" />, <CvLink key="i" variant="inline" />, <Experience key="e" />]
+    for (const p of pages) expect(renderToStaticMarkup(p)).not.toMatch(EMAIL)
+  })
+  it('not in any source file under src/', async () => {
+    const { readdirSync } = await import('node:fs')
+    const walk = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${d}/${e.name}`) : [`${d}/${e.name}`]))
+    for (const f of walk('src')) expect(readFileSync(f, 'utf8'), f).not.toMatch(EMAIL)
+  })
+  it('the PDF embeds real TrueType fonts, no Type 3', () => {
+    const pdf = readFileSync('public/Roi-Yotvat-CV.pdf').toString('latin1')
+    expect(pdf).not.toMatch(/\/Subtype\s*\/Type3/)
+    expect(pdf).toMatch(/\/FontFile2/)
+  })
+})
+
 describe('cv-public: the duck links the PDF', () => {
   const reply = content.duck.intents.find((i) => i.id === 'resume')!.reply
-  it('the résumé answer carries the CV URL and still names Quick version where it is', () => {
-    expect(reply).toContain(CV_LIVE_URL)
+  it('the résumé answer is "Here\'s Roi\'s CV: <link>" and still names Quick version where it is', () => {
+    expect(reply.startsWith(`Here's Roi's CV: ${CV_LIVE_URL}.`)).toBe(true)
     expect(reply).toContain(content.site.quickWhere)
   })
-  it('renders as a "Download CV (PDF)" link to this deploy, without the sentence\'s full stop', () => {
+  it('renders "CV (PDF) ↗" to this deploy, with the sr-only new-tab note, outside the full stop', () => {
     const html = renderToStaticMarkup(<Linked text={reply} />)
-    expect(html).toContain(`<a class="duck-cv" href="${CV_URL}" target="_blank" rel="noopener noreferrer">Download CV (PDF)</a>.`)
+    expect(html).toContain(`Here&#x27;s Roi&#x27;s CV: <a class="duck-cv" href="${CV_URL}" target="_blank" rel="noopener noreferrer">CV (PDF) ↗<span class="sr-only"> (PDF, opens in a new tab)</span></a>.`)
     expect(html).not.toContain('pdf.')
   })
-  it('the phone peek row shows the link label, not the raw PDF address', () => {
-    expect(peekText(reply)).toMatch(/^Here's the CV as a PDF: Download CV \(PDF\)\./)
+  it('the phone peek row reads "Here\'s Roi\'s CV: CV (PDF)."', () => {
+    expect(peekText(reply)).toMatch(/^Here's Roi's CV: CV \(PDF\)\. Want it as a page instead\?/)
     expect(peekText(reply)).not.toContain('https://')
   })
   it('other URLs keep working, with trailing punctuation left outside the link', () => {

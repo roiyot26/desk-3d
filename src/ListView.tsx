@@ -92,7 +92,6 @@ export function ListView({ webglOk, fallback }: { webglOk: boolean; fallback: bo
             <li key={k}>{c}</li>
           ))}
         </ul>
-        <p className="small">{content.career.teaching}</p>
       </section>
 
       <Experience as="h2" />
@@ -106,7 +105,11 @@ export function ListView({ webglOk, fallback }: { webglOk: boolean; fallback: bo
             </li>
           ))}
           <li>
-            CV: <a href={CV_URL} target="_blank" rel="noopener noreferrer">{content.cv.download} (PDF)</a>
+            CV:{' '}
+            <a href={CV_URL} target="_blank" rel="noopener noreferrer">
+              {content.cv.file}
+              <span className="sr-only"> ({content.cv.srNote})</span>
+            </a>
           </li>
         </ul>
       </section>

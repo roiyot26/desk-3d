@@ -40,7 +40,8 @@ export function Linked({ text }: { text: string }) {
           b === CV_LIVE_URL ? (
             // The CV answer: the PDF from this deploy (works in previews too), named as a link, not a URL.
             <a key={i} className="duck-cv" href={CV_URL} target="_blank" rel="noopener noreferrer">
-              {content.cv.download} (PDF)
+              {content.cv.label}
+              <span className="sr-only"> ({content.cv.srNote})</span>
             </a>
           ) : (
             <a key={i} href={b} target="_blank" rel="noopener noreferrer">
@@ -457,7 +458,7 @@ function Handle({ sheet }: { sheet: SheetState }) {
 
 /** Peek row text: the CV URL reads as its link label, not a raw address cut off by the ellipsis. */
 export function peekText(reply: string) {
-  return reply.split(CV_LIVE_URL).join(`${content.cv.download} (PDF)`)
+  return reply.split(CV_LIVE_URL).join('CV (PDF)')
 }
 
 /** Peek row: the duck's latest line (never hidden at peek), or "thinking…". */

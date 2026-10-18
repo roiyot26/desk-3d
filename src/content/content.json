@@ -185,27 +185,28 @@
     "teaching": "Also: I've taught full-stack development since 2022."
   },
   "cv": {
-    "_note": "The public CV (public/Roi-Yotvat-CV.pdf) and the year-by-year experience block (Career panel + Quick version). Years, role and summary only: no company names.",
-    "download": "Download CV",
+    "_note": "The public CV (public/Roi-Yotvat-CV.pdf) and the year-by-year block (Career panel + Quick version). Years, role and a short summary (about 110 characters; the PDF keeps the detail). No company names, no email.",
+    "label": "CV (PDF) ↗",
     "file": "Roi-Yotvat-CV.pdf",
     "fileNote": "PDF, 1 page, opens in a new tab",
+    "srNote": "PDF, opens in a new tab",
     "headline": "Full-stack developer, AI-driven development",
-    "experienceTitle": "Experience",
+    "experienceTitle": "Experience and education",
     "experience": [
       {
         "years": "2026 – now",
         "role": "Full-stack developer",
-        "summary": "Lead developer on full-stack projects for enterprise clients at a creative and dev agency: custom WordPress and React / Next.js sites, end to end. Brought LLM coding agents and custom AI tooling (including a hybrid-search RAG assistant over MCP) into the team, and teaches an internal web development course."
+        "summary": "Lead developer on client WordPress and React / Next.js sites; brought AI coding agents into the team."
       },
       {
         "years": "2022 – 2026",
         "role": "Full-stack developer and coding instructor",
-        "summary": "Built and maintained client web apps with React, Node.js / Express and MongoDB. Taught multiple full-stack course cycles of 60–70 students each."
+        "summary": "Built client web apps with React, Node.js and MongoDB, and taught full-stack courses of 60–70 students."
       },
       {
         "years": "2021 – 2022",
         "role": "Full-stack developer bootcamp",
-        "summary": "Intensive four-month program of self-led learning and team projects: HTML, CSS, JavaScript, React, Node.js, Express, MongoDB."
+        "summary": "Four-month intensive with team projects: HTML, CSS, JavaScript, React, Node.js, Express and MongoDB."
       }
     ]
   },
@@ -1433,7 +1434,7 @@
           "html version",
           "list view"
         ],
-        "reply": "Here's the CV as a PDF: https://roiyot26.github.io/desk-3d/Roi-Yotvat-CV.pdf. Want it as a page instead? Hit Quick version (1 page) in the top-right corner. Want to see the career path on the cork board?",
+        "reply": "Here's Roi's CV: https://roiyot26.github.io/desk-3d/Roi-Yotvat-CV.pdf. Want it as a page instead? Hit Quick version (1 page) in the top-right corner. Want to see the career path on the cork board?",
         "tools": [
           {
             "name": "search_portfolio",

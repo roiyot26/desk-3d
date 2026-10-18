@@ -1,5 +1,5 @@
 import { panelFocus } from './panelFocus'
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject, type ReactNode } from 'react'
 import { STOPS, content, contactLinks, noteById, text, type Stop } from './content'
 import { CvLink, Experience } from './CvLink'
 import { closePanel, openPanel, parseHash } from './nav'
@@ -279,7 +279,7 @@ function SheetHandle({ full }: { full: boolean }) {
   )
 }
 
-function Links({ links }: { links: { label: string; url: string }[] }) {
+function Links({ links, children }: { links: { label: string; url: string }[]; children?: ReactNode }) {
   return (
     <p className="links">
       {links.map((l) => (
@@ -287,6 +287,7 @@ function Links({ links }: { links: { label: string; url: string }[] }) {
           {l.label} ↗
         </a>
       ))}
+      {children}
     </p>
   )
 }
@@ -340,7 +341,6 @@ function StopBody({ stop, skill, project }: { stop: Stop; skill?: string; projec
               <li key={k}>{c}</li>
             ))}
           </ol>
-          <p className="pin">📌 {content.career.teaching}</p>
           <Experience />
           <CvLink />
         </>
@@ -351,8 +351,10 @@ function StopBody({ stop, skill, project }: { stop: Stop; skill?: string; projec
       return (
         <>
           {body}
-          <Links links={contactLinks()} />
-          <CvLink />
+          {/* Shuri #68: the CV is a third inline link here, so it never outranks LinkedIn (the panel's stated primary). */}
+          <Links links={contactLinks()}>
+            <CvLink variant="inline" />
+          </Links>
         </>
       )
     default:
