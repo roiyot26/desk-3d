@@ -276,13 +276,19 @@ export function poseFromStopCam(c: StopCam, size: { width: number; height: numbe
  * stay inside the room's safe volume, then offset the look-at point so the object sits beside
  * the panel (left of it on desktop, above the bottom sheet on phones).
  */
-export function poseFor(t: Target, ctx: { home: Pose; safe: THREE.Box3; aspect: number; fov: number; info: RoomInfo }): Pose {
+export function poseFor(
+  t: Target,
+  ctx: { home: Pose; safe: THREE.Box3; aspect: number; fov: number; info: RoomInfo; /** Portrait: fit the whole object into the top `above` of the screen (clear of the station sheet). */ above?: number },
+): Pose {
   const size = t.box.getSize(new THREE.Vector3())
   const radius = Math.max(size.length() / 2, 0.12)
   const vfov = THREE.MathUtils.degToRad(ctx.fov)
   const hfov = 2 * Math.atan(Math.tan(vfov / 2) * ctx.aspect)
   const fit = radius / Math.sin(Math.min(vfov, hfov) / 2)
-  const dist = THREE.MathUtils.clamp(fit * 1.25 * (t.def.distance ?? 1), 0.6, 2.4)
+  let dist = THREE.MathUtils.clamp(fit * 1.25 * (t.def.distance ?? 1), 0.6, 2.4)
+  const above = ctx.aspect < 0.85 ? ctx.above : undefined
+  // Back off until the object's full height fits in the free band above the sheet (85% of it).
+  if (above) dist = THREE.MathUtils.clamp(Math.max(dist, (size.y / 2) / (Math.tan(vfov / 2) * above * 0.85)), 0.6, 2.4)
 
   let dir: THREE.Vector3
   if (t.def.view) dir = new THREE.Vector3(...t.def.view)
@@ -298,7 +304,9 @@ export function poseFor(t: Target, ctx: { home: Pose; safe: THREE.Box3; aspect: 
   const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize()
   const up = new THREE.Vector3().crossVectors(right, forward).normalize()
   const target = t.center.clone()
-  if (ctx.aspect < 0.85) target.addScaledVector(up, -d * Math.tan(vfov / 2) * 0.42)
+  // Portrait: aim below the object so it sits in the free band at the top (centre of that band).
+  if (above) target.addScaledVector(up, -d * Math.tan(vfov / 2) * (1 - above))
+  else if (ctx.aspect < 0.85) target.addScaledVector(up, -d * Math.tan(vfov / 2) * 0.42)
   else target.addScaledVector(right, d * Math.tan(hfov / 2) * 0.32)
   return { position, target }
 }

@@ -3,13 +3,17 @@ import { audio } from './audio'
 import { content } from './content'
 import { getUI, setUI, useUI } from './store'
 import { gsap, prefersReducedMotion, useGSAP } from './gsap'
-import { useMedia } from './useMedia'
+import { CHAT_SHEET_QUERY, useMedia } from './useMedia'
 
-/** Enter: unlocks audio (it is a user gesture), reveals the room, then the cold open. */
+/**
+ * Enter: unlocks audio (it is a user gesture) and reveals the room. Phones open the duck sheet at
+ * half so the greeting and the three chips show at once (brief §1).
+ */
 export function enter() {
   if (getUI().entered) return
   audio.unlock()
-  setUI({ entered: true })
+  const phone = window.matchMedia?.(CHAT_SHEET_QUERY).matches ?? false
+  setUI(phone ? { entered: true, sheet: 'half' } : { entered: true })
 }
 
 /**

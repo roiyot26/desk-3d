@@ -123,8 +123,15 @@ describe('duck intents v2: content rules', () => {
     expect(r).toMatch(/Also in the room/)
     expect(content).not.toHaveProperty('secrets')
   })
-  it('greeting offers the three brief chips, sentence case', () => {
-    expect(content.duck.greet.line).toMatch(/^Quack\. This is Roi Yotvat/)
+  it('greeting is short, states the role, and offers the three brief chips', () => {
+    const g = content.duck.greet.line
+    expect(g.length).toBeLessThanOrEqual(160)
+    expect(g).toMatch(/^Quack\. Roi Yotvat is a full-stack developer/)
+    // The three-project pitch lives in the hire answer now (Shuri PR #6 fix 2).
+    expect(byId['hire-for'].reply).toMatch(/Chrome extension that grows a garden/)
+    expect(byId['hire-for'].reply).toMatch(/retrieval tracer/)
+    expect(byId['hire-for'].reply).toMatch(/chord wheel/)
+    expect(byId['build-with-ai'].reply).not.toMatch(/ticker/i)
     expect(content.duck.greet.chips.map((c) => c.label)).toEqual(['What would I hire Roi for?', 'Show me how he builds with AI', 'Show me 3D for the web'])
   })
   it('opening chips run the brief tools', () => {

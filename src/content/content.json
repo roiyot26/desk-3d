@@ -18,11 +18,11 @@
     "enterHint": "Turns on sound · press Enter",
     "enterHintTouch": "Turns on sound",
     "phoneNote": "This is the plain version. The 3D room runs on phones too: tap Enter the 3D room.",
-    "more": "Room features, lights and sound"
+    "more": "Lights and sound"
   },
   "tour": {
     "close": "Close",
-    "foundIt": "Found a bonus",
+    "foundIt": "Also in the room",
     "more": "Scroll for more",
     "expand": "Expand panel",
     "collapse": "Shrink panel"
@@ -415,7 +415,7 @@
           "what is roi good at",
           "what does roi do"
         ],
-        "reply": "Web products end to end: React, Next, Node and TypeScript, from the database to the button. Here's what he's shipped.",
+        "reply": "Web products end to end: React, Next, Node and TypeScript, from the database to the button. Three things he built: a Chrome extension that grows a garden from your focus, a retrieval tracer you can watch in the browser, and a chord wheel you play with your hands. Here's what he's shipped.",
         "tools": [
           {
             "name": "search_portfolio",
@@ -453,7 +453,7 @@
           "works with ai",
           "work with ai"
         ],
-        "reply": "Agents help him plan, build and review, with tests and a human in the loop. Even this answer is a tool call. Watch the ticker.",
+        "reply": "Agents help him plan, build and review, with tests and a human in the loop. Even this answer is a tool call.",
         "tools": [
           {
             "name": "search_portfolio",
@@ -1686,7 +1686,7 @@
     "visible": 3,
     "name": "Duck",
     "greet": {
-      "line": "Quack. This is Roi Yotvat: AI-driven full-stack developer, building 3D for the web. Three things he built: a Chrome extension that grows a garden from your focus, a retrieval tracer you can watch in the browser, and a chord wheel you play with your hands. Ask me below, or just look around.",
+      "line": "Quack. Roi Yotvat is a full-stack developer who builds with AI and 3D for the web. Ask me, or look around.",
       "chips": [
         {
           "label": "What would I hire Roi for?",

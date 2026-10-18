@@ -94,6 +94,8 @@ function dockedLayout(w: number): [number, number | undefined, { l: number; r: n
 
 /** The duck's bottom sheet opens at 65% on phones (index.css .panel.duck); frame above it. */
 const DUCK_SHEET = 0.65
+/** Phones: the Claude Code book is framed in the top 40% of the screen, above the station sheet. */
+const BOOK_ABOVE = 0.4
 
 /**
  * Lens: a 26 mm full-frame lens has a 69.4° horizontal field of view (2·atan(18/26)).
@@ -615,7 +617,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         // targets.ts); otherwise frame the clicked object.
         const base = fovFor(size.width / size.height)
         const sheet = STOPS.find((x) => x.id === ui.open?.id)?.kind === 'duck' ? DUCK_SHEET : 0.5
-        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dockedLayout(size.width)) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info }), fov: base }
+        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dockedLayout(size.width)) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : undefined }), fov: base }
         st.focused = true
         // Sync FOV zoom to the framed lens so pinch/wheel scale the photo from here, not from free-roam.
         if (to.fov !== undefined) st.zoom = THREE.MathUtils.clamp(to.fov / base, ZOOM_MIN, ZOOM_MAX)
