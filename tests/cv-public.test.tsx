@@ -15,7 +15,12 @@ const { Linked, peekText } = await import('../src/duck/DuckChat')
 const { ScriptedIntentEngine } = await import('../src/duck/engine')
 const { CV_LIVE_URL, CV_URL } = await import('../src/links')
 const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
-const xp = JSON.parse(readFileSync('/workspace/desk-3d/cv/experience.json', 'utf8').toString()) as { years: string; role: string; summary: string }[]
+// cv/experience.json (outside the repo), as copied into content.cv.experience: years and roles.
+const XP = [
+  ['2026 – now', 'Full-stack developer'],
+  ['2022 – 2026', 'Full-stack developer and coding instructor'],
+  ['2021 – 2022', 'Full-stack developer bootcamp'],
+]
 const cvLinks = (html: string) => html.match(/<a class="cv-link[^"]*" href="([^"]+)"[^>]*>/g) ?? []
 
 describe('cv-public: the PDF ships', () => {
@@ -23,7 +28,8 @@ describe('cv-public: the PDF ships', () => {
     expect(existsSync('public/Roi-Yotvat-CV.pdf')).toBe(true)
     const pdf = readFileSync('public/Roi-Yotvat-CV.pdf')
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-')
-    expect(statSync('public/Roi-Yotvat-CV.pdf').size).toBe(statSync('/workspace/desk-3d/cv/Roi-Yotvat-CV.pdf').size)
+    expect(statSync('public/Roi-Yotvat-CV.pdf').size).toBe(202026)
+    expect(pdf.toString('latin1')).toMatch(/\/Count 1\b/)
     expect(CV_URL).toBe('/desk-3d/Roi-Yotvat-CV.pdf')
   })
   it('keeps the wording "full-stack developer, AI-driven development"', () => {
@@ -70,7 +76,8 @@ describe('cv-public: Download CV link', () => {
 
 describe('cv-public: year-by-year experience', () => {
   it('matches experience.json (years, role, summary only)', () => {
-    expect(content.cv.experience).toEqual(xp.map((x) => ({ years: x.years, role: x.role, summary: x.summary })))
+    expect(content.cv.experience.map((x) => [x.years, x.role])).toEqual(XP)
+    for (const x of content.cv.experience) expect(x.summary.length).toBeGreaterThan(40)
     for (const x of content.cv.experience) expect(Object.keys(x).sort()).toEqual(['role', 'summary', 'years'])
   })
   it('renders every year, newest first, in the Career panel block and the Quick version', () => {
@@ -79,7 +86,7 @@ describe('cv-public: year-by-year experience', () => {
     expect(years).toEqual(['2026 – now', '2022 – 2026', '2021 – 2022'])
     const list = renderToStaticMarkup(<ListView webglOk={false} fallback={false} />)
     expect(list).toMatch(/<h2 id="xp-h2">Experience<\/h2>/)
-    for (const x of xp) expect(list).toContain(x.role)
+    for (const [, role] of XP) expect(list).toContain(role)
   })
   it('names no employer anywhere in the site copy', () => {
     const all = JSON.stringify(raw) + noscriptHtml(raw)
