@@ -5,6 +5,7 @@ import { getUI, setUI, subscribe, useUI, type DuckEntry, type SheetState } from 
 import { markerTargetFor } from '../targets'
 import { askDuck } from './run'
 import { CHAT_SHEET_QUERY } from '../useMedia'
+import { CV_LIVE_URL, CV_URL } from '../links'
 
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
@@ -29,15 +30,24 @@ function useSheetLayout() {
 
 /** Answer text: 180 ms fade per paragraph (Vision restyle). Instant with reduced motion. */
 /** Plain text with any https:// URL turned into a link (the duck's LinkedIn answers). */
-function Linked({ text }: { text: string }) {
-  const bits = text.split(/(https:\/\/[^\s)]+)/)
+export function Linked({ text }: { text: string }) {
+  // A sentence's closing punctuation is not part of the URL ("…CV.pdf. Want it…").
+  const bits = text.split(/(https:\/\/[^\s)]*[^\s).,;:!?])/)
   return (
     <>
       {bits.map((b, i) =>
         i % 2 ? (
-          <a key={i} href={b} target="_blank" rel="noopener noreferrer">
-            {b.replace(/^https:\/\/(www\.)?/, '').replace(/\/$/, '')}
-          </a>
+          b === CV_LIVE_URL ? (
+            // The CV answer: the PDF from this deploy (works in previews too), named as a link, not a URL.
+            <a key={i} className="duck-cv" href={CV_URL} target="_blank" rel="noopener noreferrer">
+              {content.cv.label}
+              <span className="sr-only"> ({content.cv.srNote})</span>
+            </a>
+          ) : (
+            <a key={i} href={b} target="_blank" rel="noopener noreferrer">
+              {b.replace(/^https:\/\/(www\.)?/, '').replace(/\/$/, '')}
+            </a>
+          )
         ) : (
           b
         ),
@@ -446,6 +456,11 @@ function Handle({ sheet }: { sheet: SheetState }) {
   )
 }
 
+/** Peek row text: the CV URL reads as its link label, not a raw address cut off by the ellipsis. */
+export function peekText(reply: string) {
+  return reply.split(CV_LIVE_URL).join('CV (PDF)')
+}
+
 /** Peek row: the duck's latest line (never hidden at peek), or "thinking…". */
 function PeekLine() {
   const log = useUI((s) => s.duckLog)
@@ -456,7 +471,7 @@ function PeekLine() {
     : last
       ? last.greet && isTouch() && content.duck.greet.touch
         ? `${content.duck.greet.line} ${content.duck.greet.touch}`.trim()
-        : last.reply!
+        : peekText(last.reply!)
       : content.duck.greet.line
   return (
     // Phones at peek: the log region is on the page too, so the first answer is announced.

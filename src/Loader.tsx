@@ -5,6 +5,7 @@ import { LIST_URL } from './links'
 import { getUI, setUI, useUI } from './store'
 import { prefersReducedMotion } from './gsap'
 import { CHAT_SHEET_QUERY } from './useMedia'
+import { CvLink } from './CvLink'
 
 /**
  * Enter: unlocks audio (it is a user gesture) and opens the duck with the greeting already set,
@@ -103,6 +104,7 @@ export function Loader({ fallback = false }: { fallback?: boolean }) {
             {content.site.resume}
           </a>
         </div>
+        <CvLink className="hero-cv" />
         <div className={`hero-load${ready && lineGone ? ' gone' : ''}`} aria-live="polite">
           <p className="hero-line">{status}</p>
           <div className="hero-bar" role="progressbar" aria-label={content.site.loading} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)}>

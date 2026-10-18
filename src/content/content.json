@@ -184,6 +184,32 @@
     ],
     "teaching": "Also: I've taught full-stack development since 2022."
   },
+  "cv": {
+    "_note": "The public CV (public/Roi-Yotvat-CV.pdf) and the year-by-year block (Career panel + Quick version). Years, role and a short summary (about 110 characters; the PDF keeps the detail). No company names, no email.",
+    "label": "CV (PDF) ↗",
+    "file": "Roi-Yotvat-CV.pdf",
+    "fileNote": "PDF, 1 page, opens in a new tab",
+    "srNote": "PDF, opens in a new tab",
+    "headline": "Full-stack developer, AI-driven development",
+    "experienceTitle": "Experience and education",
+    "experience": [
+      {
+        "years": "2026 – now",
+        "role": "Full-stack developer",
+        "summary": "Lead developer on client WordPress and React / Next.js sites; brought AI coding agents into the team."
+      },
+      {
+        "years": "2022 – 2026",
+        "role": "Full-stack developer and coding instructor",
+        "summary": "Built client web apps with React, Node.js and MongoDB, and taught full-stack courses of 60–70 students."
+      },
+      {
+        "years": "2021 – 2022",
+        "role": "Full-stack developer bootcamp",
+        "summary": "Four-month intensive with team projects: HTML, CSS, JavaScript, React, Node.js, Express and MongoDB."
+      }
+    ]
+  },
   "stops": [
     {
       "id": "stop-1",
@@ -1408,7 +1434,7 @@
           "html version",
           "list view"
         ],
-        "reply": "Want it flat? Hit Quick version (1 page) in the top-right corner. Same content, fast, printable. Want to see the career path on the cork board?",
+        "reply": "Here's Roi's CV: https://roiyot26.github.io/desk-3d/Roi-Yotvat-CV.pdf. Want it as a page instead? Hit Quick version (1 page) in the top-right corner. Want to see the career path on the cork board?",
         "tools": [
           {
             "name": "search_portfolio",

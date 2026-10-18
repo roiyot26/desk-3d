@@ -47,6 +47,7 @@ export const content = raw as unknown as {
   projects: Project[]
   skills: { intro: string; featured: Skill; items: Skill[]; joke: string }
   career: { items: string[]; teaching: string }
+  cv: { label: string; file: string; fileNote: string; srNote: string; headline: string; experienceTitle: string; experience: { years: string; role: string; summary: string }[] }
   stops: Stop[]
   bonus: Note[]
   asides: Note[]
