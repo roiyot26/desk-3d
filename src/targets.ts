@@ -54,6 +54,10 @@ export type TargetDef = {
    * (beside the side panel on desktop, the full width on phones), instead of the room-scale fit.
    */
   fill?: number
+  /** Phones (portrait): camera direction override for `view` (Shuri #76: the sticky turns further right on phones). */
+  phoneView?: [number, number, number]
+  /** Phones (portrait): `fill` override (the steeper phone view foreshortens the subject). */
+  phoneFill?: number
   /** Nudge the marker / label away from a neighbour (world metres). */
   markerOffset?: [number, number, number]
   /** Toggle something in the room instead of opening a panel. */
@@ -66,6 +70,14 @@ const books: TargetDef[] = [content.skills.featured, ...content.skills.items]
 
 /** Share of the free width the sticky note fills at its station (Shuri #76: at least 25%). */
 export const STICKY_FILL = 0.34
+/** Sticky station camera direction on phones (object -> camera); desktop keeps view [0.3, 0.12, 1]. */
+export const STICKY_PHONE_VIEW: [number, number, number] = [0.7, 0.12, 1]
+/** Phones: the note at 35° foreshortens ~10%, so it is framed a little tighter (measured pixel share ≥ 30%). */
+export const STICKY_PHONE_FILL = 0.38
+/** Phones: the chat peek under a station sheet (index.css: .panel is 50dvh tall, bottom: 88px peek). */
+export const PHONE_PEEK = 88
+/** Phones: share of the screen height above a station sheet (50% sheet + the chat peek). */
+export const phoneFreeTop = (h: number) => Math.max(0.1, (h * 0.5 - PHONE_PEEK) / Math.max(h, 1))
 
 export const TARGET_DEFS: TargetDef[] = [
   { key: 'monitor', id: 'stop-1', marker: true, click: ['CLICK_Monitor_Projects'], view: [0.25, 0.25, 1] },
@@ -87,7 +99,9 @@ export const TARGET_DEFS: TargetDef[] = [
   },
   // Shuri PR #9 #76: the note itself, not the windowsill cat. Seen from a little right and above, so
   // the cat (behind and to the right) slides off the right edge / under the panel; ~1/3 of the free width.
-  { key: 'sticky', id: 'aside-now-building', click: ['CLICK_StickyNote_NowBuilding'], view: [0.3, 0.12, 1], fill: STICKY_FILL },
+  // Phones have no panel to hide the cat behind: ~18° further right (Shuri asked ≈10° / [0.5, 0.12, 1]; the
+  // cat's bind-pose box + 3 cm only clears the right edge by 8 px from 0.7), so it leaves the frame entirely.
+  { key: 'sticky', id: 'aside-now-building', click: ['CLICK_StickyNote_NowBuilding'], view: [0.3, 0.12, 1], phoneView: STICKY_PHONE_VIEW, fill: STICKY_FILL, phoneFill: STICKY_PHONE_FILL },
   // The room circuit (bake groups Fill + Pictures, + ShelfLEDCyan); the lamps and neon have their own.
   { key: 'switch', id: 'action-lights', action: 'lights-room', click: ['CLICK_Switch_Lights'] },
   { key: 'lamp-desk', id: 'action-lamp-desk', action: 'lamp-desk', click: ['CLICK_Lamp_Desk'] },
@@ -316,14 +330,17 @@ export function poseFor(
     // Width of the object across the view (its horizontal extent) = fill × the free width at `dist`.
     const share = ctx.aspect < 0.85 ? 1 : ctx.freeShare ?? 1
     const w = Math.max(Math.hypot(size.x, size.z), 0.02)
-    dist = THREE.MathUtils.clamp(w / (2 * Math.tan(hfov / 2) * t.def.fill * share), 0.15, 2.4)
+    const fill = ctx.aspect < 0.85 ? t.def.phoneFill ?? t.def.fill : t.def.fill
+    dist = THREE.MathUtils.clamp(w / (2 * Math.tan(hfov / 2) * fill * share), 0.15, 2.4)
   }
   const above = ctx.aspect < 0.85 ? ctx.above : undefined
   // Back off until the object's full height fits in the free band above the sheet (85% of it).
-  if (above) dist = THREE.MathUtils.clamp(Math.max(dist, (size.y / 2) / (Math.tan(vfov / 2) * above * 0.85)), 0.6, 2.4)
+  // (Small `fill` subjects keep their close distance: the 0.6 m floor is for room-scale objects.)
+  if (above) dist = THREE.MathUtils.clamp(Math.max(dist, (size.y / 2) / (Math.tan(vfov / 2) * above * 0.85)), t.def.fill ? 0.15 : 0.6, 2.4)
 
   let dir: THREE.Vector3
-  if (t.def.view) dir = new THREE.Vector3(...t.def.view)
+  if (ctx.aspect < 0.85 && t.def.phoneView) dir = new THREE.Vector3(...t.def.phoneView)
+  else if (t.def.view) dir = new THREE.Vector3(...t.def.view)
   else dir = ctx.home.position.clone().sub(t.center).setY(0).normalize().setY(0.25)
   dir.normalize()
 

@@ -3,9 +3,9 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import * as THREE from 'three'
 import { content } from '../src/content'
 import { forge } from '../src/content/forge'
-import { freeCentreNdc, freeWidthShare, markerTargetFor, poseFor, resolveStopCams, resolveTargets, STICKY_FILL, type Target } from '../src/targets'
+import { freeCentreNdc, freeWidthShare, markerTargetFor, PHONE_PEEK, phoneFreeTop, poseFor, resolveStopCams, resolveTargets, STICKY_FILL, STICKY_PHONE_VIEW, type Target } from '../src/targets'
 import { fovFor, phoneLift, PHONE_CHIP_ROOM, PHONE_DUCK_NDC } from '../src/CameraRig'
-import { CHAT_INSET, chatWidth } from '../src/duck/DuckChat'
+import { CHAT_INSET, chatWidth, PEEK_PX } from '../src/duck/DuckChat'
 import type { RoomInfo } from '../src/analyze'
 import { CAT_BREATHE, CAT_FLICK, FLICK_MIN_S, FLICK_SPREAD_S, startCat } from '../src/cat'
 
@@ -195,16 +195,58 @@ describe('Shuri PR #9 #76: the Now building station frames the sticky note, not 
     expect(r.t).toBeGreaterThan(0)
     expect(r.b).toBeLessThan(H)
   })
-  for (const [W, H] of [[390, 844], [360, 780]]) {
-    it(`${W}: the note fills >= 25% of the width, above the half sheet`, () => {
+  it('phones turn further right than desktop (Shuri 9796c10: at least view ≈ [0.5, 0.12, 1])', () => {
+    expect(sticky.def.phoneView).toEqual(STICKY_PHONE_VIEW)
+    expect(STICKY_PHONE_VIEW[0] / STICKY_PHONE_VIEW[2]).toBeGreaterThan(sticky.def.view![0] / sticky.def.view![2])
+    expect(PHONE_PEEK).toBe(PEEK_PX)
+  })
+  // The cat's world box in its bind pose (skinned: joint world × inverse bind), plus 3 cm for the breathe and tail flick.
+  const catBox = (() => {
+    const skin = gltf.skins![0] as { joints: number[]; inverseBindMatrices: number }
+    const acc = (gltf.accessors as { bufferView?: number; byteOffset?: number; count?: number; min?: number[]; max?: number[] }[])[skin.inverseBindMatrices]
+    const bv = gltf.bufferViews[acc.bufferView!]
+    const at = (bv.byteOffset ?? 0) + (acc.byteOffset ?? 0)
+    const ib = new THREE.Matrix4().fromArray(Array.from({ length: 16 }, (_, k) => bin.readFloatLE(at + k * 4)))
+    const scene = proxyScene()
+    scene.updateMatrixWorld(true)
+    const joint = scene.getObjectByName(gltf.nodes[skin.joints[0]].name!)!
+    const m = joint.matrixWorld.clone().multiply(ib)
+    const body = gltf.nodes.find((n) => n.name === 'CAT_Body')!
+    const pos = gltf.accessors[gltf.meshes[body.mesh!].primitives[0].attributes.POSITION]
+    const box = new THREE.Box3(new THREE.Vector3(...(pos.min as [number, number, number])), new THREE.Vector3(...(pos.max as [number, number, number]))).applyMatrix4(m)
+    return box.expandByScalar(0.03)
+  })()
+  it('the cat box sits on the windowsill, behind and right of the note', () => {
+    expect(catBox.min.z).toBeLessThan(sticky.box.min.z - 0.5)
+    expect(catBox.max.x).toBeGreaterThan(sticky.box.max.x)
+    expect(catBox.min.y).toBeGreaterThan(0.8)
+    expect(catBox.max.y).toBeLessThan(1.2)
+  })
+  it('1440 keeps the desktop pose (the cat may stand clearly partial behind the panel)', () => {
+    const W = 1440, H = 900
+    const fov = fovFor(W / H)
+    const a = poseFor(sticky, { home, safe, aspect: W / H, fov, info, xc: 0, freeShare: 0.66 })
+    const dir = a.position.clone().sub(sticky.center).normalize()
+    const want = new THREE.Vector3(...sticky.def.view!).normalize()
+    expect(dir.distanceTo(want)).toBeLessThan(1e-3)
+  })
+  for (const [W, H] of [[390, 844], [360, 780], [400, 860]]) {
+    it(`${W}: note >= 28% of the width, centred in the band above the sheet, >= 24 px clear of it, and no cat`, () => {
       const fov = fovFor(W / H)
-      const pose = poseFor(sticky, { home, safe, aspect: W / H, fov, info })
+      const above = phoneFreeTop(H)
+      const sheet = H * 0.5 - PHONE_PEEK
+      expect(above * H).toBeCloseTo(sheet, 5)
+      const pose = poseFor(sticky, { home, safe, aspect: W / H, fov, info, above })
       const r = rectOf(sticky.box, pose, fov, W, H)
-      expect((r.r - r.l) / W).toBeGreaterThanOrEqual(0.25)
+      expect((r.r - r.l) / W).toBeGreaterThanOrEqual(0.3)
       expect(r.l).toBeGreaterThan(0)
       expect(r.r).toBeLessThan(W)
       expect(r.t).toBeGreaterThan(0)
-      expect(r.b).toBeLessThan(H * 0.5)
+      expect(sheet - r.b).toBeGreaterThanOrEqual(24)
+      expect(Math.abs((r.t + r.b) / 2 - sheet / 2)).toBeLessThan(12)
+      // No cat pixel in the free area: its whole box is >= 8 px past the right edge, or under the sheet.
+      const c = rectOf(catBox, pose, fov, W, H)
+      expect(c.l >= W + 8 || c.t >= sheet, JSON.stringify(c)).toBe(true)
     })
   }
 })

@@ -9,7 +9,7 @@ import type { RoomInfo } from './analyze'
 import type { Quality } from './quality'
 import { getUI, setUI, subscribe, useUI } from './store'
 import { gsap, useGSAP } from './gsap'
-import { freeCentreNdc, freeWidthShare, markerTargetFor, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
+import { freeCentreNdc, freeWidthShare, markerTargetFor, phoneFreeTop, poseFor, poseFromStopCam, type Pose, type Target } from './targets'
 import { STOPS, content } from './content'
 import { CHAT_INSET, CHAT_SHEET_QUERY, chatWidth } from './duck/DuckChat'
 import { audio } from './audio'
@@ -703,7 +703,7 @@ export function CameraRig({ info, quality }: { info: RoomInfo; quality: Quality 
         const sheet = STOPS.find((x) => x.id === ui.open?.id)?.kind === 'duck' ? DUCK_SHEET : 0.5
         const dl = dockedLayout(size.width)
         const centred = !!book || !!t?.def.fill
-        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dl) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : undefined, xc: centred ? freeCentreNdc(size.width, ...dl) : undefined, freeShare: freeWidthShare(size.width, dl[0], dl[2]) }), fov: base }
+        const to = stopCam ? poseFromStopCam(stopCam, size, sheet, ...dl) : { ...poseFor(t!, { home, safe, aspect: size.width / size.height, fov: base, info, above: book ? BOOK_ABOVE : t?.def.fill ? phoneFreeTop(size.height) : undefined, xc: centred ? freeCentreNdc(size.width, ...dl) : undefined, freeShare: freeWidthShare(size.width, dl[0], dl[2]) }), fov: base }
         st.focused = true
         // Sync FOV zoom to the framed lens so pinch/wheel scale the photo from here, not from free-roam.
         if (to.fov !== undefined) st.zoom = THREE.MathUtils.clamp(to.fov / base, ZOOM_MIN, ZOOM_MAX)
